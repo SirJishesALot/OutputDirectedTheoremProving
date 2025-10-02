@@ -1,6 +1,24 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import { TextDecoder } from 'util';
+
+function getActiveFileContext(): string | null {
+	const editor = vscode.window.activeTextEditor; 
+	if (!editor) {
+		return null; 
+	}
+	const fileContent = editor.document.getText();
+	const selection = editor.selection;
+	const selectedText = editor.document.getText(selection);
+
+	// TODO integrate with coq-lsp to get the proof state
+
+	let context = `// Currently active file: ${editor.document.fileName}\n`;
+	context += `// Selected text:\n${selectedText.trim() ? selectedText : 'None'}\n\n`;
+	context += fileContent; 
+	return context;
+}
 
 const coqChatHandler: vscode.ChatRequestHandler = async (
 	request: vscode.ChatRequest,
@@ -8,16 +26,40 @@ const coqChatHandler: vscode.ChatRequestHandler = async (
 	stream: vscode.ChatResponseStream, 
 	token: vscode.CancellationToken
 ): Promise<any> => {
-	const userPrompt = request.prompt; 
-	const coqContext = `// Placeholder for your Coq proof state and file content.`; 
-	stream.progress('Thinking about the Coq Proof...'); 
-	await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate processing delay
+	const coqContext = getActiveFileContext() 
+	if (!coqContext) {
+		stream.markdown("Please open a Coq file and place your cursor inside a proof before chatting with me."); 
+		return {};
+	}
 
-	stream.markdown(`Hello! I've received your request: **${userPrompt}**.`);
-	stream.markdown(`\n---\n`);
-	stream.markdown(`My current Coq context for this task is:\n`);
-	stream.markdown(`\n\`\`\`coq\n${coqContext}\n\`\`\``);
-    stream.markdown(`\n\nI am now ready to call the LLM API to generate a tactic.`);
+	const systemPrompt = `You are an expert Coq Theorem Prover AI. Your task is to analyse the provided Coq code and curernt context (including selected text) to generate the single best next tactic or provide a clear explanation. Only output Coq code if asked for a tactic.`;
+	const userPrompt = request.prompt; 
+	const messages: vscode.LanguageModelChatMessage[] = [
+		vscode.LanguageModelChatMessage.User(systemPrompt),
+		vscode.LanguageModelChatMessage.User(
+            `--- COQ CODE CONTEXT ---\n` +
+            `\`\`\`coq\n${coqContext}\n\`\`\`\n\n` +
+            `--- USER QUESTION ---\n` +
+            `${request.prompt}`
+        )
+	];
+
+	const model = request.model; 
+	if (!model) { 
+		stream.markdown("Error: No language model configured. Please set up a language model in your settings.");
+		return {};
+	}
+
+	try { 
+		stream.progress('Analysing context and generating proof strategy');
+		const chatResponse = await model.sendRequest(messages, {}, token); 
+		for await (const chunk of chatResponse.response) {
+			stream.markdown(chunk.content);
+		}
+	} catch (error) { 
+		console.error("LLM API Error:", error); 
+		stream.markdown(`An error occurred while communicating with the LLM: \`${error.message || error}\``);
+	}
 
 	return {};
 }
