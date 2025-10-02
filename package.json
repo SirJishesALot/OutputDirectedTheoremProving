@@ -17,6 +17,24 @@
         "command": "outputdirectedtheoremproving.helloWorld",
         "title": "Hello World"
       }
+    ], 
+
+    "chatParticipants": [
+      { 
+        "id": "coq.llmChat", 
+        "name": "Coq Prover AI", 
+        "extensionId": "outputdirectedtheoremproving",
+        "when": "resourceExtname == .v", 
+        "isDefault": false, 
+        "description": "An AI agent to assist with output-directed theorem proving and tactic generation in Coq files.", 
+        "welcomeMessage": [
+          "I'm your Coq Proving Assistant. I can help you generate proofs, simplify goals, or explain complex theorems based on your current Coq context.", 
+          "Try asking: **'Suggest the next tactic for this goal'** "
+        ], 
+        "defaultImplicitVariables": [
+          "#file"
+        ]
+      }
     ]
   },
   "scripts": {
@@ -45,31 +63,5 @@
     "typescript": "^5.9.2",
     "@vscode/test-cli": "^0.0.11",
     "@vscode/test-electron": "^2.5.2"
-  }, 
-  "contributes": {
-    "commands": [
-      { 
-        "command": "outputdirectedtheoremproving.helloWorld",
-        "title": "Hello World"
-      }
-    ], 
-
-    "chatParticipants": [
-      { 
-        "id": "coq.llmChat", 
-        "name": "Coq Prover AI", 
-        "extensionId": "outputdirectedtheoremproving",
-        "when": "resourceExtname == .v", 
-        "isDefault": false, 
-        "description": "An AI agent to assist with output-directed theorem proving and tactic generation in Coq files.", 
-        "welcomeMessage": [
-          "I'm your Coq Proving Assistant. I can help you generate proofs, simplify goals, or explain complex theorems based on your current Coq context.", 
-          "Try asking: **'Suggest the next tactic for this goal'** "
-        ], 
-        "defaultImplicitVariables": [
-          "#file"
-        ]
-      }
-    ]
   }
 }
