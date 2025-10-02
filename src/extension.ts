@@ -53,12 +53,12 @@ const coqChatHandler: vscode.ChatRequestHandler = async (
 	try { 
 		stream.progress('Analysing context and generating proof strategy');
 		const chatResponse = await model.sendRequest(messages, {}, token); 
-		for await (const chunk of chatResponse.response) {
-			stream.markdown(chunk.content);
+		for await (const chunk of chatResponse.text) {
+			stream.markdown(chunk);
 		}
 	} catch (error) { 
 		console.error("LLM API Error:", error); 
-		stream.markdown(`An error occurred while communicating with the LLM: \`${error.message || error}\``);
+		stream.markdown(`An error occurred while communicating with the LLM: \`${error}\``);
 	}
 
 	return {};
