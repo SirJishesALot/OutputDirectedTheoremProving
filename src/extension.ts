@@ -26,7 +26,7 @@ const coqChatHandler: vscode.ChatRequestHandler = async (
 	stream: vscode.ChatResponseStream, 
 	token: vscode.CancellationToken
 ): Promise<any> => {
-	const coqContext = getActiveFileContext() 
+	const coqContext = getActiveFileContext();
 	if (!coqContext) {
 		stream.markdown("Please open a Coq file and place your cursor inside a proof before chatting with me."); 
 		return {};
@@ -62,7 +62,7 @@ const coqChatHandler: vscode.ChatRequestHandler = async (
 	}
 
 	return {};
-}
+};
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
