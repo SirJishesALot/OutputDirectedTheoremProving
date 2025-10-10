@@ -15,6 +15,8 @@ export class DeepSeekModelParamsResolver
         super(deepSeekModelParamsSchema, "DeepSeekModelParams");
     }
 
+    static readonly allowedModels = ["deepseek-chat", "deepseek-reasoner"];
+
     readonly modelName = this.resolveParam<string>("modelName")
         .requiredToBeConfigured()
         .validate([
@@ -36,5 +38,4 @@ export class DeepSeekModelParamsResolver
         .requiredToBeConfigured()
         .validateAtRuntimeOnly();
 
-    static readonly allowedModels = ["deepseek-chat", "deepseek-reasoner"];
 }

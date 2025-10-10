@@ -6,6 +6,7 @@ import { toUnformattedJsonString } from "../../../utils/printers";
 import { illegalState, throwError } from "../../../utils/throwErrors";
 import { DebugLogsWrappers } from "../llmServiceInternal";
 import { GrazieModelParams } from "../modelParams";
+import { readFileSync } from "fs";
 
 export type GrazieChatRole = "User" | "System" | "Assistant";
 export type GrazieFormattedHistory = { role: GrazieChatRole; text: string }[];
@@ -93,13 +94,12 @@ export class GrazieApi {
 
     async getAgentVersion(): Promise<string> {
         try {
-            const packageJson = await import("../../../../package.json");
-            const versionData = packageJson.default || packageJson;
+            // Read package.json from repository root. Avoids needing --resolveJsonModule
+            const pkgRaw = readFileSync(`${process.cwd()}/package.json`, "utf8");
+            const versionData = JSON.parse(pkgRaw);
 
             if (!versionData || !versionData.version) {
-                illegalState(
-                    "not able to retrieve app version from `package.json`"
-                );
+                illegalState("not able to retrieve app version from `package.json`");
             }
             return versionData.version;
         } catch (error) {
@@ -111,7 +111,6 @@ export class GrazieApi {
     }
 
     private async createHeaders(token: string): Promise<any> {
-        /* eslint-disable @typescript-eslint/naming-convention */
         return {
             Accept: "*/*",
             "Content-Type": "application/json",
@@ -121,7 +120,6 @@ export class GrazieApi {
                 version: await this.getAgentVersion(),
             }),
         };
-        /* eslint-enable @typescript-eslint/naming-convention */
     }
 
     private chunkToTokens(chunk: any): string[] {

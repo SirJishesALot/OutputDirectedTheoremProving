@@ -96,7 +96,7 @@ class LMStudioServiceInternal extends LLMServiceInternal<
                     body: this.body(analyzedChat.chat, params),
                 });
                 if (responce.ok) {
-                    const res = await responce.json();
+                    const res: any = await responce.json();
                     const newCompletion = res.choices[0].message.content;
                     completions.push(newCompletion);
                     this.logDebug.event("Completion succeeded", {
@@ -124,7 +124,6 @@ class LMStudioServiceInternal extends LLMServiceInternal<
     }
 
     private readonly headers = {
-        // eslint-disable-next-line @typescript-eslint/naming-convention
         "Content-Type": "application/json",
     };
 
@@ -133,7 +132,6 @@ class LMStudioServiceInternal extends LLMServiceInternal<
             messages: messages,
             stream: false,
             temperature: params.temperature,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
             max_tokens: params.maxTokensToGenerate,
         });
     }

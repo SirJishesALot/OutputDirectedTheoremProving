@@ -59,7 +59,6 @@ export class RocqStarContextTheoremsRanker implements ContextTheoremsRanker {
                     resp = await axios.post<RankResponse>(
                         `http://${RocqStarContextTheoremsRanker.host}:${RocqStarContextTheoremsRanker.port}/distance`,
                         payload,
-                        /* eslint-disable @typescript-eslint/naming-convention */
                         { headers: { "Content-Type": "application/json" } }
                     );
                 } catch (err: unknown) {
