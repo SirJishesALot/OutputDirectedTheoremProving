@@ -57,6 +57,8 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
+    "async-mutex": "^0.5.0",
+    "ts-results": "^3.3.0",
     "vscode-languageclient": "^9.0.1"
   }
 }
