@@ -1,4 +1,4 @@
-import { CoqLspClient } from "../coqLsp/coqLspClient";
+import { CoqLspClient } from "../lsp/coqLspClient";
 
 import { parseCoqFile } from "../parser/parseCoqFile";
 import { ProofStep, Theorem } from "../parser/parsedTypes";

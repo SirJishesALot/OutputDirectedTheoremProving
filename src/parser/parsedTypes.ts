@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Range } from "vscode-languageclient";
 
-import { ProofGoal } from "../coqLsp/coqLspTypes";
+import { ProofGoal } from "../lsp/coqLspTypes";
 
 export enum Vernacexpr {
     VernacLoad = "VernacLoad",

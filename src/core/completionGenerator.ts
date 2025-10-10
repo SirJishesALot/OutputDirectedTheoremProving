@@ -1,7 +1,7 @@
 import { LLMSequentialIterator } from "../llm/llmIterator";
 import { GeneratedProof } from "../llm/llmServices/generatedProof";
 
-import { CoqLspTimeoutError } from "../coqLsp/coqLspTypes";
+import { CoqLspTimeoutError } from "../lsp/coqLspTypes";
 
 import { EventLogger } from "../logging/eventLogger";
 import { asErrorOrRethrow, buildErrorCompleteLog } from "../utils/errorsUtils";

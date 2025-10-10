@@ -2,7 +2,7 @@ import { Position } from "vscode-languageclient";
 
 import { ProofGenerationContext } from "../llm/proofGenerationContext";
 
-import { Hyp, PpString, ProofGoal } from "../coqLsp/coqLspTypes";
+import { Hyp, PpString, ProofGoal } from "../lsp/coqLspTypes";
 
 import { Theorem } from "../parser/parsedTypes";
 

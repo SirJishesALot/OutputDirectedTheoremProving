@@ -1,8 +1,8 @@
 import { Mutex } from "async-mutex";
 import { Position } from "vscode-languageclient";
 
-import { CoqLspClient } from "../coqLsp/coqLspClient";
-import { CoqLspTimeoutError } from "../coqLsp/coqLspTypes";
+import { CoqLspClient } from "../lsp/coqLspClient";
+import { CoqLspTimeoutError } from "../lsp/coqLspTypes";
 
 import { EventLogger } from "../logging/eventLogger";
 import { Uri } from "../utils/uri";

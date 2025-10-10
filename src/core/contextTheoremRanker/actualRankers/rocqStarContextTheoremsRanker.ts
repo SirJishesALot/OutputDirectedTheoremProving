@@ -1,6 +1,6 @@
 import axios, { AxiosResponse } from "axios";
 
-import { ProofGoal } from "../../../coqLsp/coqLspTypes";
+import { ProofGoal } from "../../../lsp/coqLspTypes";
 
 import { Theorem } from "../../../parser/parsedTypes";
 import { CompletionContext } from "../../completionGenerationContext";

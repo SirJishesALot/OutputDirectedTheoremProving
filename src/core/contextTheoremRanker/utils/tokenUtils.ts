@@ -1,4 +1,4 @@
-import { ProofGoal } from "../../../coqLsp/coqLspTypes";
+import { ProofGoal } from "../../../lsp/coqLspTypes";
 
 import { hypToString } from "../../exposedCompletionGeneratorUtils";
 
