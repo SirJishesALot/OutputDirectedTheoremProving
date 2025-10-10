@@ -3,7 +3,7 @@ import { Range } from "vscode-languageclient";
 import { LLMServices } from "../llm/llmServices";
 import { ModelsParams } from "../llm/llmServices/modelParams";
 
-import { ProofGoal } from "../coqLsp/coqLspTypes";
+import { ProofGoal } from "../lsp/coqLspTypes";
 
 import { Theorem } from "../parser/parsedTypes";
 import { Uri } from "../utils/uri";
