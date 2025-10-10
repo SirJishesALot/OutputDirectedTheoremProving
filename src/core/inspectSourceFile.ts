@@ -1,7 +1,7 @@
 import { CoqLspClient } from "../coqLsp/coqLspClient";
 
-import { parseCoqFile } from "../coqParser/parseCoqFile";
-import { ProofStep, Theorem } from "../coqParser/parsedTypes";
+import { parseCoqFile } from "../parser/parseCoqFile";
+import { ProofStep, Theorem } from "../parser/parsedTypes";
 import { EventLogger } from "../logging/eventLogger";
 import { Uri } from "../utils/uri";
 

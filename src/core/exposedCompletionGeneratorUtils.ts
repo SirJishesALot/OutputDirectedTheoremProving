@@ -4,7 +4,7 @@ import { ProofGenerationContext } from "../llm/proofGenerationContext";
 
 import { Hyp, PpString, ProofGoal } from "../coqLsp/coqLspTypes";
 
-import { Theorem } from "../coqParser/parsedTypes";
+import { Theorem } from "../parser/parsedTypes";
 
 import { CompletionContext } from "./completionGenerationContext";
 import { ContextTheoremsRanker } from "./contextTheoremRanker/contextTheoremsRanker";

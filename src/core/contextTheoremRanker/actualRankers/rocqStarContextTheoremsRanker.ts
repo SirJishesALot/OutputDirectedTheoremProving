@@ -2,7 +2,7 @@ import axios, { AxiosResponse } from "axios";
 
 import { ProofGoal } from "../../../coqLsp/coqLspTypes";
 
-import { Theorem } from "../../../coqParser/parsedTypes";
+import { Theorem } from "../../../parser/parsedTypes";
 import { CompletionContext } from "../../completionGenerationContext";
 import { hypToString } from "../../exposedCompletionGeneratorUtils";
 import { ContextTheoremsRanker } from "../contextTheoremsRanker";

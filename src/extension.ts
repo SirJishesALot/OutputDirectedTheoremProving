@@ -1,23 +1,103 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { TextDecoder } from 'util';
+import { CoqLspClient, CoqLspClientImpl } from './lsp/coqLspClient';
+import { ProofGoal } from './lsp/coqLspTypes';
+import { Uri } from './utils/uri';
+import { createCoqLspClient } from './lsp/coqBuilders';
 
-function getActiveFileContext(): string | null {
-	const editor = vscode.window.activeTextEditor; 
-	if (!editor) {
-		return null; 
+let coqLspClient: CoqLspClient | undefined = undefined;
+let coqLspClientReady: Promise<CoqLspClient> | undefined = undefined;
+
+// function getActiveFileContext(): string | null {
+// 	const editor = vscode.window.activeTextEditor; 
+// 	if (!editor) {
+// 		return null; 
+// 	}
+// 	const fileContent = editor.document.getText();
+// 	const selection = editor.selection;
+// 	const selectedText = editor.document.getText(selection);
+
+// 	// TODO integrate with coq-lsp to get the proof state
+
+// 	let context = `// Currently active file: ${editor.document.fileName}\n`;
+// 	context += `// Selected text:\n${selectedText.trim() ? selectedText : 'None'}\n\n`;
+// 	context += fileContent; 
+// 	return context;
+// }
+
+async function getActiveFileContext(): Promise<string | null> {
+    const editor = vscode.window.activeTextEditor;
+	if (!editor || editor.document.languageId !== 'coq') {
+		return null;
 	}
-	const fileContent = editor.document.getText();
-	const selection = editor.selection;
-	const selectedText = editor.document.getText(selection);
 
-	// TODO integrate with coq-lsp to get the proof state
+	// If the client is still starting, wait for it. If startup failed, return null.
+	if (!coqLspClient) {
+		if (coqLspClientReady) {
+			try {
+				await coqLspClientReady;
+			} catch (e) {
+				console.error('coq-lsp startup failed', e);
+				return null;
+			}
+		} else {
+			// client not started and no startup promise
+			return null;
+		}
+	}
 
-	let context = `// Currently active file: ${editor.document.fileName}\n`;
-	context += `// Selected text:\n${selectedText.trim() ? selectedText : 'None'}\n\n`;
-	context += fileContent; 
-	return context;
+	// CRITICAL: Use the custom Uri from your utils folder
+	const docUri = Uri.fromPath(editor.document.uri.fsPath);
+    const version = editor.document.version;
+    const position = editor.selection.active;
+
+    // 1. Define the document specification
+    const documentSpec = { uri: docUri, version: version };
+
+    try {
+		// 2. Use withTextDocument to handle the open/check/close lifecycle
+        // The block function executes *after* the document is ready on the server.
+		const client = coqLspClient;
+		if (!client) {
+			return null;
+		}
+
+		const proofStateContext = await client.withTextDocument(
+			documentSpec,
+			async (openedDocDiagnostic: any) => {
+                
+                // You can check openedDocDiagnostic here if you want to see
+                // if Coq-LSP found any initial errors on the document opening.
+                
+                // Now, safely request the goal state from the prepared document
+				const currentGoal: ProofGoal = await client.getFirstGoalAtPointOrThrow(
+                    position,
+                    docUri,
+                    version
+                );
+
+                // --- Format the output for the LLM ---
+                let context = `// Coq Proof State at Cursor Position (V: ${version}):\n`;
+				// The ProofGoal type exported from coqLspTypes has fields `ty` and `hyps`.
+				context += `// Goal: ${currentGoal.ty}\n\n`;
+				context += `--- HYPOTHESES ---\n`;
+				context += currentGoal.hyps
+					.map((h) => `${h.names.join(', ')}: ${h.ty}`)
+					.join('\n');
+                context += `\n--------------------\n`;
+                
+                return context;
+            }
+        );
+        
+        return proofStateContext;
+
+    } catch (e) {
+        const errorMsg = e instanceof Error ? e.message : String(e);
+        console.error('LSP Goal Retrieval Failed:', errorMsg);
+        return `// ERROR: Failed to retrieve live proof state. The server reported: ${errorMsg}`;
+    }
 }
 
 const coqChatHandler: vscode.ChatRequestHandler = async (
@@ -26,7 +106,7 @@ const coqChatHandler: vscode.ChatRequestHandler = async (
 	stream: vscode.ChatResponseStream, 
 	token: vscode.CancellationToken
 ): Promise<any> => {
-	const coqContext = getActiveFileContext();
+	const coqContext = await getActiveFileContext();
 	if (!coqContext) {
 		stream.markdown("Please open a Coq file and place your cursor inside a proof before chatting with me."); 
 		return {};
@@ -77,6 +157,17 @@ export function activate(context: vscode.ExtensionContext) {
 		coqChatHandler,
 	); 
 	context.subscriptions.push(participant);
+
+	// Initialize Coq LSP client for extension features and expose a ready Promise
+	coqLspClientReady = createCoqLspClient(process.env.COQ_LSP_PATH || 'coq-lsp')
+		.then((client) => {
+			coqLspClient = client;
+			return client;
+		})
+		.catch((e) => {
+			console.error('Failed to start coq-lsp client', e);
+			throw e;
+		});
 
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand

@@ -1,4 +1,4 @@
-import { Theorem } from "../../coqParser/parsedTypes";
+import { Theorem } from "../../parser/parsedTypes";
 import { CompletionContext } from "../completionGenerationContext";
 
 export interface ContextTheoremsRanker {

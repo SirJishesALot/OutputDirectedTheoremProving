@@ -219,13 +219,12 @@ export class CoqLspClientImpl implements CoqLspClient {
         documentUri: Uri,
         version: number
     ): Promise<PpString[] | Message<PpString>[] | CoqLspError> {
-        let goalRequestParams: GoalRequest = {
+    let goalRequestParams: GoalRequest = {
             textDocument: VersionedTextDocumentIdentifier.create(
                 documentUri.uri,
                 version
             ),
             position,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
             pp_format: "Str",
         };
 
@@ -400,7 +399,6 @@ export class CoqLspClientImpl implements CoqLspClient {
                 version
             ),
             position,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
             pp_format: "Str",
             command: command,
         };
@@ -422,7 +420,7 @@ export class CoqLspClientImpl implements CoqLspClient {
             for (let i = 0; i < goalAnswer.goals.stack.length; i++) {
                 const goalsAtDepth = goalAnswer.goals.stack[i];
                 const remainingGoals = goalsAtDepth[1];
-                if (remainingGoals.length == 0) {
+                if (remainingGoals.length === 0) {
                     continue;
                 }
                 substackGoals.push([i, remainingGoals]);

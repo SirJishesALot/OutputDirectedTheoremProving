@@ -5,7 +5,7 @@ import { ModelsParams } from "../llm/llmServices/modelParams";
 
 import { ProofGoal } from "../coqLsp/coqLspTypes";
 
-import { Theorem } from "../coqParser/parsedTypes";
+import { Theorem } from "../parser/parsedTypes";
 import { Uri } from "../utils/uri";
 
 import { ContextTheoremsRanker } from "./contextTheoremRanker/contextTheoremsRanker";
