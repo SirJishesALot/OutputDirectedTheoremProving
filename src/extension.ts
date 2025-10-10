@@ -9,23 +9,6 @@ import { createCoqLspClient } from './lsp/coqBuilders';
 let coqLspClient: CoqLspClient | undefined = undefined;
 let coqLspClientReady: Promise<CoqLspClient> | undefined = undefined;
 
-// function getActiveFileContext(): string | null {
-// 	const editor = vscode.window.activeTextEditor; 
-// 	if (!editor) {
-// 		return null; 
-// 	}
-// 	const fileContent = editor.document.getText();
-// 	const selection = editor.selection;
-// 	const selectedText = editor.document.getText(selection);
-
-// 	// TODO integrate with coq-lsp to get the proof state
-
-// 	let context = `// Currently active file: ${editor.document.fileName}\n`;
-// 	context += `// Selected text:\n${selectedText.trim() ? selectedText : 'None'}\n\n`;
-// 	context += fileContent; 
-// 	return context;
-// }
-
 async function getActiveFileContext(): Promise<string | null> {
     const editor = vscode.window.activeTextEditor;
 	if (!editor || editor.document.languageId !== 'coq') {
@@ -47,7 +30,6 @@ async function getActiveFileContext(): Promise<string | null> {
 		}
 	}
 
-	// CRITICAL: Use the custom Uri from your utils folder
 	const docUri = Uri.fromPath(editor.document.uri.fsPath);
     const version = editor.document.version;
     const position = editor.selection.active;
