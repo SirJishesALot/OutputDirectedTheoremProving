@@ -34,11 +34,11 @@ async function getActiveFileContext(): Promise<string | null> {
     const version = editor.document.version;
     const position = editor.selection.active;
 
-    // 1. Define the document specification
+    // Define the document specification
     const documentSpec = { uri: docUri, version: version };
 
     try {
-		// 2. Use withTextDocument to handle the open/check/close lifecycle
+		// Use withTextDocument to handle the open/check/close lifecycle
         // The block function executes *after* the document is ready on the server.
 		const client = coqLspClient;
 		if (!client) {
@@ -95,7 +95,6 @@ const coqChatHandler: vscode.ChatRequestHandler = async (
 	}
 
 	const systemPrompt = `You are an expert Coq Theorem Prover AI. Your task is to analyse the provided Coq code and curernt context (including selected text) to generate the single best next tactic or provide a clear explanation. Only output Coq code if asked for a tactic.`;
-	const userPrompt = request.prompt; 
 	const messages: vscode.LanguageModelChatMessage[] = [
 		vscode.LanguageModelChatMessage.User(systemPrompt),
 		vscode.LanguageModelChatMessage.User(
