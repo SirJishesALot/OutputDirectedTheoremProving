@@ -5,6 +5,7 @@ import { CoqLspClient, CoqLspClientImpl } from './lsp/coqLspClient';
 import { ProofGoal } from './lsp/coqLspTypes';
 import { Uri } from './utils/uri';
 import { createCoqLspClient } from './lsp/coqBuilders';
+import { ProofStatePanel } from './webview/proofStatePanel';
 
 let coqLspClient: CoqLspClient | undefined = undefined;
 let coqLspClientReady: Promise<CoqLspClient> | undefined = undefined;
@@ -149,6 +150,19 @@ export function activate(context: vscode.ExtensionContext) {
 			console.error('Failed to start coq-lsp client', e);
 			throw e;
 		});
+
+	// Register command to open the interactive proof-state webview
+	const openProofStateDisposable = vscode.commands.registerCommand(
+		'outputdirectedtheoremproving.openProofState',
+		() => {
+			if (!coqLspClientReady) {
+				vscode.window.showErrorMessage('Coq LSP is not ready yet.');
+				return;
+			}
+			ProofStatePanel.createOrShow(context, coqLspClientReady, context.extensionUri);
+		}
+	);
+	context.subscriptions.push(openProofStateDisposable);
 
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand

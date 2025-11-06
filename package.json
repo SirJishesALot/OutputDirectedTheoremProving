@@ -9,13 +9,20 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:outputdirectedtheoremproving.openProofState",
+    "onLanguage:coq"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "outputdirectedtheoremproving.helloWorld",
         "title": "Hello World"
+      },
+      {
+        "command": "outputdirectedtheoremproving.openProofState",
+        "title": "Open Coq Proof State"
       }
     ],
     "chatParticipants": [

@@ -1,0 +1,30 @@
+body { 
+    font-family: system-ui, -apple-system, sans-serif; 
+    padding: 12px; 
+}
+.goal { 
+    border: 1px solid #ddd; 
+    padding: 8px; 
+    margin-bottom: 8px; 
+    border-radius: 4px; 
+}
+.hyps { 
+    font-family: monospace; 
+    white-space: pre-wrap; 
+}
+.goalType { 
+    background:#f7f7f7; 
+    padding:6px; 
+    border-radius:4px; 
+    font-family: monospace; 
+    white-space: pre-wrap;
+}
+.error { 
+    color: red; 
+}
+.controls { 
+    margin-top: 8px; 
+}
+input[type="text"] { 
+    width: 70%; 
+}
