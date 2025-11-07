@@ -121,7 +121,6 @@ export class ProofStatePanel {
             // withTextDocument ensures the document is opened on the server
             await client.withTextDocument({ uri: docUri, version }, async () => {
                 const result = await client.getGoalsAtPoint(position as any, docUri as any, version, tactic);
-                // result is a Result<ProofGoal[], Error>
                 if ((result as any).ok) {
                     const goals = (result as any).val as any;
                     this.panel.webview.postMessage({ type: 'proofUpdate', goals });
@@ -141,6 +140,7 @@ export class ProofStatePanel {
 
     private async updateProofState() {
         try {
+            if (this.panel.active) { return; }
             const editor = vscode.window.activeTextEditor;
             if (!editor || editor.document.languageId !== 'coq') {
                 this.panel.webview.postMessage({ type: 'noDocument' });

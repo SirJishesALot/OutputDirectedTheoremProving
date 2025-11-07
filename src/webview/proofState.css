@@ -18,6 +18,22 @@ body {
     border-radius:4px; 
     font-family: monospace; 
     white-space: pre-wrap;
+    outline: none; /* Remove default outline */
+    margin-top: 6px;
+    color: black; 
+}
+.hypothesis {
+    padding: 2px 4px;
+    margin-bottom: 2px;
+    border-radius: 2px;
+    outline: none; /* Remove default browser outline */
+}
+
+/* Add a visual indicator when an element is focused */
+.hypothesis:focus,
+.goalType:focus {
+    background-color: var(--vscode-editor-selectionBackground);
+    color: var(--vscode-editor-selectionForeground);
 }
 .error { 
     color: red; 
@@ -27,4 +43,12 @@ body {
 }
 input[type="text"] { 
     width: 70%; 
+}
+.edited {
+    background-color: var(--vscode-list-highlightForeground);
+    color: var(--vscode-list-highlightForeground);
+    font-style: italic;
+    /* Use a color that stands out, e.g., a subtle yellow or blue */
+    background-color: #fff8e1; 
+    color: #5d4037;
 }
