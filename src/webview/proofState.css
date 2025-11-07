@@ -28,7 +28,6 @@ body {
     border-radius: 2px;
     outline: none; /* Remove default browser outline */
 }
-
 /* Add a visual indicator when an element is focused */
 .hypothesis:focus,
 .goalType:focus {
@@ -51,4 +50,9 @@ input[type="text"] {
     /* Use a color that stands out, e.g., a subtle yellow or blue */
     background-color: #fff8e1; 
     color: #5d4037;
+}
+
+.ProseMirror {
+    outline: none;
+    height: 100%;
 }
