@@ -33,7 +33,10 @@ export class ProofStatePanel {
                 enableScripts: true,
                 retainContextWhenHidden: true,
                 enableFindWidget: true,
-                localResourceRoots: [extensionUri],
+                localResourceRoots: [
+                    extensionUri, 
+                    vscode.Uri.joinPath(extensionUri, 'node_modules')
+                ],
             }
         );
 
@@ -55,17 +58,14 @@ export class ProofStatePanel {
         this.extensionUri = extensionUri;
         this.clientReady = clientReady;
 
-        // Message handling from webview (register before loading HTML so we don't miss initial messages)
         this.panel.webview.onDidReceiveMessage(
             (message) => this.handleMessage(message),
             null,
             this.disposables
         );
 
-        // Set initial HTML after registering message handler
         this.panel.webview.html = this.getHtmlForWebview(this.panel.webview);
 
-        // Update when editor selection or active editor changes
         vscode.window.onDidChangeTextEditorSelection(
             () => this.updateProofState(),
             null,
@@ -169,28 +169,46 @@ export class ProofStatePanel {
     }
 
     private getHtmlForWebview(webview: vscode.Webview): string {
-        // Basic HTML + small script to render goals and send messages
-        const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'src', 'webview', 'proofState.css'));
-        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'src', 'webview', 'proofState.js'));
+        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(
+            this.extensionUri, 'src', 'webview', 'proofState.js'
+        ));
+
+        const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(
+            this.extensionUri, 'src', 'webview', 'proofState.css'
+        ));
+
+        const proseMirrorCssUri = webview.asWebviewUri(vscode.Uri.joinPath(
+            this.extensionUri, 'node_modules', 'prosemirror-view', 'style', 'prosemirror.css'
+        ));
+
         return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src ${webview.cspSource};">
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'none'; 
+    style-src ${webview.cspSource}; 
+    script-src ${webview.cspSource};
+  ">
+
+  <link rel="stylesheet" type="text/css" href="${proseMirrorCssUri}">
   <link rel="stylesheet" type="text/css" href="${cssUri}">
-  <script src="${scriptUri}"></script>
+  
 <title>Coq Proof State</title>
 </head>
 <body>
   <h2>Coq Proof State</h2>
-  <div id="content">Loading...</div>
+  
+  <div id="editor"></div>
 
   <div class="controls">
     <input id="tacticInput" type="text" placeholder="Enter command" />
     <button id="applyBtn">Enter</button>
     <button id="refreshBtn">Refresh</button>
   </div>
+
+  <script src="${scriptUri}"></script>
 </body>
 </html>`;
     }

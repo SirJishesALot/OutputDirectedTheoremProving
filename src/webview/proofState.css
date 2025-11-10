@@ -1,54 +1,93 @@
-body { 
-    font-family: system-ui, -apple-system, sans-serif; 
-    padding: 12px; 
-}
-.goal { 
-    border: 1px solid #ddd; 
-    padding: 8px; 
-    margin-bottom: 8px; 
-    border-radius: 4px; 
-}
-.hyps { 
-    font-family: monospace; 
-    white-space: pre-wrap; 
-}
-.goalType { 
-    background:#f7f7f7; 
-    padding:6px; 
-    border-radius:4px; 
-    font-family: monospace; 
-    white-space: pre-wrap;
-    outline: none; /* Remove default outline */
-    margin-top: 6px;
-    color: black; 
-}
-.hypothesis {
-    padding: 2px 4px;
-    margin-bottom: 2px;
-    border-radius: 2px;
-    outline: none; /* Remove default browser outline */
+/* proofState.css */
+
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    padding: 12px;
 }
 
-/* Add a visual indicator when an element is focused */
-.hypothesis:focus,
-.goalType:focus {
-    background-color: var(--vscode-editor-selectionBackground);
-    color: var(--vscode-editor-selectionForeground);
+/* This is the main ProseMirror editor container */
+.ProseMirror {
+    outline: none;
+    font-family: monospace;
+    white-space: pre-wrap;
+    padding: 4px;
 }
-.error { 
-    color: red; 
+
+/* Styles from prosemirror-suggest-changes.
+  (You can also load this from node_modules, but
+  it's easier to just paste them here) 
+*/
+ins {
+    background-color: #d6f5d6;
+    text-decoration: none;
+    border-radius: 2px;
 }
-.controls { 
-    margin-top: 8px; 
+del {
+    background-color: #f8d7da;
+    text-decoration: line-through;
+    border-radius: 2px;
 }
-input[type="text"] { 
-    width: 70%; 
+/* End of plugin styles */
+
+
+/* Your re-purposed styles */
+/* These classes are now applied to <p> tags */
+.goal {
+    border: 1px solid #ddd;
+    padding: 8px;
+    margin-bottom: 8px;
+    border-radius: 4px;
 }
-.edited {
-    background-color: var(--vscode-list-highlightForeground);
-    color: var(--vscode-list-highlightForeground);
-    font-style: italic;
-    /* Use a color that stands out, e.g., a subtle yellow or blue */
-    background-color: #fff8e1; 
-    color: #5d4037;
+
+.hyps {
+    /* This is just a container, no styles needed */
+}
+
+.hypothesis {
+    padding: 2px 4px;
+    margin: 2px 0; /* Add vertical margin for paragraphs */
+    border-radius: 2px;
+}
+
+.goalType {
+    background: #f7f7f7;
+    padding: 6px;
+    border-radius: 4px;
+    margin-top: 6px;
+    color: black;
+}
+
+.error {
+    color: red;
+}
+
+/* Controls are unchanged */
+.controls {
+    margin-top: 8px;
+}
+input[type="text"] {
+    width: 70%;
+}
+
+/* Styles for the new suggest-changes menu */
+.menu {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 4px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--vscode-editorWidget-border);
+}
+
+.menu button {
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: 1px solid var(--vscode-button-border, transparent);
+    padding: 4px 8px;
+    border-radius: 2px;
+    cursor: pointer;
+}
+
+.menu button:hover {
+    background-color: var(--vscode-button-hoverBackground);
 }
