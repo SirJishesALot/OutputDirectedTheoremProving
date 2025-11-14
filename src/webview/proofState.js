@@ -13369,9 +13369,9 @@
       // Can contain goals OR error paragraphs
       marks: "insertion modification deletion"
     },
-    paragraph: schema.spec.nodes.get("paragraph").spec,
+    paragraph: schema.spec.nodes.get("paragraph"),
     // Use basic paragraph for errors
-    text: schema.spec.nodes.get("text").spec,
+    text: schema.spec.nodes.get("text"),
     // Use basic text
     goal: {
       content: "hyps? goalType",
