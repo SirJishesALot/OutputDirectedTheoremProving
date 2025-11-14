@@ -13365,16 +13365,14 @@
   var vscode = acquireVsCodeApi();
   var nodes2 = {
     doc: {
-      // Override doc
       content: "(goal | paragraph)*",
       // Can contain goals OR error paragraphs
       marks: "insertion modification deletion"
     },
-    paragraph: schema.spec.nodes.get("paragraph"),
+    paragraph: schema.spec.nodes.get("paragraph").spec,
     // Use basic paragraph for errors
-    text: schema.spec.nodes.get("text"),
+    text: schema.spec.nodes.get("text").spec,
     // Use basic text
-    // --- Our Custom Nodes ---
     goal: {
       content: "hyps? goalType",
       // A goal contains optional 'hyps' and one 'goalType'
@@ -13508,7 +13506,6 @@
   });
   var view = new EditorView(document.getElementById("editor"), {
     state: initialState,
-    // decorations: getSuggestionDecorations,
     dispatchTransaction: withSuggestChanges()
   });
   window.addEventListener("message", (event) => {
@@ -13518,16 +13515,13 @@
       case "noDocument":
         html = "<p><i>No active Coq document or cursor not inside a proof.</i></p>";
         break;
-      // <-- ADDED BREAK
       case "error":
         html = "<p><i>Error: " + escapeHtml(msg.message) + "</i></p>";
         break;
-      // <-- ADDED BREAK
       case "proofUpdate":
         console.log("proof update request receieved");
         html = renderGoalsToHtml(msg.goals);
         break;
-      // <-- ADDED BREAK
       default:
         console.warn("Unknown message type:", msg.type);
         return;
@@ -13540,7 +13534,6 @@
     const newState = EditorState.create({
       doc: newDoc,
       plugins: view.state.plugins
-      // Re-use the same plugins
     });
     view.updateState(newState);
     console.log("after view.updateState is called");

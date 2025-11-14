@@ -29,7 +29,7 @@ const nodes = {
     goal: {
         content: "hyps? goalType", // A goal contains optional 'hyps' and one 'goalType'
         group: "block",
-        toDOM() { return ['div', { class: 'goal' }, 0] },
+        toDOM() { return ['div', { class: 'goal' }, 0]; },
         parseDOM: [{ tag: "div.goal" }]
     },
     hyps: {
