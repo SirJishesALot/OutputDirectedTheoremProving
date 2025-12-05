@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { CoqLspClient } from '../lsp/coqLspClient';
 import { Uri } from '../utils/uri';
+import streamCoqChat from '../llm/chatBridge';
 
 type ClientReadyPromise = Promise<CoqLspClient>;
 
@@ -33,10 +34,8 @@ export class ProofStatePanel {
                 enableScripts: true,
                 retainContextWhenHidden: true,
                 enableFindWidget: true,
-                localResourceRoots: [
-                    extensionUri, 
-                    vscode.Uri.joinPath(extensionUri, 'node_modules')
-                ],
+                // restrict local resources to the webview folder
+                localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'src', 'webview')],
             }
         );
 
@@ -101,7 +100,50 @@ export class ProofStatePanel {
         } else if (cmd === 'applyTactic') {
             const tactic: string = message.tactic;
             await this.applyTactic(tactic);
+        } else if (cmd === 'chat') {
+            const prompt: string = message.prompt;
+            console.log('Chat prompt received from webview:', prompt);
+            // start streaming a chat response using the chat bridge
+            (async () => {
+                try {
+                    // Ask the extension for a model object (may return null)
+                    const model = await vscode.commands.executeCommand('outputdirectedtheoremproving.getDefaultChatModel');
+                    if (!model) {
+                        // No model available -- inform the webview
+                        this.panel.webview.postMessage({ type: 'chatResponsePart', text: 'No chat model available. Open the Chat view to configure a model.' });
+                        this.panel.webview.postMessage({ type: 'chatResponseDone' });
+                        return;
+                    }
+
+                    await streamCoqChat(this.clientReady, model, prompt, (chunk: string) => {
+                        this.panel.webview.postMessage({ type: 'chatResponsePart', text: chunk });
+                    }, () => {
+                        this.panel.webview.postMessage({ type: 'chatResponseDone' });
+                    });
+                } catch (e) {
+                    console.error('Stream chat response failed:', e);
+                    this.panel.webview.postMessage({ type: 'chatResponseDone' });
+                }
+            })();
         }
+    }
+
+    private async streamChatResponse(prompt: string) {
+        // Shim: stream a few sample chunks to the webview to emulate streaming LLM output.
+        const chunks = [
+            'Analysing proof state...',
+            'Considering hypotheses and goal...',
+            `Answering: ${prompt.slice(0, 120)}${prompt.length > 120 ? '...' : ''}`,
+            'Suggested tactic: intros.'
+        ];
+
+        for (const c of chunks) {
+            this.panel.webview.postMessage({ type: 'chatResponsePart', text: c });
+            // small delay to emulate streaming
+            await new Promise((r) => setTimeout(r, 300));
+        }
+
+        this.panel.webview.postMessage({ type: 'chatResponseDone' });
     }
 
     private async applyTactic(tactic: string) {
@@ -207,6 +249,12 @@ export class ProofStatePanel {
     <button id="applyBtn">Enter</button>
     <button id="refreshBtn">Refresh</button>
   </div>
+
+    <div id="chat" class="controls">
+        <div id="chatLog"></div>
+        <input id="chatInput" type="text" placeholder="Ask the assistant about this proof state" />
+        <button id="chatSend">Send</button>
+    </div>
 
   <script src="${scriptUri}"></script>
 </body>

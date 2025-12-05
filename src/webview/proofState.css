@@ -69,6 +69,30 @@ input[type="text"] {
     width: 70%;
 }
 
+/* Chat UI */
+#chat {
+    margin-top: 12px;
+}
+#chatLog {
+    max-height: 160px;
+    overflow: auto;
+    border: 1px solid var(--vscode-editorWidget-border);
+    padding: 6px;
+    background: var(--vscode-editor-background);
+    margin-bottom: 6px;
+}
+.chatMessage.user {
+    color: var(--vscode-editor-foreground);
+    text-align: right;
+}
+.chatMessage.assistant {
+    color: var(--vscode-editor-foreground);
+    text-align: left;
+}
+.chatMessage.assistant.streaming {
+    opacity: 0.9;
+}
+
 /* Styles for the new suggest-changes menu */
 .menu {
     display: flex;

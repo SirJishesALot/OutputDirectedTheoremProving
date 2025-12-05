@@ -13522,6 +13522,12 @@
         console.log("proof update request receieved");
         html = renderGoalsToHtml(msg.goals);
         break;
+      case "chatResponsePart":
+        appendChatStreamPart(msg.text);
+        return;
+      case "chatResponseDone":
+        finalizeChatStream();
+        return;
       default:
         console.warn("Unknown message type:", msg.type);
         return;
@@ -13538,6 +13544,58 @@
     view.updateState(newState);
     console.log("after view.updateState is called");
   });
+  var chatLog = document.getElementById("chatLog");
+  var chatInput = document.getElementById("chatInput");
+  var chatSend = document.getElementById("chatSend");
+  var currentPartialElem = null;
+  function appendChatMessage(text, cls = "assistant") {
+    if (!chatLog) {
+      return;
+    }
+    const el = document.createElement("div");
+    el.className = "chatMessage " + cls;
+    el.textContent = text;
+    chatLog.appendChild(el);
+    chatLog.scrollTop = chatLog.scrollHeight;
+    return el;
+  }
+  function appendChatStreamPart(text) {
+    if (!chatLog) {
+      return;
+    }
+    if (!currentPartialElem) {
+      currentPartialElem = appendChatMessage(text, "assistant streaming");
+    } else {
+      currentPartialElem.textContent += text;
+    }
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
+  function finalizeChatStream() {
+    currentPartialElem = null;
+  }
+  if (chatSend) {
+    chatSend.addEventListener("click", () => {
+      if (!chatInput) {
+        return;
+      }
+      const prompt = (chatInput.value || "").trim();
+      if (!prompt) {
+        return;
+      }
+      appendChatMessage(prompt, "user");
+      chatInput.value = "";
+      currentPartialElem = null;
+      vscode.postMessage({ command: "chat", prompt });
+    });
+  }
+  if (chatInput) {
+    chatInput.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        chatSend?.click();
+      }
+    });
+  }
   document.getElementById("applyBtn").addEventListener("click", () => {
     const tactic = document.getElementById("tacticInput").value;
     vscode.postMessage({ command: "applyTactic", tactic });

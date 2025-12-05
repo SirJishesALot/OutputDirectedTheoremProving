@@ -11,6 +11,8 @@
   ],
   "activationEvents": [
     "onCommand:outputdirectedtheoremproving.openProofState",
+    "onCommand:outputdirectedtheoremproving.setOpenAiApiKey",
+    "onCommand:outputdirectedtheoremproving.getDefaultChatModel",
     "onLanguage:coq"
   ],
   "main": "./dist/extension.js",
@@ -23,6 +25,14 @@
       {
         "command": "outputdirectedtheoremproving.openProofState",
         "title": "Open Coq Proof State"
+      },
+      {
+        "command": "outputdirectedtheoremproving.setOpenAiApiKey",
+        "title": "Set OpenAI API Key"
+      },
+      {
+        "command": "outputdirectedtheoremproving.getDefaultChatModel",
+        "title": "Select LLM Service"
       }
     ],
     "chatParticipants": [

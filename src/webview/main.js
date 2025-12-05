@@ -178,6 +178,13 @@ window.addEventListener('message', (event) => {
             console.log("proof update request receieved");
             html = renderGoalsToHtml(msg.goals); 
             break;
+        case 'chatResponsePart':
+            // Append or update the last partial chat message
+            appendChatStreamPart(msg.text);
+            return;
+        case 'chatResponseDone':
+            finalizeChatStream();
+            return;
         default:
             console.warn("Unknown message type:", msg.type);
             return;
@@ -197,6 +204,61 @@ window.addEventListener('message', (event) => {
     view.updateState(newState);
     console.log("after view.updateState is called");
 });
+
+    // Chat UI helpers
+    const chatLog = document.getElementById('chatLog');
+    const chatInput = document.getElementById('chatInput');
+    const chatSend = document.getElementById('chatSend');
+    let currentPartialElem = null;
+
+    function appendChatMessage(text, cls = 'assistant') {
+        if (!chatLog) { return; }
+        const el = document.createElement('div');
+        el.className = 'chatMessage ' + cls;
+        el.textContent = text;
+        chatLog.appendChild(el);
+        chatLog.scrollTop = chatLog.scrollHeight;
+        return el;
+    }
+
+    function appendChatStreamPart(text) {
+        if (!chatLog) { return; }
+        if (!currentPartialElem) {
+            currentPartialElem = appendChatMessage(text, 'assistant streaming');
+        } else {
+            // update text
+            currentPartialElem.textContent += text;
+        }
+        chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    function finalizeChatStream() {
+        currentPartialElem = null;
+    }
+
+    if (chatSend) {
+        chatSend.addEventListener('click', () => {
+            if (!chatInput) { return; }
+            const prompt = (chatInput.value || '').trim();
+            if (!prompt) { return; }
+            // show user message
+            appendChatMessage(prompt, 'user');
+            chatInput.value = '';
+            // reset any partial
+            currentPartialElem = null;
+            // request a chat from the extension
+            vscode.postMessage({ command: 'chat', prompt });
+        });
+    }
+
+    if (chatInput) {
+        chatInput.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter') {
+                ev.preventDefault();
+                chatSend?.click();
+            }
+        });
+    }
 
 document.getElementById('applyBtn').addEventListener('click', () => {
     const tactic = document.getElementById('tacticInput').value;
