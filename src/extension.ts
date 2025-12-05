@@ -1,5 +1,3 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import { CoqLspClient, CoqLspClientImpl } from './lsp/coqLspClient';
 import { ProofGoal } from './lsp/coqLspTypes';
@@ -16,13 +14,10 @@ let defaultChatAdapter: any | undefined = undefined;
 async function getActiveFileContext(): Promise<string | null> {
 	let editor = vscode.window.activeTextEditor;
 	if (!editor || editor.document.languageId !== 'coq') {
-		// If the webview has focus, activeTextEditor might not be the Coq editor.
-		// Fall back to any visible Coq editor.
 		editor = vscode.window.visibleTextEditors.find((e) => e.document.languageId === 'coq');
 		if (!editor) { return null; }
 	}
 
-	// If the client is still starting, wait for it. If startup failed, return null.
 	if (!coqLspClient) {
 		if (coqLspClientReady) {
 			try {
@@ -32,7 +27,6 @@ async function getActiveFileContext(): Promise<string | null> {
 				return null;
 			}
 		} else {
-			// client not started and no startup promise
 			return null;
 		}
 	}
@@ -41,12 +35,9 @@ async function getActiveFileContext(): Promise<string | null> {
     const version = editor.document.version;
     const position = editor.selection.active;
 
-    // Define the document specification
     const documentSpec = { uri: docUri, version: version };
 
     try {
-		// Use withTextDocument to handle the open/check/close lifecycle
-        // The block function executes *after* the document is ready on the server.
 		const client = coqLspClient;
 		if (!client) {
 			return null;
@@ -56,19 +47,13 @@ async function getActiveFileContext(): Promise<string | null> {
 			documentSpec,
 			async (openedDocDiagnostic: any) => {
                 
-                // You can check openedDocDiagnostic here if you want to see
-                // if Coq-LSP found any initial errors on the document opening.
-                
-                // Now, safely request the goal state from the prepared document
 				const currentGoal: ProofGoal = await client.getFirstGoalAtPointOrThrow(
                     position,
                     docUri,
                     version
                 );
 
-                // --- Format the output for the LLM ---
                 let context = `// Coq Proof State at Cursor Position (V: ${version}):\n`;
-				// The ProofGoal type exported from coqLspTypes has fields `ty` and `hyps`.
 				context += `// Goal: ${currentGoal.ty}\n\n`;
 				context += `--- HYPOTHESES ---\n`;
 				context += currentGoal.hyps
@@ -114,15 +99,8 @@ const coqChatHandler: vscode.ChatRequestHandler = async (
 	return {};
 };
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
 	console.log('Congratulations, your extension "outputdirectedtheoremproving" is now active!');
-
-	// keep a reference to the extension context for secret storage and other uses
 	extensionContext = context;
 
 	const participant = vscode.chat.createChatParticipant(
@@ -131,7 +109,6 @@ export function activate(context: vscode.ExtensionContext) {
 	); 
 	context.subscriptions.push(participant);
 
-	// Initialize Coq LSP client for extension features and expose a ready Promise
 	coqLspClientReady = createCoqLspClient(process.env.COQ_LSP_PATH || 'coq-lsp')
 		.then((client) => {
 			coqLspClient = client;
@@ -142,7 +119,6 @@ export function activate(context: vscode.ExtensionContext) {
 			throw e;
 		});
 
-	// Register command to open the interactive proof-state webview
 	const openProofStateDisposable = vscode.commands.registerCommand(
 		'outputdirectedtheoremproving.openProofState',
 		() => {
@@ -154,8 +130,6 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	);
 	context.subscriptions.push(openProofStateDisposable);
-
-	// Command for webviews/panels to request a default chat model (may return null)
 
 	const setOpenAiKeyCmd = vscode.commands.registerCommand('outputdirectedtheoremproving.setOpenAiApiKey', async () => {
 		const key = await vscode.window.showInputBox({
@@ -223,7 +197,6 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 
 		if (choice.label === 'OpenAI') {
-			// Use SecretStorage to get API key and call OpenAI directly (avoid using service class constructors)
 			let apiKey: string | undefined;
 			if (extensionContext) {
 				apiKey = await extensionContext.secrets.get(OPENAI_SECRET_KEY);
@@ -235,7 +208,6 @@ export function activate(context: vscode.ExtensionContext) {
 				};
 			}
 
-			// Ask the user which OpenAI model to use (gpt-4o, gpt-4o-mini, gpt-3.5-turbo, etc.)
 			const modelOptions = [
 				{ label: 'gpt-4o', description: 'Recommended if you have access' },
 				{ label: 'gpt-4o-mini', description: 'Faster/cheaper' },
@@ -254,14 +226,22 @@ export function activate(context: vscode.ExtensionContext) {
 					});
 					try {
 						const client = new OpenAI({ apiKey });
-						const completion = await client.chat.completions.create({
+						const stream = await client.chat.completions.create({
 							model: opts?.model ?? selectedModel,
 							messages: chatMessages,
 							max_tokens: opts?.maxTokens ?? 256,
 							temperature: opts?.temperature ?? 0.2,
+							stream: true, 
 						});
-						const text = completion.choices.map((c: any) => c.message?.content ?? '').join('\n');
-						return { text: (async function* () { yield text; })() };
+						return {
+							text: (async function* () {
+								for await (const chunk of stream) {
+									if (token && token.isCancellationRequested) break; 
+									const content = chunk.choices[0]?.delta?.content; 
+									if (content) yield content; 
+								}
+							})()
+						};
 					} catch (e: any) {
 						return { text: (async function* () { yield 'OpenAI error: ' + (e && e.message ? e.message : String(e)); })() };
 					}
@@ -287,17 +267,11 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 	context.subscriptions.push(getModelCmd);
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
 	const disposable = vscode.commands.registerCommand('outputdirectedtheoremproving.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
 		vscode.window.showInformationMessage('Hello World from OutputDirectedTheoremProving!');
 	});
 
 	context.subscriptions.push(disposable);
 }
 
-// This method is called when your extension is deactivated
 export function deactivate() {}

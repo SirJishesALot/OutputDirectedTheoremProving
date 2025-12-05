@@ -14741,6 +14741,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     return el;
   }
   function appendChatStreamPart(text) {
+    console.log("Chunk received:", (/* @__PURE__ */ new Date()).toISOString(), text.length);
     if (!chatLog) return;
     if (!currentPartialElem) {
       currentPartialElem = document.createElement("div");
