@@ -27,7 +27,7 @@ export class ProofStatePanel {
         const panel = vscode.window.createWebviewPanel(
             'coqProofState',
             'Coq Proof State',
-            column || vscode.ViewColumn.One,
+            column,
             {
                 enableScripts: true,
                 retainContextWhenHidden: true,
