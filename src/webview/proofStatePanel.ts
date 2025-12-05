@@ -34,7 +34,6 @@ export class ProofStatePanel {
                 enableScripts: true,
                 retainContextWhenHidden: true,
                 enableFindWidget: true,
-                // restrict local resources to the webview folder
                 localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'src', 'webview')],
             }
         );
@@ -78,9 +77,7 @@ export class ProofStatePanel {
         );
 
         this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
-
-        // initial update
-        this.updateProofState();
+        this.updateProofState(); // initial update
     }
 
     public dispose() {
@@ -128,22 +125,24 @@ export class ProofStatePanel {
         }
     }
 
-    private async streamChatResponse(prompt: string) {
-        // Shim: stream a few sample chunks to the webview to emulate streaming LLM output.
-        const chunks = [
-            'Analysing proof state...',
-            'Considering hypotheses and goal...',
-            `Answering: ${prompt.slice(0, 120)}${prompt.length > 120 ? '...' : ''}`,
-            'Suggested tactic: intros.'
-        ];
-
-        for (const c of chunks) {
-            this.panel.webview.postMessage({ type: 'chatResponsePart', text: c });
-            // small delay to emulate streaming
-            await new Promise((r) => setTimeout(r, 300));
+    private normalizeGoals(res: any): any[] | null {
+        console.log(res); 
+        let data = res?.val !== undefined ? res.val : res;
+        if (data && typeof data === 'object' && !Array.isArray(data) && data.message && typeof data.message === 'string') {
+            try {
+                const parsed = JSON.parse(data.message);
+                if (Array.isArray(parsed)) {
+                    data = parsed;
+                }
+            } catch (e) { }
         }
-
-        this.panel.webview.postMessage({ type: 'chatResponseDone' });
+        if (typeof data === 'string') {
+            try { data = JSON.parse(data); } catch { return null; }
+        }
+        if (!Array.isArray(data)) return null;
+        if (data.length > 0 && Array.isArray(data[0]) && data[0].length === 2 && Array.isArray(data[0][1])) {
+            return data.flatMap((tuple: any) => tuple[1]);
+        } return data;
     }
 
     private async applyTactic(tactic: string) {
@@ -163,12 +162,14 @@ export class ProofStatePanel {
             // withTextDocument ensures the document is opened on the server
             await client.withTextDocument({ uri: docUri, version }, async () => {
                 const result = await client.getGoalsAtPoint(position as any, docUri as any, version, tactic);
-                if ((result as any).ok) {
-                    const goals = (result as any).val as any;
+                const goals = this.normalizeGoals(result);
+
+                if (goals) {
                     this.panel.webview.postMessage({ type: 'proofUpdate', goals });
                 } else {
-                    const err = (result as any).val;
-                    this.postError(err?.message ?? String(err));
+                    // If normalization failed, print the raw result to debug
+                    const err = (result as any)?.val || result;
+                    this.postError(err?.message ?? JSON.stringify(err));
                 }
             });
         } catch (e) {
@@ -196,12 +197,14 @@ export class ProofStatePanel {
             const client = await this.clientReady;
 
             await client.withTextDocument({ uri: docUri, version }, async () => {
-                const goalsRes = await client.getGoalsAtPoint(position as any, docUri as any, version);
-                if ((goalsRes as any).ok) {
-                    const goals = (goalsRes as any).val as any;
+                const result = await client.getGoalsAtPoint(position as any, docUri as any, version);
+                const goals = this.normalizeGoals(result);
+
+                if (goals) {
                     this.panel.webview.postMessage({ type: 'proofUpdate', goals });
                 } else {
-                    const err = (goalsRes as any).val;
+                    // If normalization failed, print the raw result to debug
+                    const err = (result as any)?.val || result;
                     this.postError(err?.message ?? JSON.stringify(err));
                 }
             });
@@ -240,7 +243,7 @@ export class ProofStatePanel {
 <title>Coq Proof State</title>
 </head>
 <body>
-  <h2>Coq Proof State</h2>
+  <h2>Output Directed Theorem Prover</h2>
   
   <div id="editor"></div>
 
