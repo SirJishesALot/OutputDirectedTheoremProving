@@ -244,12 +244,6 @@ export class ProofStatePanel {
   
   <div id="editor"></div>
 
-  <div class="controls">
-    <input id="tacticInput" type="text" placeholder="Enter command" />
-    <button id="applyBtn">Enter</button>
-    <button id="refreshBtn">Refresh</button>
-  </div>
-
     <div id="chat" class="controls">
         <div id="chatLog"></div>
         <input id="chatInput" type="text" placeholder="Ask the assistant about this proof state" />
