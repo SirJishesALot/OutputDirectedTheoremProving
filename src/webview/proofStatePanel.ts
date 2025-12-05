@@ -54,6 +54,8 @@ export class ProofStatePanel {
         this.extensionUri = extensionUri;
         this.clientReady = clientReady;
 
+        void vscode.commands.executeCommand('outputdirectedtheoremproving.getDefaultChatModel'); 
+
         this.panel.webview.onDidReceiveMessage(
             (message) => this.handleMessage(message),
             null,
