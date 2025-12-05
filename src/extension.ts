@@ -11,69 +11,6 @@ let extensionContext: vscode.ExtensionContext | undefined;
 const OPENAI_SECRET_KEY = 'outputdirectedtheoremproving.openaiApiKey';
 let defaultChatAdapter: any | undefined = undefined;
 
-async function getActiveFileContext(): Promise<string | null> {
-	let editor = vscode.window.activeTextEditor;
-	if (!editor || editor.document.languageId !== 'coq') {
-		editor = vscode.window.visibleTextEditors.find((e) => e.document.languageId === 'coq');
-		if (!editor) { return null; }
-	}
-
-	if (!coqLspClient) {
-		if (coqLspClientReady) {
-			try {
-				await coqLspClientReady;
-			} catch (e) {
-				console.error('coq-lsp startup failed', e);
-				return null;
-			}
-		} else {
-			return null;
-		}
-	}
-
-	const docUri = Uri.fromPath(editor.document.uri.fsPath);
-    const version = editor.document.version;
-    const position = editor.selection.active;
-
-    const documentSpec = { uri: docUri, version: version };
-
-    try {
-		const client = coqLspClient;
-		if (!client) {
-			return null;
-		}
-
-		const proofStateContext = await client.withTextDocument(
-			documentSpec,
-			async (openedDocDiagnostic: any) => {
-                
-				const currentGoal: ProofGoal = await client.getFirstGoalAtPointOrThrow(
-                    position,
-                    docUri,
-                    version
-                );
-
-                let context = `// Coq Proof State at Cursor Position (V: ${version}):\n`;
-				context += `// Goal: ${currentGoal.ty}\n\n`;
-				context += `--- HYPOTHESES ---\n`;
-				context += currentGoal.hyps
-					.map((h) => `${h.names.join(', ')}: ${h.ty}`)
-					.join('\n');
-                context += `\n--------------------\n`;
-                
-                return context;
-            }
-        );
-        
-        return proofStateContext;
-
-    } catch (e) {
-        const errorMsg = e instanceof Error ? e.message : String(e);
-        console.error('LSP Goal Retrieval Failed:', errorMsg);
-        return `// ERROR: Failed to retrieve live proof state. The server reported: ${errorMsg}`;
-    }
-}
-
 import streamCoqChat from './llm/chatBridge';
 
 const coqChatHandler: vscode.ChatRequestHandler = async (

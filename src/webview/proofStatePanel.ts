@@ -17,9 +17,7 @@ export class ProofStatePanel {
         clientReady: ClientReadyPromise,
         extensionUri: vscode.Uri
     ) {
-        const column = vscode.window.activeTextEditor
-            ? vscode.window.activeTextEditor.viewColumn
-            : undefined;
+        const column = vscode.ViewColumn.Beside; 
 
         if (ProofStatePanel.currentPanel) {
             ProofStatePanel.currentPanel.panel.reveal(column);
