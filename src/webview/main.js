@@ -142,13 +142,21 @@ const suggestChangesViewPlugin = new Plugin({
     },
 });
 
+const readOnlyGoalsPlugin = new Plugin({
+    filterTransaction(tr, state) {
+        if (isSuggestChangesEnabled(state) || !tr.docChanged) return true; 
+        return false; 
+    }
+});
+
 
 const plugins = [
     keymap(baseKeymap),
     history(),
     keymap({ 'Mod-z': undo, 'Mod-y': redo }),
-    suggestChanges(), // Add the main plugin
-    suggestChangesViewPlugin, // Add the menu plugin
+    suggestChanges(), 
+    suggestChangesViewPlugin, 
+    readOnlyGoalsPlugin
 ];
 
 

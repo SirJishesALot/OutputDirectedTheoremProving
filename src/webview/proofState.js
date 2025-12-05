@@ -13491,14 +13491,19 @@
       };
     }
   });
+  var readOnlyGoalsPlugin = new Plugin({
+    filterTransaction(tr, state) {
+      if (isSuggestChangesEnabled(state) || !tr.docChanged) return true;
+      return false;
+    }
+  });
   var plugins = [
     keymap(baseKeymap),
     history(),
     keymap({ "Mod-z": undo, "Mod-y": redo }),
     suggestChanges(),
-    // Add the main plugin
-    suggestChangesViewPlugin
-    // Add the menu plugin
+    suggestChangesViewPlugin,
+    readOnlyGoalsPlugin
   ];
   var initialState = EditorState.create({
     schema: schema2,
