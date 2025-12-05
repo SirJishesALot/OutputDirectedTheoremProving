@@ -17,9 +17,7 @@ export class ProofStatePanel {
         clientReady: ClientReadyPromise,
         extensionUri: vscode.Uri
     ) {
-        const column = vscode.window.activeTextEditor
-            ? vscode.window.activeTextEditor.viewColumn
-            : undefined;
+        const column = vscode.ViewColumn.Beside; 
 
         if (ProofStatePanel.currentPanel) {
             ProofStatePanel.currentPanel.panel.reveal(column);
@@ -29,7 +27,7 @@ export class ProofStatePanel {
         const panel = vscode.window.createWebviewPanel(
             'coqProofState',
             'Coq Proof State',
-            column || vscode.ViewColumn.One,
+            column,
             {
                 enableScripts: true,
                 retainContextWhenHidden: true,
@@ -55,6 +53,8 @@ export class ProofStatePanel {
         this.panel = panel;
         this.extensionUri = extensionUri;
         this.clientReady = clientReady;
+
+        void vscode.commands.executeCommand('outputdirectedtheoremproving.getDefaultChatModel'); 
 
         this.panel.webview.onDidReceiveMessage(
             (message) => this.handleMessage(message),
