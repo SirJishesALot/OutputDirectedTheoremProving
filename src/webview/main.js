@@ -30,25 +30,25 @@ const nodes = {
         content: "hyps? goalType", // A goal contains optional 'hyps' and one 'goalType'
         group: "block",
         toDOM() { return ['div', { class: 'goal' }, 0]; },
-        parseDOM: [{ tag: "div.goal" }]
+        parseDOM: [{ tag: "div.goal", priority: 60 }]
     },
     hyps: {
         content: "hypothesis+", // 'hyps' contains one or more 'hypothesis' paragraphs
         group: "block",
         toDOM() { return ['div', { class: 'hyps' }, 0]; },
-        parseDOM: [{ tag: "div.hyps" }]
+        parseDOM: [{ tag: "div.hyps", priority: 60 }]
     },
     hypothesis: { // This is a styled paragraph
         content: "text*",
         group: "block",
         toDOM() { return ['p', { class: 'hypothesis' }, 0]; },
-        parseDOM: [{ tag: "p.hypothesis" }]
+        parseDOM: [{ tag: "p.hypothesis", priority: 60 }]
     },
     goalType: { // This is also a styled paragraph
         content: "text*",
         group: "block",
         toDOM() { return ['p', { class: 'goalType' }, 0]; },
-        parseDOM: [{ tag: "p.goalType" }]
+        parseDOM: [{ tag: "p.goalType", priority: 60 }]
     }
 };
 

@@ -13380,7 +13380,7 @@
       toDOM() {
         return ["div", { class: "goal" }, 0];
       },
-      parseDOM: [{ tag: "div.goal" }]
+      parseDOM: [{ tag: "div.goal", priority: 60 }]
     },
     hyps: {
       content: "hypothesis+",
@@ -13389,7 +13389,7 @@
       toDOM() {
         return ["div", { class: "hyps" }, 0];
       },
-      parseDOM: [{ tag: "div.hyps" }]
+      parseDOM: [{ tag: "div.hyps", priority: 60 }]
     },
     hypothesis: {
       // This is a styled paragraph
@@ -13398,7 +13398,7 @@
       toDOM() {
         return ["p", { class: "hypothesis" }, 0];
       },
-      parseDOM: [{ tag: "p.hypothesis" }]
+      parseDOM: [{ tag: "p.hypothesis", priority: 60 }]
     },
     goalType: {
       // This is also a styled paragraph
@@ -13407,7 +13407,7 @@
       toDOM() {
         return ["p", { class: "goalType" }, 0];
       },
-      parseDOM: [{ tag: "p.goalType" }]
+      parseDOM: [{ tag: "p.goalType", priority: 60 }]
     }
   };
   var marks2 = addSuggestionMarks(marks);
