@@ -5,6 +5,7 @@ import { schema as basicSchema, marks as basicMarks } from 'prosemirror-schema-b
 import { history, undo, redo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import { baseKeymap } from 'prosemirror-commands';
+import { marked } from 'marked'; 
 
 import {
     addSuggestionMarks,
@@ -205,81 +206,74 @@ window.addEventListener('message', (event) => {
 
     const domNode = document.createElement('div');
     domNode.innerHTML = html;
-    console.log("new html created");
     
     const newDoc = DOMParser.fromSchema(schema).parse(domNode);
-    console.log("domNode parsed");
-    
     const newState = EditorState.create({
         doc: newDoc,
         plugins: view.state.plugins 
     });
     view.updateState(newState);
-    console.log("after view.updateState is called");
 });
 
-    // Chat UI helpers
-    const chatLog = document.getElementById('chatLog');
-    const chatInput = document.getElementById('chatInput');
-    const chatSend = document.getElementById('chatSend');
-    let currentPartialElem = null;
+// Chat UI helpers
+const chatLog = document.getElementById('chatLog');
+const chatInput = document.getElementById('chatInput');
+const chatSend = document.getElementById('chatSend');
+let currentPartialElem = null;
+let streamBuffer = ""; 
 
-    function appendChatMessage(text, cls = 'assistant') {
-        if (!chatLog) { return; }
-        const el = document.createElement('div');
-        el.className = 'chatMessage ' + cls;
-        el.textContent = text;
-        chatLog.appendChild(el);
-        chatLog.scrollTop = chatLog.scrollHeight;
-        return el;
+function appendChatMessage(text, cls = 'assistant') {
+    if (!chatLog) return; 
+    const el = document.createElement('div');
+    el.className = 'chatMessage ' + cls;
+    el.innerHTML = marked.parse(text); 
+    chatLog.appendChild(el);
+    chatLog.scrollTop = chatLog.scrollHeight;
+    return el;
+}
+
+function appendChatStreamPart(text) {
+    if (!chatLog) return;
+    if (!currentPartialElem) {
+        currentPartialElem = document.createElement('div'); 
+        currentPartialElem.className = 'chatMessage assistant streaming';
+        chatLog.appendChild(currentPartialElem);
+        streamBuffer = ""; 
+    } 
+    streamBuffer += text; 
+    currentPartialElem.innerHTML = marked.parse(streamBuffer); 
+    chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function finalizeChatStream() {
+    if (currentPartialElem) { 
+        currentPartialElem.classList.remove('streaming'); 
     }
+    currentPartialElem = null; 
+    streamBuffer = ""; 
+}
 
-    function appendChatStreamPart(text) {
-        if (!chatLog) { return; }
-        if (!currentPartialElem) {
-            currentPartialElem = appendChatMessage(text, 'assistant streaming');
-        } else {
-            // update text
-            currentPartialElem.textContent += text;
-        }
-        chatLog.scrollTop = chatLog.scrollHeight;
-    }
+if (chatSend) {
+    chatSend.addEventListener('click', () => {
+        if (!chatInput) return;
+        const prompt = (chatInput.value || '').trim();
+        if (!prompt) return;
 
-    function finalizeChatStream() {
+        appendChatMessage(prompt, 'user');
+        chatInput.value = '';
+
         currentPartialElem = null;
-    }
+        vscode.postMessage({ command: 'chat', prompt });
+    });
+}
 
-    if (chatSend) {
-        chatSend.addEventListener('click', () => {
-            if (!chatInput) { return; }
-            const prompt = (chatInput.value || '').trim();
-            if (!prompt) { return; }
-            // show user message
-            appendChatMessage(prompt, 'user');
-            chatInput.value = '';
-            // reset any partial
-            currentPartialElem = null;
-            // request a chat from the extension
-            vscode.postMessage({ command: 'chat', prompt });
-        });
-    }
-
-    if (chatInput) {
-        chatInput.addEventListener('keydown', (ev) => {
-            if (ev.key === 'Enter') {
-                ev.preventDefault();
-                chatSend?.click();
-            }
-        });
-    }
-
-document.getElementById('applyBtn').addEventListener('click', () => {
-    const tactic = document.getElementById('tacticInput').value;
-    vscode.postMessage({ command: 'applyTactic', tactic });
-});
-
-document.getElementById('refreshBtn').addEventListener('click', () => {
-    vscode.postMessage({ command: 'requestUpdate' });
-});
+if (chatInput) {
+    chatInput.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') {
+            ev.preventDefault();
+            chatSend?.click();
+        }
+    });
+}
 
 vscode.postMessage({ command: 'requestUpdate' });
