@@ -233,7 +233,6 @@ function appendChatMessage(text, cls = 'assistant') {
 }
 
 function appendChatStreamPart(text) {
-    console.log("Chunk received:", new Date().toISOString(), text.length); // remove this after debugging
     if (!chatLog) return;
     if (!currentPartialElem) {
         currentPartialElem = document.createElement('div'); 
