@@ -13448,42 +13448,58 @@
   var suggestChangesViewPlugin = new Plugin({
     view(view2) {
       const toggleButton = document.createElement("button");
-      toggleButton.appendChild(document.createTextNode("Enable Suggestions"));
+      toggleButton.textContent = "Enable Suggestions";
       toggleButton.addEventListener("click", () => {
         toggleSuggestChanges(view2.state, view2.dispatch);
         view2.focus();
       });
       const applyAllButton = document.createElement("button");
-      applyAllButton.appendChild(document.createTextNode("Apply All"));
+      applyAllButton.classList.add("apply-all-button");
+      applyAllButton.textContent = "Apply All";
       applyAllButton.addEventListener("click", () => {
         applySuggestions(view2.state, view2.dispatch);
         view2.focus();
       });
       const revertAllButton = document.createElement("button");
-      revertAllButton.appendChild(document.createTextNode("Revert All"));
+      revertAllButton.classList.add("revert-all-button");
+      revertAllButton.textContent = "Revert All";
       revertAllButton.addEventListener("click", () => {
         revertSuggestions(view2.state, view2.dispatch);
         view2.focus();
       });
       const commandsContainer = document.createElement("div");
+      commandsContainer.classList.add("suggestion-commands");
       commandsContainer.append(applyAllButton, revertAllButton);
       const container = document.createElement("div");
       container.classList.add("menu");
       container.append(toggleButton, commandsContainer);
       view2.dom.parentElement?.prepend(container);
+      const syncUI = (state) => {
+        if (isSuggestChangesEnabled(state)) {
+          toggleButton.textContent = "Disable Suggestions";
+          commandsContainer.style.display = "flex";
+        } else {
+          toggleButton.textContent = "Enable Suggestions";
+          commandsContainer.style.display = "none";
+        }
+      };
+      syncUI(view2.state);
       return {
-        update() {
-          if (isSuggestChangesEnabled(view2.state)) {
-            toggleButton.replaceChildren(
-              document.createTextNode("Disable Suggestions")
-            );
-            commandsContainer.style.display = "";
-          } else {
-            toggleButton.replaceChildren(
-              document.createTextNode("Enable Suggestions")
-            );
-            commandsContainer.style.display = "none";
-          }
+        // update() {
+        //     if (isSuggestChangesEnabled(view.state)) {
+        //         toggleButton.replaceChildren(
+        //             document.createTextNode('Disable Suggestions'),
+        //         );
+        //         commandsContainer.style.display = 'flex';
+        //     } else {
+        //         toggleButton.replaceChildren(
+        //             document.createTextNode('Enable Suggestions'),
+        //         );
+        //         commandsContainer.style.display = 'none';
+        //     }
+        // },
+        update(view3, prevState) {
+          syncUI(view3.state);
         },
         destroy() {
           container.remove();
