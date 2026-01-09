@@ -101,14 +101,12 @@ function renderGoalsToHtml(goals) {
         if (g.hyps && g.hyps.length > 0) {
             html += '<div class="hyps">';
             g.hyps.forEach(h => {
-                // const text = escapeHtml(h.names.join(', ') + ': ' + h.ty);
                 const rawText = h.names.join(', ') + ': ' + h.ty; 
                 const highlighted = hljs.highlight(rawText, {language: 'coq'}).value; 
                 html += `<p class="hypothesis">${highlighted}</p>`;
             });
             html += '</div>';
         }
-        // const goalText = escapeHtml(g.ty);
         const highlightedGoal = hljs.highlight(g.ty, { language: 'coq' }).value;
         html += `<p class="goalType">${highlightedGoal}</p>`;
         html += '</div>';
