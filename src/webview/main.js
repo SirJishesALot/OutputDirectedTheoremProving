@@ -7,6 +7,21 @@ import { keymap } from 'prosemirror-keymap';
 import { baseKeymap } from 'prosemirror-commands';
 import { marked } from 'marked'; 
 
+import hljs from 'highlight.js/lib/core'; 
+import coq from 'highlight.js/lib/languages/coq'; 
+
+hljs.registerLanguage('coq', (hljs) => {
+    const lang = coq(hljs);
+    const standardTypes = 'nat list bool string unit option sum prod Z Z0 positive N';
+    
+    if (lang.keywords && lang.keywords.built_in) {
+        lang.keywords.built_in += ' ' + standardTypes;
+    } else if (lang.keywords) {
+        lang.keywords.built_in = standardTypes;
+    }
+    return lang;
+});
+
 import {
     addSuggestionMarks,
     suggestChanges,
@@ -54,7 +69,22 @@ const nodes = {
 };
 
 
-const marks = addSuggestionMarks(basicMarks);
+const myMarks = {
+    ...basicMarks, 
+    syntax: {
+        attrs: { class: {} },
+        parseDOM: [{ 
+            tag: "span", 
+            getAttrs: dom => {
+                const cls = dom.getAttribute("class");
+                return cls && cls.startsWith('hljs-') ? { class: cls } : false; 
+            }
+        }],
+        toDOM(node) { return ["span", { class: node.attrs.class }, 0]; }
+    }
+};
+
+const marks = addSuggestionMarks(myMarks);
 const schema = new Schema({
     nodes,
     marks
@@ -71,13 +101,14 @@ function renderGoalsToHtml(goals) {
         if (g.hyps && g.hyps.length > 0) {
             html += '<div class="hyps">';
             g.hyps.forEach(h => {
-                const text = escapeHtml(h.names.join(', ') + ': ' + h.ty);
-                html += `<p class="hypothesis">${text}</p>`;
+                const rawText = h.names.join(', ') + ': ' + h.ty; 
+                const highlighted = hljs.highlight(rawText, {language: 'coq'}).value; 
+                html += `<p class="hypothesis">${highlighted}</p>`;
             });
             html += '</div>';
         }
-        const goalText = escapeHtml(g.ty);
-        html += `<p class="goalType">${goalText}</p>`;
+        const highlightedGoal = hljs.highlight(g.ty, { language: 'coq' }).value;
+        html += `<p class="goalType">${highlightedGoal}</p>`;
         html += '</div>';
     }
     return html;

@@ -132,3 +132,36 @@ input[type="text"] {
 .menu button.revert-all-button:hover {
     background-color: #b62324;
 }
+
+.hljs-keyword,
+.hljs-built_in {
+    color: #cf222e; 
+    font-weight: bold;
+}
+
+.hljs-type,
+.hljs-title {
+    color: #953800; 
+}
+
+.hljs-string {
+    color: #0a3069; 
+}
+
+.hljs-number {
+    color: #0550ae; 
+}
+
+.hljs-comment {
+    color: #6e7781;
+    font-style: italic;
+}
+
+.hljs-operator,
+.hljs-punctuation {
+    color: #24292f; 
+}
+
+.hljs-variable {
+    color: #24292f;
+}
