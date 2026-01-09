@@ -90,6 +90,21 @@ const schema = new Schema({
     marks
 });
 
+function getDiffFromNode(node) {
+    let deletedText = "";
+    let insertedText = "";
+
+    node.content.forEach((child) => {
+        const isDeleted = child.marks.some(m => m.type.name === 'deletion');
+        const isInserted = child.marks.some(m => m.type.name === 'insertion');
+
+        if (isDeleted) deletedText += child.text;
+        if (isInserted) insertedText += child.text;
+    });
+
+    return { deletedText, insertedText };
+}
+
 function renderGoalsToHtml(goals) {
     if (!goals || goals.length === 0) {
         return '<p class="error"><i>No goals at the current cursor position.</i></p>';
@@ -146,9 +161,45 @@ const suggestChangesViewPlugin = new Plugin({
             view.focus();
         });
 
+        const synthesizeButton = document.createElement('button');
+        synthesizeButton.textContent = 'Synthesize Equality'; 
+        synthesizeButton.classList.add('synthesize-button');
+        synthesizeButton.style.display = 'none'; // Hidden by default
+        
+        synthesizeButton.addEventListener('click', () => {
+            // Scan the document for the first hypothesis that has changes
+            let diffFound = false;
+            
+            view.state.doc.descendants((node, pos) => {
+                if (diffFound) return false; // Stop if already found
+
+                if (node.type.name === 'hypothesis') {
+                    const { deletedText, insertedText } = getDiffFromNode(node);
+                    
+                    // Only trigger if we have a valid replacement (something deleted AND inserted)
+                    if (deletedText && insertedText) {
+                        diffFound = true;
+                        
+                        // Send the context to VS Code
+                        console.log("Sending agent request:", deletedText, "->", insertedText);
+                        vscode.postMessage({ 
+                            command: 'agentRequest', 
+                            context: { lhs: deletedText, rhs: insertedText } 
+                        });
+                    }
+                }
+                return true; 
+            });
+
+            if (!diffFound) {
+                // Optional: Show a toast notification in the webview
+                console.log("No hypothesis changes found.");
+            }
+        });
+
         const commandsContainer = document.createElement('div');
         commandsContainer.classList.add('suggestion-commands'); 
-        commandsContainer.append(applyAllButton, revertAllButton);
+        commandsContainer.append(applyAllButton, revertAllButton, synthesizeButton);
 
         const container = document.createElement('div');
         container.classList.add('menu');
@@ -160,9 +211,11 @@ const suggestChangesViewPlugin = new Plugin({
             if (isSuggestChangesEnabled(state)) {
                 toggleButton.textContent = 'Disable Suggestions'; 
                 commandsContainer.style.display = 'flex';
+                synthesizeButton.style.display = 'inline-block';
             } else {
                 toggleButton.textContent = 'Enable Suggestions'; 
                 commandsContainer.style.display = 'none'; 
+                synthesizeButton.style.display = 'none';
             }
         }; 
 

@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
 import { CoqLspClient } from '../lsp/coqLspClient';
 import { Uri } from '../utils/uri';
-import streamCoqChat from '../llm/chatBridge';
+import { runCoqAgent, AgentTool, streamCoqChat } from '../llm/chatBridge';
+import { CoqTools } from '../tools/coqTools';
+import { normalizeGoals } from '../utils/coqUtils'; 
 
 type ClientReadyPromise = Promise<CoqLspClient>;
 
@@ -11,6 +13,7 @@ export class ProofStatePanel {
     private readonly extensionUri: vscode.Uri;
     private disposables: vscode.Disposable[] = [];
     private clientReady: ClientReadyPromise;
+    private currentDocumentUri: vscode.Uri | undefined; 
 
     public static createOrShow(
         context: vscode.ExtensionContext,
@@ -122,28 +125,149 @@ export class ProofStatePanel {
                     this.panel.webview.postMessage({ type: 'chatResponseDone' });
                 }
             })();
+        } else if (cmd === 'agentRequest') { 
+            console.log('Agent request received:', message.context);
+            await this.handleAgentRequest(message.context);
         }
     }
 
-    private normalizeGoals(res: any): any[] | null {
-        console.log(res); 
-        let data = res?.val !== undefined ? res.val : res;
-        if (data && typeof data === 'object' && !Array.isArray(data) && data.message && typeof data.message === 'string') {
-            try {
-                const parsed = JSON.parse(data.message);
-                if (Array.isArray(parsed)) {
-                    data = parsed;
-                }
-            } catch (e) { }
+    private async handleAgentRequest(context: { lhs: string, rhs: string }) {
+        // 1. Get the Generic Model (User's choice: OpenAI, Local, etc.)
+        console.log("before getting model for agent"); 
+        const model = await vscode.commands.executeCommand('outputdirectedtheoremproving.getDefaultChatModel');
+        if (!model) {
+            this.panel.webview.postMessage({ type: 'chatResponsePart', text: 'Error: No model selected.' });
+            return;
         }
-        if (typeof data === 'string') {
-            try { data = JSON.parse(data); } catch { return null; }
+        console.log("after getting model for agent"); 
+
+        // 2. Prepare the Tools Wrapper
+        console.log("before getting active editor");
+        let editor: vscode.TextEditor | undefined; 
+        if (this.currentDocumentUri) {
+            editor = vscode.window.visibleTextEditors.find(
+                e => e.document.uri.toString() === this.currentDocumentUri?.toString()
+            );
         }
-        if (!Array.isArray(data)) return null;
-        if (data.length > 0 && Array.isArray(data[0]) && data[0].length === 2 && Array.isArray(data[0][1])) {
-            return data.flatMap((tuple: any) => tuple[1]);
-        } return data;
+
+        if (!editor) editor = vscode.window.activeTextEditor;
+        if (!editor || editor.document.languageId !== 'coq') {
+            editor = vscode.window.visibleTextEditors.find((e) => e.document.languageId === 'coq');
+        }
+
+        if (!editor) {
+            console.error("Could not find the bound Coq editor.");
+            this.panel.webview.postMessage({ type: 'chatResponsePart', text: 'Error: The Coq file for this proof state is no longer visible.' });
+            return;
+        }
+
+        // 2. Initialize Tools
+        const coqTools = new CoqTools(await this.clientReady, editor);
+
+        // 3. Formulate the Assertion Deterministically
+        const lhs = context.lhs.trim();
+        const rhs = context.rhs.trim();
+        
+        // Basic heuristic: simple equality
+        const assertion = `assert (H0: (${lhs}) = (${rhs})).`;
+
+        // 4. Feedback to UI
+        this.panel.webview.postMessage({ 
+            type: 'chatResponsePart', 
+            text: `_Synthesizing equality check for:_\n\`${lhs}\` replaced by \`${rhs}\`\n\n` 
+        });
+
+        // 5. Execute Logic (Check -> Insert)
+        try {
+            const checkResult = await coqTools.checkTermValidity(assertion);
+
+            if (checkResult === 'valid') {
+                await coqTools.insertCode(assertion);
+                this.panel.webview.postMessage({ 
+                    type: 'chatResponsePart', 
+                    text: `✅ **Verified and Inserted:**\n\`\`\`coq\n${assertion}\n\`\`\`` 
+                });
+            } else {
+                this.panel.webview.postMessage({ 
+                    type: 'chatResponsePart', 
+                    text: `❌ **Validation Failed:**\nThe term \`${assertion}\` is not valid in the current context.\n\n_Reason: ${checkResult}_` 
+                });
+            }
+        } catch (e) {
+            this.panel.webview.postMessage({ 
+                type: 'chatResponsePart', 
+                text: `Error executing Coq tools: ${e}` 
+            });
+        }
+
+        // 6. Finish
+        this.panel.webview.postMessage({ type: 'chatResponseDone' });
+
+//         console.log("after getting active editor");
+
+//         console.log("before creating coqTools");
+//         const coqTools = new CoqTools(await this.clientReady, editor);
+//         console.log("after creating coqTools"); 
+
+//         const agentTools: AgentTool[] = [
+//             {
+//                 name: "check_validity",
+//                 description: "Checks if a Coq term (like 'assert (A=B).') is valid in the current context.",
+//                 execute: async (args) => {
+//                     return await coqTools.checkTermValidity(args.term);
+//                 }
+//             },
+//             {
+//                 name: "insert_code",
+//                 description: "Inserts Coq code into the editor. Only use this AFTER check_validity returns 'valid'.",
+//                 execute: async (args) => {
+//                     return await coqTools.insertCode(args.code);
+//                 }
+//             }
+//         ];
+
+//         // 3. Construct the User Request
+//         const prompt = `
+// The user replaced "${context.lhs}" with "${context.rhs}" in the goal view.
+// Your task is to:
+// 1. Formulate a valid assertion string (e.g. "assert (${context.lhs} = ${context.rhs}).").
+// 2. Check if it is valid using the tool.
+// 3. If valid, insert it into the editor.
+// `;
+
+//         // 4. Run the Agent Loop
+//         // We reuse the 'chatResponsePart' message type so it prints to your existing Chat UI
+//         console.log("before runCoqAgent"); 
+//         await runCoqAgent(
+//             this.clientReady,
+//             model,
+//             prompt,
+//             agentTools,
+//             (chunk) => this.panel.webview.postMessage({ type: 'chatResponsePart', text: chunk }),
+//             () => this.panel.webview.postMessage({ type: 'chatResponseDone' })
+//         );
+//         console.log("after runCoqAgent"); 
     }
+
+    // private normalizeGoals(res: any): any[] | null {
+    //     console.log(res); 
+    //     let data = res?.val !== undefined ? res.val : res;
+    //     if (data && typeof data === 'object' && !Array.isArray(data) && data.message && typeof data.message === 'string') {
+    //         try {
+    //             const parsed = JSON.parse(data.message);
+    //             if (Array.isArray(parsed)) {
+    //                 data = parsed;
+    //             }
+    //         } catch (e) { }
+    //     }
+    //     if (typeof data === 'string') {
+    //         try { data = JSON.parse(data); } catch { return null; }
+    //     }
+    //     if (!Array.isArray(data)) return null;
+    //     if (data.length > 0 && Array.isArray(data[0]) && data[0].length === 2 && Array.isArray(data[0][1])) {
+    //         return data.flatMap((tuple: any) => tuple[1]);
+    //     } return data;
+    // }
 
     private async applyTactic(tactic: string) {
         try {
@@ -162,7 +286,7 @@ export class ProofStatePanel {
             // withTextDocument ensures the document is opened on the server
             await client.withTextDocument({ uri: docUri, version }, async () => {
                 const result = await client.getGoalsAtPoint(position as any, docUri as any, version, tactic);
-                const goals = this.normalizeGoals(result);
+                const goals = normalizeGoals(result);
 
                 if (goals) {
                     this.panel.webview.postMessage({ type: 'proofUpdate', goals });
@@ -189,7 +313,8 @@ export class ProofStatePanel {
                 this.panel.webview.postMessage({ type: 'noDocument' });
                 return;
             }
-
+            
+            this.currentDocumentUri = editor.document.uri; 
             const docUri = Uri.fromPath(editor.document.uri.fsPath);
             const version = editor.document.version;
             const position = editor.selection.active;
@@ -198,7 +323,7 @@ export class ProofStatePanel {
 
             await client.withTextDocument({ uri: docUri, version }, async () => {
                 const result = await client.getGoalsAtPoint(position as any, docUri as any, version);
-                const goals = this.normalizeGoals(result);
+                const goals = normalizeGoals(result);
 
                 if (goals) {
                     this.panel.webview.postMessage({ type: 'proofUpdate', goals });

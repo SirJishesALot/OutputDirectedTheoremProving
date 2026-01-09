@@ -11,7 +11,7 @@ let extensionContext: vscode.ExtensionContext | undefined;
 const OPENAI_SECRET_KEY = 'outputdirectedtheoremproving.openaiApiKey';
 let defaultChatAdapter: any | undefined = undefined;
 
-import streamCoqChat from './llm/chatBridge';
+import { streamCoqChat } from './llm/chatBridge';
 
 const coqChatHandler: vscode.ChatRequestHandler = async (
 	request: vscode.ChatRequest,

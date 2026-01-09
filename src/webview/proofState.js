@@ -16625,6 +16625,17 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     nodes: nodes2,
     marks: marks2
   });
+  function getDiffFromNode(node) {
+    let deletedText = "";
+    let insertedText = "";
+    node.content.forEach((child) => {
+      const isDeleted = child.marks.some((m2) => m2.type.name === "deletion");
+      const isInserted = child.marks.some((m2) => m2.type.name === "insertion");
+      if (isDeleted) deletedText += child.text;
+      if (isInserted) insertedText += child.text;
+    });
+    return { deletedText, insertedText };
+  }
   function renderGoalsToHtml(goals) {
     if (!goals || goals.length === 0) {
       return '<p class="error"><i>No goals at the current cursor position.</i></p>';
@@ -16678,9 +16689,34 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         revertSuggestions(view2.state, view2.dispatch);
         view2.focus();
       });
+      const synthesizeButton = document.createElement("button");
+      synthesizeButton.textContent = "Synthesize Equality";
+      synthesizeButton.classList.add("synthesize-button");
+      synthesizeButton.style.display = "none";
+      synthesizeButton.addEventListener("click", () => {
+        let diffFound = false;
+        view2.state.doc.descendants((node, pos) => {
+          if (diffFound) return false;
+          if (node.type.name === "hypothesis") {
+            const { deletedText, insertedText } = getDiffFromNode(node);
+            if (deletedText && insertedText) {
+              diffFound = true;
+              console.log("Sending agent request:", deletedText, "->", insertedText);
+              vscode.postMessage({
+                command: "agentRequest",
+                context: { lhs: deletedText, rhs: insertedText }
+              });
+            }
+          }
+          return true;
+        });
+        if (!diffFound) {
+          console.log("No hypothesis changes found.");
+        }
+      });
       const commandsContainer = document.createElement("div");
       commandsContainer.classList.add("suggestion-commands");
-      commandsContainer.append(applyAllButton, revertAllButton);
+      commandsContainer.append(applyAllButton, revertAllButton, synthesizeButton);
       const container = document.createElement("div");
       container.classList.add("menu");
       container.append(toggleButton, commandsContainer);
@@ -16689,9 +16725,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         if (isSuggestChangesEnabled(state)) {
           toggleButton.textContent = "Disable Suggestions";
           commandsContainer.style.display = "flex";
+          synthesizeButton.style.display = "inline-block";
         } else {
           toggleButton.textContent = "Enable Suggestions";
           commandsContainer.style.display = "none";
+          synthesizeButton.style.display = "none";
         }
       };
       syncUI(view2.state);

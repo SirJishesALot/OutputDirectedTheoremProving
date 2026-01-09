@@ -2,6 +2,13 @@ import * as vscode from 'vscode';
 import { CoqLspClient } from '../lsp/coqLspClient';
 import { Uri } from '../utils/uri';
 
+export interface AgentTool {
+    name: string;
+    description: string;
+    // The function returns a string (success message, error, or data)
+    execute: (args: any) => Promise<string>;
+}
+
 export async function streamCoqChat(
     clientReady: Promise<CoqLspClient> | undefined,
     model: any,
@@ -101,4 +108,114 @@ export async function streamCoqChat(
     }
 }
 
-export default streamCoqChat;
+/**
+ * A multi-turn agent loop that uses the provided model to execute tools.
+ * It uses JSON-Prompting so it works with any model adapter (OpenAI, Local, etc).
+ */
+export async function runCoqAgent(
+    clientReady: Promise<CoqLspClient> | undefined,
+    model: any,
+    userRequest: string,
+    tools: AgentTool[],
+    onUpdate: (text: string) => void,
+    onDone?: () => void,
+    token?: vscode.CancellationToken
+) {
+    if (!clientReady || !model) {
+        onUpdate("Error: Client or Model not ready.");
+        onDone?.();
+        return;
+    }
+
+    // 1. Construct the System Prompt describing the tools
+    const toolDescriptions = tools.map(t => 
+        `- ${t.name}: ${t.description}. Input: JSON arguments.`
+    ).join('\n');
+
+    const systemPrompt = `You are an automated Coq assistant.
+You have access to the following tools:
+${toolDescriptions}
+
+To use a tool, you MUST respond with a SINGLE JSON block like this:
+\`\`\`json
+{ "tool": "tool_name", "args": { ... } }
+\`\`\`
+
+If you do not need to use a tool, just respond with text.
+When you receive a tool result, use it to answer the user's request.
+`;
+
+    // 2. Initialize Conversation History
+    // We assume the model adapter expects { role, content } objects
+    let messages: any[] = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userRequest }
+    ];
+
+    const MAX_TURNS = 5; // Prevent infinite loops
+    let turn = 0;
+
+    try {
+        while (turn < MAX_TURNS) {
+            turn++;
+            if (token?.isCancellationRequested) break;
+
+            // --- A. Call the Model ---
+            let fullResponseText = "";
+            
+            // We stream the response to the UI so the user sees "Thinking..."
+            const responseStream = await model.sendRequest(messages, {}, token);
+            
+            for await (const chunk of responseStream.text) {
+                fullResponseText += chunk;
+                onUpdate(chunk); // Echo to UI
+            }
+
+            // Append model's response to history
+            messages.push({ role: 'assistant', content: fullResponseText });
+
+            // --- B. Parse for Tool Calls ---
+            const jsonMatch = fullResponseText.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+            
+            if (!jsonMatch) {
+                // No tool call found -> The agent is done.
+                console.log("agent finished wihtout tool call"); 
+                break;
+            }
+
+            // --- C. Execute Tool ---
+            try {
+                const command = JSON.parse(jsonMatch[1]);
+                const toolName = command.tool;
+                const toolArgs = command.args;
+
+                const targetTool = tools.find(t => t.name === toolName);
+                if (!targetTool) {
+                    throw new Error(`Unknown tool: ${toolName}`);
+                }
+
+                onUpdate(`\n\n_Executing tool: ${toolName}..._\n`);
+                
+                // Execute logic
+                const result = await targetTool.execute(toolArgs);
+
+                // Add result to history
+                messages.push({ 
+                    role: 'user', // We use 'user' to represent the "System Output" in generic chat formats
+                    content: `TOOL RESULT (${toolName}): ${result}` 
+                });
+
+                onUpdate(`\n_Result: ${result}_\n\n`);
+
+            } catch (e) {
+                onUpdate(`\n_Tool Execution Error: ${e}_\n`);
+                messages.push({ role: 'user', content: `TOOL ERROR: ${e}` });
+            }
+            // Loop continues -> sends history + tool result back to LLM
+        }
+    } catch (e) {
+        onUpdate(`\nAgent Error: ${e}`);
+    } finally {
+        onDone?.();
+    }
+}
