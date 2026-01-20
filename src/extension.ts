@@ -82,7 +82,7 @@ export function activate(context: vscode.ExtensionContext) {
 		await extensionContext.secrets.store(OPENAI_SECRET_KEY, key);
 		vscode.window.showInformationMessage('OpenAI API key saved securely.');
 	});
-	context.subscriptions.push(setOpenAiKeyCmd);
+	context.subscriptions.push(setOpenAiKeyCmd); 
 
 	const getModelCmd = vscode.commands.registerCommand('outputdirectedtheoremproving.getDefaultChatModel', async () => {
 		// If a default adapter was already selected, return it without prompting again.

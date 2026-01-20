@@ -132,17 +132,29 @@ export async function runCoqAgent(
         `- ${t.name}: ${t.description}. Input: JSON arguments.`
     ).join('\n');
 
-    const systemPrompt = `You are an automated Coq assistant.
+    const systemPrompt = `You are an automated Coq assistant with access to tools that can inspect the proof state and suggest edits.
+
 You have access to the following tools:
 ${toolDescriptions}
 
-To use a tool, you MUST respond with a SINGLE JSON block like this:
+IMPORTANT: When the user asks questions about:
+- The current proof state, goals, or hypotheses → use get_current_proof_state
+- What tactic to use → use get_current_proof_state first to see what needs to be proved
+- Suggesting edits or transformations → use get_current_proof_state, get_proof_context, and suggest_proof_state_edit
+- Available theorems or context → use get_proof_context
+- Validating terms → use check_term_validity
+
+To use a tool, you MUST respond with ONLY a JSON block like this:
 \`\`\`json
 { "tool": "tool_name", "args": { ... } }
 \`\`\`
 
 If you do not need to use a tool, just respond with text.
-When you receive a tool result, use it to answer the user's request.
+When you receive a tool result, analyze it and either:
+1. Use another tool if needed, OR
+2. Provide a helpful answer based on the tool results.
+
+For questions about tactics or proof state, you should ALWAYS start by calling get_current_proof_state to understand what you're working with.
 `;
 
     // 2. Initialize Conversation History
@@ -179,7 +191,8 @@ When you receive a tool result, use it to answer the user's request.
             
             if (!jsonMatch) {
                 // No tool call found -> The agent is done.
-                console.log("agent finished wihtout tool call"); 
+                // Only log this in debug mode, don't show to user
+                console.log("Agent finished without tool call - responding with text only"); 
                 break;
             }
 

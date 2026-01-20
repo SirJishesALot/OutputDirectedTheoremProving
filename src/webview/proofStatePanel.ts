@@ -3,7 +3,8 @@ import { CoqLspClient } from '../lsp/coqLspClient';
 import { Uri } from '../utils/uri';
 import { runCoqAgent, AgentTool, streamCoqChat } from '../llm/chatBridge';
 import { CoqTools } from '../tools/coqTools';
-import { normalizeGoals } from '../utils/coqUtils'; 
+import { normalizeGoals } from '../utils/coqUtils';
+import { createAutoformaliserTools, EditHistory } from '../tools/autoformaliserTools'; 
 
 type ClientReadyPromise = Promise<CoqLspClient>;
 
@@ -13,7 +14,8 @@ export class ProofStatePanel {
     private readonly extensionUri: vscode.Uri;
     private disposables: vscode.Disposable[] = [];
     private clientReady: ClientReadyPromise;
-    private currentDocumentUri: vscode.Uri | undefined; 
+    private currentDocumentUri: vscode.Uri | undefined;
+    private editHistory: EditHistory = { edits: [] }; 
 
     public static createOrShow(
         context: vscode.ExtensionContext,
@@ -103,7 +105,7 @@ export class ProofStatePanel {
         } else if (cmd === 'chat') {
             const prompt: string = message.prompt;
             console.log('Chat prompt received from webview:', prompt);
-            // start streaming a chat response using the chat bridge
+            // Use agent with tools for chat - allows the agent to decide when to use tools
             (async () => {
                 try {
                     // Ask the extension for a model object (may return null)
@@ -115,11 +117,52 @@ export class ProofStatePanel {
                         return;
                     }
 
-                    await streamCoqChat(this.clientReady, model, prompt, (chunk: string) => {
-                        this.panel.webview.postMessage({ type: 'chatResponsePart', text: chunk });
-                    }, () => {
-                        this.panel.webview.postMessage({ type: 'chatResponseDone' });
-                    });
+                    // Get the active editor
+                    let editor: vscode.TextEditor | undefined;
+                    if (this.currentDocumentUri) {
+                        editor = vscode.window.visibleTextEditors.find(
+                            e => e.document.uri.toString() === this.currentDocumentUri?.toString()
+                        );
+                    }
+
+                    if (!editor) editor = vscode.window.activeTextEditor;
+                    if (!editor || editor.document.languageId !== 'coq') {
+                        editor = vscode.window.visibleTextEditors.find((e) => e.document.languageId === 'coq');
+                    }
+
+                    if (!editor) {
+                        // Fall back to simple chat if no editor
+                        await streamCoqChat(this.clientReady, model, prompt, (chunk: string) => {
+                            this.panel.webview.postMessage({ type: 'chatResponsePart', text: chunk });
+                        }, () => {
+                            this.panel.webview.postMessage({ type: 'chatResponseDone' });
+                        });
+                        return;
+                    }
+
+                    // Create autoformaliser tools with edit history
+                    const tools = createAutoformaliserTools(
+                        this.clientReady,
+                        editor,
+                        this.editHistory
+                    );
+
+                    // Enhance the prompt to encourage tool use for proof-related questions
+                    const enhancedPrompt = this.enhancePromptForTools(prompt);
+
+                    // Use runCoqAgent which allows the agent to decide when to use tools
+                    await runCoqAgent(
+                        this.clientReady,
+                        model,
+                        enhancedPrompt,
+                        tools,
+                        (chunk: string) => {
+                            this.panel.webview.postMessage({ type: 'chatResponsePart', text: chunk });
+                        },
+                        () => {
+                            this.panel.webview.postMessage({ type: 'chatResponseDone' });
+                        }
+                    );
                 } catch (e) {
                     console.error('Stream chat response failed:', e);
                     this.panel.webview.postMessage({ type: 'chatResponseDone' });
@@ -132,7 +175,6 @@ export class ProofStatePanel {
     }
 
     private async handleAgentRequest(context: { lhs: string, rhs: string }) {
-        // 1. Get the Generic Model (User's choice: OpenAI, Local, etc.)
         console.log("before getting model for agent"); 
         const model = await vscode.commands.executeCommand('outputdirectedtheoremproving.getDefaultChatModel');
         if (!model) {
@@ -141,7 +183,6 @@ export class ProofStatePanel {
         }
         console.log("after getting model for agent"); 
 
-        // 2. Prepare the Tools Wrapper
         console.log("before getting active editor");
         let editor: vscode.TextEditor | undefined; 
         if (this.currentDocumentUri) {
@@ -161,23 +202,25 @@ export class ProofStatePanel {
             return;
         }
 
-        // 2. Initialize Tools
         const coqTools = new CoqTools(await this.clientReady, editor);
 
-        // 3. Formulate the Assertion Deterministically
         const lhs = context.lhs.trim();
         const rhs = context.rhs.trim();
         
-        // Basic heuristic: simple equality
-        const assertion = `assert (H0: (${lhs}) = (${rhs})).`;
+        // Track this edit in history
+        this.editHistory.edits.push({
+            lhs,
+            rhs,
+            timestamp: Date.now()
+        });
+        
+        const assertion = `assert ((${lhs}) = (${rhs})).`;
 
-        // 4. Feedback to UI
         this.panel.webview.postMessage({ 
             type: 'chatResponsePart', 
             text: `_Synthesizing equality check for:_\n\`${lhs}\` replaced by \`${rhs}\`\n\n` 
         });
 
-        // 5. Execute Logic (Check -> Insert)
         try {
             const checkResult = await coqTools.checkTermValidity(assertion);
 
@@ -305,7 +348,30 @@ export class ProofStatePanel {
         this.panel.webview.postMessage({ type: 'error', message: msg });
     }
 
-    private async updateProofState() {
+    /**
+     * Enhances user prompts to encourage tool use when appropriate.
+     * Adds context hints for questions that clearly need proof state information.
+     */
+    private enhancePromptForTools(prompt: string): string {
+        const lowerPrompt = prompt.toLowerCase();
+        
+        // Keywords that suggest the user needs proof state information
+        const proofStateKeywords = [
+            'tactic', 'what should', 'how to', 'suggest', 'recommend',
+            'what can', 'help with', 'current', 'proof state', 'goal',
+            'hypothesis', 'hypotheses', 'here', 'this proof'
+        ];
+        
+        const needsProofState = proofStateKeywords.some(keyword => lowerPrompt.includes(keyword));
+        
+        if (needsProofState) {
+            return `${prompt}\n\nNote: To answer this question accurately, you should use the get_current_proof_state tool to see the current goals and hypotheses.`;
+        }
+        
+        return prompt;
+    }
+
+    private async updateProofState() { 
         try {
             if (this.panel.active) { return; }
             const editor = vscode.window.activeTextEditor;
