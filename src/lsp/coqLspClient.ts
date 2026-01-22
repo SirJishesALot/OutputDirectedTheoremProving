@@ -407,62 +407,42 @@ export class CoqLspClientImpl implements CoqLspClient {
             pp_format: "Str",
             command: command,
         };
-
+    
         try {
             const goalAnswer = await this.client.sendRequest(
                 goalReqType,
                 goalRequestParams
             );
-            if (goalAnswer === undefined) {
-                return Err(CoqLspError.unknownError());
+    
+            if (!goalAnswer || !goalAnswer.goals) {
+                return Ok({
+                    goals: [],
+                    messages: [],
+                    error: undefined
+                });
             }
-            if (goalAnswer.goals === undefined) {
-                return Err(CoqLspError.unknownError());
-            }
-
-            const substackGoals: [number, ProofGoal[]][] = [];
-
-            for (let i = 0; i < goalAnswer.goals.stack.length; i++) {
-                const goalsAtDepth = goalAnswer.goals.stack[i];
-                const remainingGoals = goalsAtDepth[1];
-                if (remainingGoals.length === 0) {
-                    continue;
-                }
-                substackGoals.push([i, remainingGoals]);
-                break;
-            }
-
-            const goals = goalAnswer?.goals?.goals;
-
-            if (!goals) {
-                return Err(CoqLspError.unknownError());
-            }
-
-            // Extract messages and errors from the goal answer
+    
+            const goals = goalAnswer.goals.goals || [];
+    
             const messages: string[] = [];
             if (goalAnswer.messages) {
                 for (const msg of goalAnswer.messages) {
                     if (typeof msg === 'string') {
                         messages.push(msg);
                     } else if (Array.isArray(msg) && msg.length >= 2) {
-                        // Message<Pp> format: [level, text] where text is PpString
-                        const level = msg[0];
                         const text = msg[1];
                         const textStr = typeof text === 'string' ? text : convertToString(text);
                         messages.push(textStr);
                     } else if (typeof msg === 'object' && 'text' in msg) {
-                        // Message object with text property (Message<Pp>)
                         const text = (msg as any).text;
                         const textStr = typeof text === 'string' ? text : convertToString(text);
                         messages.push(textStr);
                     } else {
-                        // Try to convert as PpString
                         messages.push(convertToString(msg as PpString));
                     }
                 }
             }
-
-            // Extract error if present
+    
             let error: string | undefined = undefined;
             if (goalAnswer.error) {
                 if (typeof goalAnswer.error === 'string') {
@@ -471,16 +451,9 @@ export class CoqLspClientImpl implements CoqLspClient {
                     error = convertToString(goalAnswer.error);
                 }
             }
-
-            if (substackGoals.length === 0) {
-                // Return goals with messages
-                return Ok({ goals, messages, error });
-            }
-
-            return Err({
-                name: "stack_subgoals",
-                message: JSON.stringify(substackGoals),
-            });
+    
+            return Ok({ goals, messages, error });
+    
         } catch (e) {
             if (e instanceof Error) {
                 const errorMsg = this.cleanLspError(
@@ -496,7 +469,7 @@ export class CoqLspClientImpl implements CoqLspClient {
                     )
                 );
             }
-
+    
             return Err(CoqLspError.unknownError(e));
         }
     }

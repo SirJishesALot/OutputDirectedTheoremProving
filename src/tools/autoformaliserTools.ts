@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { CoqLspClient } from '../lsp/coqLspClient';
 import { Uri } from '../utils/uri';
-import { normalizeGoals } from '../utils/coqUtils';
 import { ProofGoal, Hyp, PpString } from '../lsp/coqLspTypes';
 import { AgentTool } from '../llm/chatBridge';
 import { parseCoqFile } from '../parser/parseCoqFile';
@@ -72,7 +71,7 @@ Returns a formatted string with:
                             return;
                         }
 
-                        const goals = normalizeGoals(goalsResult);
+                        const goals = goalsResult.val.goals;
                         if (!goals || goals.length === 0) {
                             result = 'No active goals at this position.';
                             return;
@@ -209,13 +208,12 @@ Use this to validate suggested edits before proposing them.`,
                             command
                         );
 
-                        const goals = normalizeGoals(goalsResult);
-                        if (goals) {
+                        if (goalsResult.ok) {
                             result = 'valid';
-                        } else if (!goalsResult.ok) {
-                            result = `error: ${goalsResult.val.message}`;
                         } else {
-                            result = 'error: Unable to determine term validity.';
+                            const err = goalsResult.val;
+                            const errorMessage = err instanceof Error ? err.message : (typeof err === 'string' ? err : 'Unable to determine term validity');
+                            result = `error: ${errorMessage}`;
                         }
                     });
 
@@ -298,7 +296,7 @@ Useful for understanding what needs to be proved and what transformations might 
                             return;
                         }
 
-                        const goals = normalizeGoals(goalsResult);
+                        const goals = goalsResult.val.goals;
                         if (!goals || goals.length === 0) {
                             result = 'No active goals at this position.';
                             return;

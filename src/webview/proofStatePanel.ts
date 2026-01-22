@@ -3,7 +3,6 @@ import { CoqLspClient } from '../lsp/coqLspClient';
 import { Uri } from '../utils/uri';
 import { runCoqAgent, AgentTool, streamCoqChat } from '../llm/chatBridge';
 import { CoqTools } from '../tools/coqTools';
-import { normalizeGoals } from '../utils/coqUtils';
 import { createAutoformaliserTools, EditHistory } from '../tools/autoformaliserTools';
 import { convertToString, ProofGoal, Hyp, PpString, GoalsWithMessages } from '../lsp/coqLspTypes'; 
 
@@ -269,18 +268,13 @@ export class ProofStatePanel {
             // withTextDocument ensures the document is opened on the server
             await client.withTextDocument({ uri: docUri, version }, async () => {
                 const result = await client.getGoalsAtPoint(position as any, docUri as any, version, tactic);
-                const goals = normalizeGoals(result);
 
-                // Extract messages and error from result if available
-                let messages: string[] = [];
-                let error: string | undefined = undefined;
-                if (result.ok && typeof result.val === 'object' && 'messages' in result.val) {
-                    const goalsWithMessages = result.val as GoalsWithMessages;
-                    messages = goalsWithMessages.messages || [];
-                    error = goalsWithMessages.error;
-                }
+                if (result.ok) {
+                    const goalsWithMessages = result.val;
+                    const goals = goalsWithMessages.goals;
+                    const messages = goalsWithMessages.messages || [];
+                    const error = goalsWithMessages.error;
 
-                if (goals) {
                     // Convert PpString to strings to preserve newlines
                     const convertedGoals = goals.map((g: ProofGoal) => ({
                         ty: convertToString(g.ty),
@@ -299,8 +293,8 @@ export class ProofStatePanel {
                         error: error
                     });
                 } else {
-                    // If normalization failed, print the raw result to debug
-                    const err = (result as any)?.val || result;
+                    // If request failed, show error
+                    const err = result.val;
                     this.postError(err?.message ?? JSON.stringify(err));
                 }
             });
@@ -354,33 +348,21 @@ export class ProofStatePanel {
 
             await client.withTextDocument({ uri: docUri, version }, async () => {
                 const result = await client.getGoalsAtPoint(position as any, docUri as any, version);
-                const goals = normalizeGoals(result);
 
-                // Extract messages and error from result if available
-                let messages: string[] = [];
-                let error: string | undefined = undefined;
-                if (result.ok && typeof result.val === 'object' && 'messages' in result.val) {
-                    const goalsWithMessages = result.val as GoalsWithMessages;
-                    messages = goalsWithMessages.messages || [];
-                    error = goalsWithMessages.error;
-                }
+                if (result.ok) {
+                    const goalsWithMessages = result.val;
+                    const goals = goalsWithMessages.goals;
+                    const messages = goalsWithMessages.messages || [];
+                    const error = goalsWithMessages.error;
 
-                // Log the retrieved goal state
-                // console.log('Retrieved goal state:', {
-                //     goals: goals,
-                //     messages: messages,
-                //     error: error,
-                //     rawResult: result
-                // });
+                    // Log the retrieved goal state
+                    console.log('Retrieved goal state:', JSON.stringify({
+                        goals: goals,
+                        messages: messages,
+                        error: error,
+                        rawResult: result
+                    }, null, 2));
 
-                console.log('Retrieved goal state:', JSON.stringify({
-                    goals: goals,
-                    messages: messages,
-                    error: error,
-                    rawResult: result
-                }, null, 2));
-
-                if (goals) {
                     // Convert PpString to strings to preserve newlines
                     const convertedGoals = goals.map((g: ProofGoal) => ({
                         ty: convertToString(g.ty),
@@ -399,8 +381,8 @@ export class ProofStatePanel {
                         error: error
                     });
                 } else {
-                    // If normalization failed, print the raw result to debug
-                    const err = (result as any)?.val || result;
+                    // If request failed, show error
+                    const err = result.val;
                     this.postError(err?.message ?? JSON.stringify(err));
                 }
             });

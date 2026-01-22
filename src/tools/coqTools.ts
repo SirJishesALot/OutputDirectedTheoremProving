@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { CoqLspClient } from '../lsp/coqLspClient';
 import { Uri } from '../utils/uri';
-import { normalizeGoals } from '../utils/coqUtils';
 
 export class CoqTools {
     constructor(
@@ -19,10 +18,13 @@ export class CoqTools {
         try {
             const result = await this.client.getGoalsAtPoint(pos, uri, version, command);
 
-            const goals = normalizeGoals(result);
-            if (goals) return "valid"; 
-            else if (!result.ok) return `error: ${result.val.message}`;
-            else return "error: Unable to determine term validity.";
+            if (result.ok) {
+                return "valid";
+            } else {
+                const err = result.val;
+                const errorMessage = err instanceof Error ? err.message : (typeof err === 'string' ? err : 'Unable to determine term validity');
+                return `error: ${errorMessage}`;
+            }
         } catch (e) {
             return `error: ${e}`;
         }
