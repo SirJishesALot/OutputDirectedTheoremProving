@@ -130,6 +130,7 @@ export class CoqLspClientImpl implements CoqLspClient {
     private client: BaseLanguageClient;
     private subscriptions: Disposable[] = [];
     private mutex = new Mutex();
+    private diagnosticsMap: Map<string, Diagnostic[]> = new Map();
 
     constructor(
         coqLspConnector: CoqLspConnector,
@@ -333,6 +334,7 @@ export class CoqLspClientImpl implements CoqLspClient {
         this.client.onNotification(
             PublishDiagnosticsNotification.type,
             (params: PublishDiagnosticsParams) => {
+                this.diagnosticsMap.set(params.uri, params.diagnostics);
                 function filterIncorrectLspSuspectedDiagnostics(
                     diagnostic: Diagnostic
                 ): boolean {
@@ -449,6 +451,20 @@ export class CoqLspClientImpl implements CoqLspClient {
                     error = goalAnswer.error;
                 } else {
                     error = convertToString(goalAnswer.error);
+                }
+            }
+
+            if (!error) {
+                const fileDiagnostics = this.diagnosticsMap.get(documentUri.uri) || [];
+                
+                const activeError = fileDiagnostics.find(d => 
+                    d.severity === 1 && // 1 = Error
+                    d.range.start.line <= position.line && 
+                    d.range.end.line >= position.line
+                );
+    
+                if (activeError) {
+                    error = this.removeTraceFromLspError(activeError.message);
                 }
             }
     
