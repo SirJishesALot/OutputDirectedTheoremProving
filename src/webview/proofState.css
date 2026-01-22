@@ -1,9 +1,28 @@
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
 body {
     font-family: system-ui, -apple-system, sans-serif;
     padding: 12px;
+    box-sizing: border-box;
+}
+
+h2 {
+    margin-top: 0;
+    flex: 0 0 auto;
 }
 
 /* This is the main ProseMirror editor container */
+#editor {
+    flex: 0 0 auto;
+    min-height: 0;
+}
+
 .ProseMirror {
     outline: none;
     font-family: monospace;
@@ -96,25 +115,47 @@ del {
     border-left: 3px solid var(--vscode-inputValidation-errorBorder, #dc3545);
 }
 
-/* Controls are unchanged */
+/* Controls - base styles */
 .controls {
     margin-top: 8px;
-}
-input[type="text"] {
-    width: 70%;
 }
 
 /* Chat UI */
 #chat {
     margin-top: 12px;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 #chatLog {
-    max-height: 160px;
+    flex: 1 1 auto;
     overflow: auto;
     border: 1px solid var(--vscode-editorWidget-border);
     padding: 6px;
     background: var(--vscode-editor-background);
     margin-bottom: 6px;
+    min-height: 0;
+}
+
+/* Chat input and button container */
+#chat > div:last-child {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin-top: 0;
+}
+
+#chatInput {
+    flex: 1 1 auto;
+    margin-right: 6px;
+    min-width: 0;
+}
+
+#chatSend {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 4px 12px;
 }
 .chatMessage.user {
     color: var(--vscode-editor-foreground);

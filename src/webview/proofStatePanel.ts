@@ -427,8 +427,10 @@ export class ProofStatePanel {
 
     <div id="chat" class="controls">
         <div id="chatLog"></div>
-        <input id="chatInput" type="text" placeholder="Ask the assistant about this proof state" />
-        <button id="chatSend">Send</button>
+        <div style="display: flex; flex-direction: row; align-items: center;">
+            <input id="chatInput" type="text" placeholder="Consult the assistant." />
+            <button id="chatSend">Send</button>
+        </div>
     </div>
 
   <script src="${scriptUri}"></script>

@@ -92,7 +92,8 @@ export async function streamCoqChat(
         ];
 
         try {
-            const chatResponse = await model.sendRequest(messages, {}, token);
+            // Request more tokens for longer responses
+            const chatResponse = await model.sendRequest(messages, { maxTokens: 2048 }, token);
             for await (const chunk of chatResponse.text) {
                 try { onChunk(chunk); } catch (e) { console.error('onChunk failed', e); }
             }
@@ -176,7 +177,8 @@ For questions about tactics or proof state, you should ALWAYS start by calling g
             let fullResponseText = "";
             
             // We stream the response to the UI so the user sees "Thinking..."
-            const responseStream = await model.sendRequest(messages, {}, token);
+            // Request more tokens for longer responses (especially for multi-turn agent conversations)
+            const responseStream = await model.sendRequest(messages, { maxTokens: 2048 }, token);
             
             for await (const chunk of responseStream.text) {
                 fullResponseText += chunk;

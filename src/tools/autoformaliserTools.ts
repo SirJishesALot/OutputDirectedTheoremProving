@@ -45,10 +45,12 @@ export function createAutoformaliserTools(
     return [
         {
             name: 'get_current_proof_state',
-            description: `Gets the current proof state at the cursor position, including all goals, hypotheses, and their types. 
+            description: `Gets the current proof state at the cursor position, including all goals, hypotheses, their types, and any error messages. 
 Returns a formatted string with:
 - Current goal(s) and their types
 - All hypotheses with their names and types
+- Any error messages from Coq
+- Any informational messages from Coq
 - Goal stack information if available`,
             execute: async (args: {}) => {
                 try {
@@ -71,9 +73,20 @@ Returns a formatted string with:
                             return;
                         }
 
-                        const goals = goalsResult.val.goals;
+                        const goalsWithMessages = goalsResult.val;
+                        const goals = goalsWithMessages.goals;
+                        const messages = goalsWithMessages.messages || [];
+                        const error = goalsWithMessages.error;
+
                         if (!goals || goals.length === 0) {
                             result = 'No active goals at this position.';
+                            // Still include errors/messages even if no goals
+                            if (error) {
+                                result += `\n\n=== ERROR ===\n${error}`;
+                            }
+                            if (messages.length > 0) {
+                                result += `\n\n=== MESSAGES ===\n${messages.join('\n')}`;
+                            }
                             return;
                         }
 
@@ -93,6 +106,21 @@ Returns a formatted string with:
                             }
                             result += '\n';
                         });
+
+                        // Add error messages if present
+                        if (error) {
+                            result += '\n=== ERROR ===\n';
+                            result += error;
+                            result += '\n';
+                        }
+
+                        // Add informational messages if present
+                        if (messages.length > 0) {
+                            result += '\n=== MESSAGES ===\n';
+                            messages.forEach(msg => {
+                                result += `${msg}\n`;
+                            });
+                        }
                     });
 
                     return result || 'No proof state available.';

@@ -166,7 +166,7 @@ export function activate(context: vscode.ExtensionContext) {
 						const stream = await client.chat.completions.create({
 							model: opts?.model ?? selectedModel,
 							messages: chatMessages,
-							max_tokens: opts?.maxTokens ?? 256,
+							max_tokens: opts?.maxTokens ?? 2048, // Increased from 256 to allow longer responses
 							temperature: opts?.temperature ?? 0.2,
 							stream: true, 
 						});
