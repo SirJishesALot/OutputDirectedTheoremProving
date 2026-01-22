@@ -1,6 +1,13 @@
 export function normalizeGoals(res: any): any[] | null {
         console.log(res); 
         let data = res?.val !== undefined ? res.val : res;
+        
+        // Handle new GoalsWithMessages structure
+        if (data && typeof data === 'object' && !Array.isArray(data) && 'goals' in data) {
+            // This is GoalsWithMessages, extract just the goals
+            data = data.goals;
+        }
+        
         if (data && typeof data === 'object' && !Array.isArray(data) && data.message && typeof data.message === 'string') {
             try {
                 const parsed = JSON.parse(data.message);

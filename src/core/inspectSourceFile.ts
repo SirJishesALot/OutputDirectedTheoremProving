@@ -1,4 +1,5 @@
 import { CoqLspClient } from "../lsp/coqLspClient";
+import { GoalsWithMessages } from "../lsp/coqLspTypes";
 
 import { parseCoqFile } from "../parser/parseCoqFile";
 import { ProofStep, Theorem } from "../parser/parsedTypes";
@@ -61,16 +62,19 @@ async function createCompletionContexts(
 
     let completionContexts: CompletionContext[] = [];
     for (const hole of holesToComplete) {
-        const goals = await client.getGoalsAtPoint(
+        const result = await client.getGoalsAtPoint(
             hole.range.start,
             fileUri,
             documentVersion
         );
-        if (goals.ok && goals.val.length !== 0) {
-            completionContexts.push({
-                proofGoal: goals.val[0],
-                admitRange: hole.range,
-            });
+        if (result.ok) {
+            const goalsWithMessages: GoalsWithMessages = result.val;
+            if (goalsWithMessages.goals && goalsWithMessages.goals.length !== 0) {
+                completionContexts.push({
+                    proofGoal: goalsWithMessages.goals[0],
+                    admitRange: hole.range,
+                });
+            }
         }
     }
 

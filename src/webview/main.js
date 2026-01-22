@@ -36,7 +36,7 @@ import {
 const vscode = acquireVsCodeApi();
 const nodes = {
     doc: { 
-        content: "(goal | paragraph)*", // Can contain goals OR error paragraphs
+        content: "(goal | paragraph | messagesSection)*", // Can contain goals, errors, or messages
         marks: 'insertion modification deletion',
     },
     paragraph: basicSchema.spec.nodes.get('paragraph'), // Use basic paragraph for errors
@@ -57,14 +57,32 @@ const nodes = {
     hypothesis: { // This is a styled paragraph
         content: "text*",
         group: "block",
-        toDOM() { return ['p', { class: 'hypothesis' }, 0]; },
-        parseDOM: [{ tag: "p.hypothesis", priority: 60 }]
+        toDOM() { return ['pre', { class: 'hypothesis' }, 0]; },
+        parseDOM: [{ tag: "pre.hypothesis", priority: 60 }, { tag: "p.hypothesis", priority: 50 }]
     },
     goalType: { // This is also a styled paragraph
         content: "text*",
         group: "block",
-        toDOM() { return ['p', { class: 'goalType' }, 0]; },
-        parseDOM: [{ tag: "p.goalType", priority: 60 }]
+        toDOM() { return ['pre', { class: 'goalType' }, 0]; },
+        parseDOM: [{ tag: "pre.goalType", priority: 60 }, { tag: "p.goalType", priority: 50 }]
+    },
+    messagesSection: {
+        content: "messagesHeader message*",
+        group: "block",
+        toDOM() { return ['div', { class: 'messages-section' }, 0]; },
+        parseDOM: [{ tag: "div.messages-section", priority: 60 }]
+    },
+    messagesHeader: {
+        content: "text*",
+        group: "block",
+        toDOM() { return ['div', { class: 'messages-header' }, 0]; },
+        parseDOM: [{ tag: "div.messages-header", priority: 60 }]
+    },
+    message: {
+        content: "text*",
+        group: "block",
+        toDOM() { return ['div', { class: 'message' }, 0]; },
+        parseDOM: [{ tag: "div.message", priority: 60 }, { tag: "div.error-message", priority: 50 }]
     }
 };
 
@@ -105,27 +123,50 @@ function getDiffFromNode(node) {
     return { deletedText, insertedText };
 }
 
-function renderGoalsToHtml(goals) {
-    if (!goals || goals.length === 0) {
-        return '<p class="error"><i>No goals at the current cursor position.</i></p>';
-    }
-
+function renderGoalsToHtml(goals, messages, error) {
     let html = '';
-    for (const g of goals) {
-        html += '<div class="goal">'; // Wrapper div
-        if (g.hyps && g.hyps.length > 0) {
-            html += '<div class="hyps">';
-            g.hyps.forEach(h => {
-                const rawText = h.names.join(', ') + ': ' + h.ty; 
-                const highlighted = hljs.highlight(rawText, {language: 'coq'}).value; 
-                html += `<p class="hypothesis">${highlighted}</p>`;
-            });
+    
+    // Render goals
+    if (!goals || goals.length === 0) {
+        html += '<p class="error"><i>No goals at the current cursor position.</i></p>';
+    } else {
+        for (const g of goals) {
+            html += '<div class="goal">'; // Wrapper div
+            if (g.hyps && g.hyps.length > 0) {
+                html += '<div class="hyps">';
+                g.hyps.forEach(h => {
+                    const rawText = h.names.join(', ') + ': ' + h.ty; 
+                    const highlighted = hljs.highlight(rawText, {language: 'coq'}).value; 
+                    html += `<pre class="hypothesis">${highlighted}</pre>`;
+                });
+                html += '</div>';
+            }
+            const highlightedGoal = hljs.highlight(g.ty, { language: 'coq' }).value;
+            html += `<pre class="goalType">${highlightedGoal}</pre>`;
             html += '</div>';
         }
-        const highlightedGoal = hljs.highlight(g.ty, { language: 'coq' }).value;
-        html += `<p class="goalType">${highlightedGoal}</p>`;
+    }
+    
+    // Render messages section if there are messages or errors
+    if ((messages && messages.length > 0) || error) {
+        html += '<div class="messages-section">';
+        html += '<div class="messages-header">Messages</div>';
+        
+        // Render error if present
+        if (error) {
+            html += `<div class="message error-message">${escapeHtml(error)}</div>`;
+        }
+        
+        // Render other messages
+        if (messages && messages.length > 0) {
+            messages.forEach(msg => {
+                html += `<div class="message">${escapeHtml(msg)}</div>`;
+            });
+        }
+        
         html += '</div>';
     }
+    
     return html;
 }
 
@@ -274,7 +315,7 @@ window.addEventListener('message', (event) => {
             break;
         case 'proofUpdate':
             console.log("proof update request receieved");
-            html = renderGoalsToHtml(msg.goals); 
+            html = renderGoalsToHtml(msg.goals, msg.messages, msg.error); 
             break;
         case 'chatResponsePart':
             // Append or update the last partial chat message

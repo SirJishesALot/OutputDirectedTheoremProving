@@ -38,9 +38,11 @@ import {
     FlecheDocumentParams,
     GoalAnswer,
     GoalRequest,
+    GoalsWithMessages,
     Message,
     PpString,
     ProofGoal,
+    convertToString,
 } from "./coqLspTypes";
 
 export interface DocumentSpec {
@@ -64,7 +66,7 @@ export interface CoqLspClient extends Disposable {
         documentUri: Uri,
         version: number,
         command?: string
-    ): Promise<Result<ProofGoal[], Error>>;
+    ): Promise<Result<GoalsWithMessages, Error>>;
 
     /**
      * The wrapper for the getGoalsAtPoint method returning only the first goal of the extracted ones.
@@ -165,7 +167,7 @@ export class CoqLspClientImpl implements CoqLspClient {
         documentUri: Uri,
         version: number,
         command?: string
-    ): Promise<Result<ProofGoal[], Error>> {
+    ): Promise<Result<GoalsWithMessages, Error>> {
         return await this.mutex.runExclusive(async () => {
             throwOnAbort(this.abortSignal);
             return this.getGoalsAtPointUnsafe(
@@ -185,22 +187,25 @@ export class CoqLspClientImpl implements CoqLspClient {
     ): Promise<ProofGoal> {
         return await this.mutex.runExclusive(async () => {
             throwOnAbort(this.abortSignal);
-            const goals = await this.getGoalsAtPointUnsafe(
+            const result = await this.getGoalsAtPointUnsafe(
                 position,
                 documentUri,
                 version,
                 command
             );
-            if (goals.err) {
-                throw new CoqLspError(
-                    `Failed to get the first goal: ${getErrorMessage(goals.val)}`
-                );
-            } else if (goals.val.length === 0) {
-                throw new CoqLspError(
-                    `Failed to get the first goal: list of goals is empty at the position ${position} of ${documentUri.fsPath}`
-                );
+            
+            if (!result.ok) {
+                const error = result.val;
+                const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : 'Failed to get goals');
+                throw new CoqLspError(errorMessage);
             }
-            return goals.val[0];
+            
+            const goals = result.val.goals;
+            if (!goals || goals.length === 0) {
+                throw new CoqLspError('No goals at this position');
+            }
+            
+            return goals[0];
         });
     }
 
@@ -392,7 +397,7 @@ export class CoqLspClientImpl implements CoqLspClient {
         documentUri: Uri,
         version: number,
         command?: string
-    ): Promise<Result<ProofGoal[], Error>> {
+    ): Promise<Result<GoalsWithMessages, Error>> {
         let goalRequestParams: GoalRequest = {
             textDocument: VersionedTextDocumentIdentifier.create(
                 documentUri.uri,
@@ -433,8 +438,43 @@ export class CoqLspClientImpl implements CoqLspClient {
                 return Err(CoqLspError.unknownError());
             }
 
+            // Extract messages and errors from the goal answer
+            const messages: string[] = [];
+            if (goalAnswer.messages) {
+                for (const msg of goalAnswer.messages) {
+                    if (typeof msg === 'string') {
+                        messages.push(msg);
+                    } else if (Array.isArray(msg) && msg.length >= 2) {
+                        // Message<Pp> format: [level, text] where text is PpString
+                        const level = msg[0];
+                        const text = msg[1];
+                        const textStr = typeof text === 'string' ? text : convertToString(text);
+                        messages.push(textStr);
+                    } else if (typeof msg === 'object' && 'text' in msg) {
+                        // Message object with text property (Message<Pp>)
+                        const text = (msg as any).text;
+                        const textStr = typeof text === 'string' ? text : convertToString(text);
+                        messages.push(textStr);
+                    } else {
+                        // Try to convert as PpString
+                        messages.push(convertToString(msg as PpString));
+                    }
+                }
+            }
+
+            // Extract error if present
+            let error: string | undefined = undefined;
+            if (goalAnswer.error) {
+                if (typeof goalAnswer.error === 'string') {
+                    error = goalAnswer.error;
+                } else {
+                    error = convertToString(goalAnswer.error);
+                }
+            }
+
             if (substackGoals.length === 0) {
-                return Ok(goals);
+                // Return goals with messages
+                return Ok({ goals, messages, error });
             }
 
             return Err({

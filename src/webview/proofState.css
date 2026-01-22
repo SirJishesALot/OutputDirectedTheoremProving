@@ -34,8 +34,15 @@ del {
 
 .hypothesis {
     padding: 2px 4px;
-    margin: 2px 0; /* Add vertical margin for paragraphs */
+    margin: 2px 0;
     border-radius: 2px;
+    white-space: pre-wrap;
+    font-family: monospace;
+    margin: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+    overflow-x: auto;
 }
 
 .goalType {
@@ -44,10 +51,49 @@ del {
     border-radius: 4px;
     margin-top: 6px;
     color: black;
+    white-space: pre-wrap;
+    font-family: monospace;
+    margin: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+    overflow-x: auto;
 }
 
 .error {
     color: red;
+}
+
+/* Messages section styling */
+.messages-section {
+    margin-top: 12px;
+    border-top: 1px solid var(--vscode-editorWidget-border);
+    padding-top: 8px;
+}
+
+.messages-header {
+    font-weight: bold;
+    margin-bottom: 6px;
+    color: var(--vscode-editor-foreground);
+    font-size: 0.9em;
+}
+
+.message {
+    padding: 4px 8px;
+    margin: 4px 0;
+    border-radius: 3px;
+    background: var(--vscode-textBlockQuote-background, #f0f0f0);
+    color: var(--vscode-editor-foreground);
+    font-family: monospace;
+    font-size: 0.9em;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.error-message {
+    background: var(--vscode-inputValidation-errorBackground, #f8d7da);
+    color: var(--vscode-inputValidation-errorForeground, #721c24);
+    border-left: 3px solid var(--vscode-inputValidation-errorBorder, #dc3545);
 }
 
 /* Controls are unchanged */

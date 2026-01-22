@@ -4,7 +4,8 @@ import { Uri } from '../utils/uri';
 import { runCoqAgent, AgentTool, streamCoqChat } from '../llm/chatBridge';
 import { CoqTools } from '../tools/coqTools';
 import { normalizeGoals } from '../utils/coqUtils';
-import { createAutoformaliserTools, EditHistory } from '../tools/autoformaliserTools'; 
+import { createAutoformaliserTools, EditHistory } from '../tools/autoformaliserTools';
+import { convertToString, ProofGoal, Hyp, PpString, GoalsWithMessages } from '../lsp/coqLspTypes'; 
 
 type ClientReadyPromise = Promise<CoqLspClient>;
 
@@ -246,71 +247,10 @@ export class ProofStatePanel {
         // 6. Finish
         this.panel.webview.postMessage({ type: 'chatResponseDone' });
 
-//         console.log("after getting active editor");
 
-//         console.log("before creating coqTools");
-//         const coqTools = new CoqTools(await this.clientReady, editor);
-//         console.log("after creating coqTools"); 
-
-//         const agentTools: AgentTool[] = [
-//             {
-//                 name: "check_validity",
-//                 description: "Checks if a Coq term (like 'assert (A=B).') is valid in the current context.",
-//                 execute: async (args) => {
-//                     return await coqTools.checkTermValidity(args.term);
-//                 }
-//             },
-//             {
-//                 name: "insert_code",
-//                 description: "Inserts Coq code into the editor. Only use this AFTER check_validity returns 'valid'.",
-//                 execute: async (args) => {
-//                     return await coqTools.insertCode(args.code);
-//                 }
-//             }
-//         ];
-
-//         // 3. Construct the User Request
-//         const prompt = `
-// The user replaced "${context.lhs}" with "${context.rhs}" in the goal view.
-// Your task is to:
-// 1. Formulate a valid assertion string (e.g. "assert (${context.lhs} = ${context.rhs}).").
-// 2. Check if it is valid using the tool.
-// 3. If valid, insert it into the editor.
-// `;
-
-//         // 4. Run the Agent Loop
-//         // We reuse the 'chatResponsePart' message type so it prints to your existing Chat UI
-//         console.log("before runCoqAgent"); 
-//         await runCoqAgent(
-//             this.clientReady,
-//             model,
-//             prompt,
-//             agentTools,
-//             (chunk) => this.panel.webview.postMessage({ type: 'chatResponsePart', text: chunk }),
-//             () => this.panel.webview.postMessage({ type: 'chatResponseDone' })
-//         );
-//         console.log("after runCoqAgent"); 
     }
 
-    // private normalizeGoals(res: any): any[] | null {
-    //     console.log(res); 
-    //     let data = res?.val !== undefined ? res.val : res;
-    //     if (data && typeof data === 'object' && !Array.isArray(data) && data.message && typeof data.message === 'string') {
-    //         try {
-    //             const parsed = JSON.parse(data.message);
-    //             if (Array.isArray(parsed)) {
-    //                 data = parsed;
-    //             }
-    //         } catch (e) { }
-    //     }
-    //     if (typeof data === 'string') {
-    //         try { data = JSON.parse(data); } catch { return null; }
-    //     }
-    //     if (!Array.isArray(data)) return null;
-    //     if (data.length > 0 && Array.isArray(data[0]) && data[0].length === 2 && Array.isArray(data[0][1])) {
-    //         return data.flatMap((tuple: any) => tuple[1]);
-    //     } return data;
-    // }
+    
 
     private async applyTactic(tactic: string) {
         try {
@@ -331,8 +271,33 @@ export class ProofStatePanel {
                 const result = await client.getGoalsAtPoint(position as any, docUri as any, version, tactic);
                 const goals = normalizeGoals(result);
 
+                // Extract messages and error from result if available
+                let messages: string[] = [];
+                let error: string | undefined = undefined;
+                if (result.ok && typeof result.val === 'object' && 'messages' in result.val) {
+                    const goalsWithMessages = result.val as GoalsWithMessages;
+                    messages = goalsWithMessages.messages || [];
+                    error = goalsWithMessages.error;
+                }
+
                 if (goals) {
-                    this.panel.webview.postMessage({ type: 'proofUpdate', goals });
+                    // Convert PpString to strings to preserve newlines
+                    const convertedGoals = goals.map((g: ProofGoal) => ({
+                        ty: convertToString(g.ty),
+                        hyps: g.hyps.map((h: Hyp<PpString>) => ({
+                            names: h.names.map(n => convertToString(n)),
+                            def: h.def ? convertToString(h.def) : undefined,
+                            ty: convertToString(h.ty)
+                        }))
+                    }));
+                    
+                    // Send goals and messages to webview
+                    this.panel.webview.postMessage({ 
+                        type: 'proofUpdate', 
+                        goals: convertedGoals,
+                        messages: messages,
+                        error: error
+                    });
                 } else {
                     // If normalization failed, print the raw result to debug
                     const err = (result as any)?.val || result;
@@ -391,8 +356,48 @@ export class ProofStatePanel {
                 const result = await client.getGoalsAtPoint(position as any, docUri as any, version);
                 const goals = normalizeGoals(result);
 
+                // Extract messages and error from result if available
+                let messages: string[] = [];
+                let error: string | undefined = undefined;
+                if (result.ok && typeof result.val === 'object' && 'messages' in result.val) {
+                    const goalsWithMessages = result.val as GoalsWithMessages;
+                    messages = goalsWithMessages.messages || [];
+                    error = goalsWithMessages.error;
+                }
+
+                // Log the retrieved goal state
+                // console.log('Retrieved goal state:', {
+                //     goals: goals,
+                //     messages: messages,
+                //     error: error,
+                //     rawResult: result
+                // });
+
+                console.log('Retrieved goal state:', JSON.stringify({
+                    goals: goals,
+                    messages: messages,
+                    error: error,
+                    rawResult: result
+                }, null, 2));
+
                 if (goals) {
-                    this.panel.webview.postMessage({ type: 'proofUpdate', goals });
+                    // Convert PpString to strings to preserve newlines
+                    const convertedGoals = goals.map((g: ProofGoal) => ({
+                        ty: convertToString(g.ty),
+                        hyps: g.hyps.map((h: Hyp<PpString>) => ({
+                            names: h.names.map(n => convertToString(n)),
+                            def: h.def ? convertToString(h.def) : undefined,
+                            ty: convertToString(h.ty)
+                        }))
+                    }));
+                    
+                    // Send goals and messages to webview
+                    this.panel.webview.postMessage({ 
+                        type: 'proofUpdate', 
+                        goals: convertedGoals,
+                        messages: messages,
+                        error: error
+                    });
                 } else {
                     // If normalization failed, print the raw result to debug
                     const err = (result as any)?.val || result;

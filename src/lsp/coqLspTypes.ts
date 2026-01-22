@@ -9,6 +9,12 @@ import { buildErrorCompleteLog } from "../utils/errorsUtils";
 
 export type ProofGoal = Goal<PpString>;
 
+export interface GoalsWithMessages {
+    goals: ProofGoal[];
+    messages: string[];
+    error?: string;
+}
+
 export interface Hyp<Pp> {
     names: Pp[];
     def?: Pp;
