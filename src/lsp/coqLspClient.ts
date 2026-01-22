@@ -1,6 +1,7 @@
 import { Mutex } from "async-mutex";
 import { readFileSync } from "fs";
 import { Err, Ok, Result } from "ts-results";
+import * as vscode from "vscode";
 import { OutputChannel } from "vscode";
 import {
     BaseLanguageClient,
@@ -456,15 +457,20 @@ export class CoqLspClientImpl implements CoqLspClient {
 
             if (!error) {
                 const fileDiagnostics = this.diagnosticsMap.get(documentUri.uri) || [];
-                
-                const activeError = fileDiagnostics.find(d => 
-                    d.severity === 1 && // 1 = Error
-                    d.range.start.line <= position.line && 
-                    d.range.end.line >= position.line
-                );
-    
-                if (activeError) {
-                    error = this.removeTraceFromLspError(activeError.message);
+
+                const editor = vscode.window.activeTextEditor;
+                const currentLineText = editor?.document.lineAt(position.line).text.trim();
+
+                if (currentLineText && currentLineText.length > 0) {
+                    const activeError = fileDiagnostics.find(d => 
+                        d.severity === 1 && // 1 = Error
+                        d.range.start.line <= position.line && 
+                        d.range.end.line >= position.line
+                    );
+        
+                    if (activeError) {
+                        error = this.removeTraceFromLspError(activeError.message);
+                    }
                 }
             }
     
