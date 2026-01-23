@@ -449,9 +449,10 @@ export class CoqLspClientImpl implements CoqLspClient {
             let error: string | undefined = undefined;
             if (goalAnswer.error) {
                 if (typeof goalAnswer.error === 'string') {
-                    error = goalAnswer.error;
+                    error = this.removeTraceFromLspError(goalAnswer.error);
                 } else {
-                    error = convertToString(goalAnswer.error);
+                    const errorStr = convertToString(goalAnswer.error);
+                    error = this.removeTraceFromLspError(errorStr);
                 }
             }
 
