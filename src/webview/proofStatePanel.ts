@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { CoqLspClient } from '../lsp/coqLspClient';
 import { Uri } from '../utils/uri';
-import { runCoqAgent, AgentTool, streamCoqChat } from '../llm/chatBridge';
+import { runCoqAgent, AgentTool, streamCoqChat, SuggestionCallback, ConversationHistoryCallback } from '../llm/chatBridge';
 import { CoqTools } from '../tools/coqTools';
 import { createAutoformaliserTools, EditHistory } from '../tools/autoformaliserTools';
 import { convertToString, ProofGoal, Hyp, PpString, GoalsWithMessages } from '../lsp/coqLspTypes'; 
@@ -15,7 +15,8 @@ export class ProofStatePanel {
     private disposables: vscode.Disposable[] = [];
     private clientReady: ClientReadyPromise;
     private currentDocumentUri: vscode.Uri | undefined;
-    private editHistory: EditHistory = { edits: [] }; 
+    private editHistory: EditHistory = { edits: [] };
+    private conversationHistory: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = []; 
 
     public static createOrShow(
         context: vscode.ExtensionContext,
@@ -150,6 +151,20 @@ export class ProofStatePanel {
                     // Enhance the prompt to encourage tool use for proof-related questions
                     const enhancedPrompt = this.enhancePromptForTools(prompt);
 
+                    // Callback to handle suggestions from the agent
+                    const handleSuggestion: SuggestionCallback = (suggestion) => {
+                        // Send suggestion to webview to display in ProseMirror
+                        this.panel.webview.postMessage({
+                            type: 'suggestion',
+                            suggestion: suggestion
+                        });
+                    };
+
+                    // Callback to update conversation history
+                    const handleHistoryUpdate: ConversationHistoryCallback = (history) => {
+                        this.conversationHistory = history;
+                    };
+
                     // Use runCoqAgent which allows the agent to decide when to use tools
                     await runCoqAgent(
                         this.clientReady,
@@ -161,7 +176,11 @@ export class ProofStatePanel {
                         },
                         () => {
                             this.panel.webview.postMessage({ type: 'chatResponseDone' });
-                        }
+                        },
+                        undefined, // token
+                        handleSuggestion, // onSuggestion callback
+                        this.conversationHistory, // conversation history
+                        handleHistoryUpdate // onHistoryUpdate callback
                     );
                 } catch (e) {
                     console.error('Stream chat response failed:', e);

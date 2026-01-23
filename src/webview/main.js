@@ -54,17 +54,29 @@ const nodes = {
         toDOM() { return ['div', { class: 'hyps' }, 0]; },
         parseDOM: [{ tag: "div.hyps", priority: 60 }]
     },
-    hypothesis: { // This is a styled paragraph
+    hypothesis: { 
         content: "text*",
         group: "block",
-        toDOM() { return ['pre', { class: 'hypothesis' }, 0]; },
-        parseDOM: [{ tag: "pre.hypothesis", priority: 60 }, { tag: "p.hypothesis", priority: 50 }]
+        toDOM() { 
+            return ['pre', { 
+                class: 'hypothesis', 
+                style: 'margin: 0; white-space: pre-wrap; font-family: var(--vscode-editor-font-family);' 
+            }, 0]; 
+        },
+        // ADD preserveWhitespace: "full" HERE
+        parseDOM: [{ tag: "pre.hypothesis", priority: 60, preserveWhitespace: "full" }]
     },
-    goalType: { // This is also a styled paragraph
+    goalType: { 
         content: "text*",
         group: "block",
-        toDOM() { return ['pre', { class: 'goalType' }, 0]; },
-        parseDOM: [{ tag: "pre.goalType", priority: 60 }, { tag: "p.goalType", priority: 50 }]
+        toDOM() { 
+            return ['pre', { 
+                class: 'goalType', 
+                style: 'margin: 0; white-space: pre-wrap; font-weight: bold; font-family: var(--vscode-editor-font-family);' 
+            }, 0]; 
+        },
+        // ADD preserveWhitespace: "full" HERE
+        parseDOM: [{ tag: "pre.goalType", priority: 60, preserveWhitespace: "full" }]
     },
     messagesSection: {
         content: "messagesHeader message*",
@@ -324,6 +336,9 @@ window.addEventListener('message', (event) => {
         case 'chatResponseDone':
             finalizeChatStream();
             return;
+        case 'suggestion':
+            handleSuggestion(msg.suggestion);
+            return;
         default:
             console.warn("Unknown message type:", msg.type);
             return;
@@ -339,6 +354,73 @@ window.addEventListener('message', (event) => {
     });
     view.updateState(newState);
 });
+
+// Handle suggestions from the agent
+function handleSuggestion(suggestion) {
+    if (!suggestion || !suggestion.hypothesisName || !suggestion.originalValue || !suggestion.suggestedValue) {
+        console.warn('Invalid suggestion received:', suggestion);
+        return;
+    }
+
+    let state = view.state;
+    const doc = state.doc;
+    
+    // Find the text matching originalValue in the document
+    // We'll search through all text nodes to find the originalValue
+    let foundPos = -1;
+    let foundLength = 0;
+    
+    doc.descendants((node, pos) => {
+        if (node.isText) {
+            const text = node.text;
+            const searchText = suggestion.originalValue;
+            const index = text.indexOf(searchText);
+            
+            if (index !== -1 && foundPos === -1) {
+                foundPos = pos + index;
+                foundLength = searchText.length;
+                return false; // Stop searching
+            }
+        }
+    });
+
+    if (foundPos === -1) {
+        console.warn(`Could not find original value "${suggestion.originalValue}" in document`);
+        // Still show the suggestion in chat
+        appendChatMessage(`Suggestion: Replace "${suggestion.originalValue}" with "${suggestion.suggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`, 'assistant');
+        return;
+    }
+
+    // Generate a unique ID for this suggestion
+    const suggestionId = `suggestion-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Enable suggestions if not already enabled
+    if (!isSuggestChangesEnabled(state)) {
+        // Enable suggestions mode first
+        toggleSuggestChanges(state, (newTr) => {
+            view.dispatch(newTr);
+        });
+        // Get the updated state after enabling
+        state = view.state;
+    }
+
+    // Create a transaction to add the modification mark
+    const tr = state.tr;
+    const modificationMark = schema.marks.modification.create({
+        id: suggestionId,
+        type: 'replace',
+        previousValue: suggestion.originalValue,
+        newValue: suggestion.suggestedValue
+    });
+
+    // Apply the modification mark to the found text
+    tr.addMark(foundPos, foundPos + foundLength, modificationMark);
+    view.dispatch(tr);
+
+    // Also show the suggestion in chat
+    const suggestionMsg = `Suggestion: Replace "${suggestion.originalValue}" with "${suggestion.suggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`;
+    appendChatMessage(suggestionMsg, 'assistant');
+}
 
 // Chat UI helpers
 const chatLog = document.getElementById('chatLog');

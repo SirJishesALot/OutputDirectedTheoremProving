@@ -113,6 +113,19 @@ export async function streamCoqChat(
  * A multi-turn agent loop that uses the provided model to execute tools.
  * It uses JSON-Prompting so it works with any model adapter (OpenAI, Local, etc).
  */
+export interface SuggestionCallback {
+    (suggestion: {
+        hypothesisName: string;
+        originalValue: string;
+        suggestedValue: string;
+        reason?: string;
+    }): void;
+}
+
+export interface ConversationHistoryCallback {
+    (history: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>): void;
+}
+
 export async function runCoqAgent(
     clientReady: Promise<CoqLspClient> | undefined,
     model: any,
@@ -120,7 +133,10 @@ export async function runCoqAgent(
     tools: AgentTool[],
     onUpdate: (text: string) => void,
     onDone?: () => void,
-    token?: vscode.CancellationToken
+    token?: vscode.CancellationToken,
+    onSuggestion?: SuggestionCallback,
+    conversationHistory?: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
+    onHistoryUpdate?: ConversationHistoryCallback
 ) {
     if (!clientReady || !model) {
         onUpdate("Error: Client or Model not ready.");
@@ -159,11 +175,24 @@ For questions about tactics or proof state, you should ALWAYS start by calling g
 `;
 
     // 2. Initialize Conversation History
-    // We assume the model adapter expects { role, content } objects
-    let messages: any[] = [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userRequest }
-    ];
+    // Use provided history or start fresh
+    let messages: any[] = [];
+    
+    // Add system prompt if not already in history
+    if (!conversationHistory || conversationHistory.length === 0 || conversationHistory[0].role !== 'system') {
+        messages.push({ role: 'system', content: systemPrompt });
+    }
+    
+    // Add conversation history (excluding system prompt if we just added it)
+    if (conversationHistory && conversationHistory.length > 0) {
+        const historyToAdd = conversationHistory[0].role === 'system' 
+            ? conversationHistory 
+            : conversationHistory;
+        messages.push(...historyToAdd);
+    }
+    
+    // Add the new user request
+    messages.push({ role: 'user', content: userRequest });
 
     const MAX_TURNS = 5; // Prevent infinite loops
     let turn = 0;
@@ -214,6 +243,22 @@ For questions about tactics or proof state, you should ALWAYS start by calling g
                 // Execute logic
                 const result = await targetTool.execute(toolArgs);
 
+                // If this is a suggestion tool, extract and send the suggestion to the UI
+                if (toolName === 'suggest_proof_state_edit' && onSuggestion) {
+                    try {
+                        // Extract suggestion details from toolArgs
+                        const suggestion = {
+                            hypothesisName: toolArgs.hypothesisName,
+                            originalValue: toolArgs.originalValue,
+                            suggestedValue: toolArgs.suggestedValue,
+                            reason: toolArgs.reason
+                        };
+                        onSuggestion(suggestion);
+                    } catch (e) {
+                        console.error('Failed to process suggestion:', e);
+                    }
+                }
+
                 // Add result to history
                 messages.push({ 
                     role: 'user', // We use 'user' to represent the "System Output" in generic chat formats
@@ -231,6 +276,10 @@ For questions about tactics or proof state, you should ALWAYS start by calling g
     } catch (e) {
         onUpdate(`\nAgent Error: ${e}`);
     } finally {
+        // Update conversation history before finishing
+        if (onHistoryUpdate) {
+            onHistoryUpdate(messages);
+        }
         onDone?.();
     }
 }

@@ -16585,23 +16585,45 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       },
       parseDOM: [{ tag: "div.hyps", priority: 60 }]
     },
+    // hypothesis: { // This is a styled paragraph
+    //     content: "text*",
+    //     group: "block",
+    //     // toDOM() { return ['pre', { class: 'hypothesis' }, 0]; },
+    //     // parseDOM: [{ tag: "pre.hypothesis", priority: 60 }, { tag: "p.hypothesis", priority: 50 }]
+    //     toDOM() { return ['pre', { class: 'hypothesis', style: 'margin: 0; white-space: pre-wrap; font-family: var(--vscode-editor-font-family);' }, 0]; },
+    //     parseDOM: [{ tag: "pre.hypothesis", priority: 60 }]
+    // },
     hypothesis: {
-      // This is a styled paragraph
       content: "text*",
       group: "block",
       toDOM() {
-        return ["pre", { class: "hypothesis" }, 0];
+        return ["pre", {
+          class: "hypothesis",
+          style: "margin: 0; white-space: pre-wrap; font-family: var(--vscode-editor-font-family);"
+        }, 0];
       },
-      parseDOM: [{ tag: "pre.hypothesis", priority: 60 }, { tag: "p.hypothesis", priority: 50 }]
+      // ADD preserveWhitespace: "full" HERE
+      parseDOM: [{ tag: "pre.hypothesis", priority: 60, preserveWhitespace: "full" }]
     },
+    // goalType: { // This is also a styled paragraph
+    //     content: "text*",
+    //     group: "block",
+    //     // toDOM() { return ['pre', { class: 'goalType' }, 0]; },
+    //     // parseDOM: [{ tag: "pre.goalType", priority: 60 }, { tag: "p.goalType", priority: 50 }]
+    //     toDOM() { return ['pre', { class: 'goalType', style: 'margin: 0; white-space: pre-wrap; font-weight: bold; font-family: var(--vscode-editor-font-family);' }, 0]; },
+    //     parseDOM: [{ tag: "pre.goalType", priority: 60 }]
+    // },
     goalType: {
-      // This is also a styled paragraph
       content: "text*",
       group: "block",
       toDOM() {
-        return ["pre", { class: "goalType" }, 0];
+        return ["pre", {
+          class: "goalType",
+          style: "margin: 0; white-space: pre-wrap; font-weight: bold; font-family: var(--vscode-editor-font-family);"
+        }, 0];
       },
-      parseDOM: [{ tag: "pre.goalType", priority: 60 }, { tag: "p.goalType", priority: 50 }]
+      // ADD preserveWhitespace: "full" HERE
+      parseDOM: [{ tag: "pre.goalType", priority: 60, preserveWhitespace: "full" }]
     },
     messagesSection: {
       content: "messagesHeader message*",
@@ -16823,6 +16845,9 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       case "chatResponseDone":
         finalizeChatStream();
         return;
+      case "suggestion":
+        handleSuggestion(msg.suggestion);
+        return;
       default:
         console.warn("Unknown message type:", msg.type);
         return;
@@ -16836,6 +16861,51 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     });
     view.updateState(newState);
   });
+  function handleSuggestion(suggestion) {
+    if (!suggestion || !suggestion.hypothesisName || !suggestion.originalValue || !suggestion.suggestedValue) {
+      console.warn("Invalid suggestion received:", suggestion);
+      return;
+    }
+    let state = view.state;
+    const doc3 = state.doc;
+    let foundPos = -1;
+    let foundLength = 0;
+    doc3.descendants((node, pos) => {
+      if (node.isText) {
+        const text = node.text;
+        const searchText = suggestion.originalValue;
+        const index = text.indexOf(searchText);
+        if (index !== -1 && foundPos === -1) {
+          foundPos = pos + index;
+          foundLength = searchText.length;
+          return false;
+        }
+      }
+    });
+    if (foundPos === -1) {
+      console.warn(`Could not find original value "${suggestion.originalValue}" in document`);
+      appendChatMessage(`Suggestion: Replace "${suggestion.originalValue}" with "${suggestion.suggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ""}`, "assistant");
+      return;
+    }
+    const suggestionId = `suggestion-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    if (!isSuggestChangesEnabled(state)) {
+      toggleSuggestChanges(state, (newTr) => {
+        view.dispatch(newTr);
+      });
+      state = view.state;
+    }
+    const tr = state.tr;
+    const modificationMark = schema2.marks.modification.create({
+      id: suggestionId,
+      type: "replace",
+      previousValue: suggestion.originalValue,
+      newValue: suggestion.suggestedValue
+    });
+    tr.addMark(foundPos, foundPos + foundLength, modificationMark);
+    view.dispatch(tr);
+    const suggestionMsg = `Suggestion: Replace "${suggestion.originalValue}" with "${suggestion.suggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ""}`;
+    appendChatMessage(suggestionMsg, "assistant");
+  }
   var chatLog = document.getElementById("chatLog");
   var chatInput = document.getElementById("chatInput");
   var chatSend = document.getElementById("chatSend");
