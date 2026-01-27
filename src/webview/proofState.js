@@ -16585,14 +16585,6 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       },
       parseDOM: [{ tag: "div.hyps", priority: 60 }]
     },
-    // hypothesis: { // This is a styled paragraph
-    //     content: "text*",
-    //     group: "block",
-    //     // toDOM() { return ['pre', { class: 'hypothesis' }, 0]; },
-    //     // parseDOM: [{ tag: "pre.hypothesis", priority: 60 }, { tag: "p.hypothesis", priority: 50 }]
-    //     toDOM() { return ['pre', { class: 'hypothesis', style: 'margin: 0; white-space: pre-wrap; font-family: var(--vscode-editor-font-family);' }, 0]; },
-    //     parseDOM: [{ tag: "pre.hypothesis", priority: 60 }]
-    // },
     hypothesis: {
       content: "text*",
       group: "block",
@@ -16605,14 +16597,6 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       // ADD preserveWhitespace: "full" HERE
       parseDOM: [{ tag: "pre.hypothesis", priority: 60, preserveWhitespace: "full" }]
     },
-    // goalType: { // This is also a styled paragraph
-    //     content: "text*",
-    //     group: "block",
-    //     // toDOM() { return ['pre', { class: 'goalType' }, 0]; },
-    //     // parseDOM: [{ tag: "pre.goalType", priority: 60 }, { tag: "p.goalType", priority: 50 }]
-    //     toDOM() { return ['pre', { class: 'goalType', style: 'margin: 0; white-space: pre-wrap; font-weight: bold; font-family: var(--vscode-editor-font-family);' }, 0]; },
-    //     parseDOM: [{ tag: "pre.goalType", priority: 60 }]
-    // },
     goalType: {
       content: "text*",
       group: "block",
@@ -16809,13 +16793,60 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       return false;
     }
   });
+  var editHistoryTrackingPlugin = new Plugin({
+    view(editorView) {
+      const sentEdits = /* @__PURE__ */ new Set();
+      const editKey = (lhs, rhs) => `${lhs}|||${rhs}`;
+      return {
+        update(view2, prevState) {
+          if (!view2.state.doc.eq(prevState.doc) && isSuggestChangesEnabled(view2.state)) {
+            const currentEdits = [];
+            view2.state.doc.descendants((node, pos) => {
+              if (node.type.name === "hypothesis") {
+                const { deletedText, insertedText } = getDiffFromNode(node);
+                if (deletedText && insertedText) {
+                  const key = editKey(deletedText, insertedText);
+                  currentEdits.push({
+                    lhs: deletedText,
+                    rhs: insertedText,
+                    key
+                  });
+                }
+              }
+              return true;
+            });
+            currentEdits.forEach((edit) => {
+              if (!sentEdits.has(edit.key)) {
+                sentEdits.add(edit.key);
+                vscode.postMessage({
+                  command: "updateEditHistory",
+                  edit: {
+                    lhs: edit.lhs,
+                    rhs: edit.rhs,
+                    timestamp: Date.now()
+                  }
+                });
+              }
+            });
+            const currentKeys = new Set(currentEdits.map((e) => e.key));
+            for (const key of sentEdits) {
+              if (!currentKeys.has(key)) {
+                sentEdits.delete(key);
+              }
+            }
+          }
+        }
+      };
+    }
+  });
   var plugins = [
     keymap(baseKeymap),
     history(),
     keymap({ "Mod-z": undo, "Mod-y": redo }),
     suggestChanges(),
     suggestChangesViewPlugin,
-    readOnlyGoalsPlugin
+    readOnlyGoalsPlugin,
+    editHistoryTrackingPlugin
   ];
   var initialState = EditorState.create({
     schema: schema2,

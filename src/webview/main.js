@@ -292,6 +292,67 @@ const readOnlyGoalsPlugin = new Plugin({
     }
 });
 
+// Plugin to track edits in real-time and update edit history
+const editHistoryTrackingPlugin = new Plugin({
+    view(editorView) {
+        // Track which edits we've already sent to avoid duplicates
+        const sentEdits = new Set();
+        
+        // Helper to create a unique key for an edit
+        const editKey = (lhs, rhs) => `${lhs}|||${rhs}`;
+        
+        return {
+            update(view, prevState) {
+                // Only track if document changed and suggestions are enabled
+                if (!view.state.doc.eq(prevState.doc) && isSuggestChangesEnabled(view.state)) {
+                    // Scan for hypothesis nodes with edits
+                    const currentEdits = [];
+                    
+                    view.state.doc.descendants((node, pos) => {
+                        if (node.type.name === 'hypothesis') {
+                            const { deletedText, insertedText } = getDiffFromNode(node);
+                            
+                            // Only track if we have a valid replacement (something deleted AND inserted)
+                            if (deletedText && insertedText) {
+                                const key = editKey(deletedText, insertedText);
+                                currentEdits.push({
+                                    lhs: deletedText,
+                                    rhs: insertedText,
+                                    key: key
+                                });
+                            }
+                        }
+                        return true;
+                    });
+                    
+                    // Only send edits that we haven't sent before
+                    currentEdits.forEach(edit => {
+                        if (!sentEdits.has(edit.key)) {
+                            sentEdits.add(edit.key);
+                            vscode.postMessage({
+                                command: 'updateEditHistory',
+                                edit: {
+                                    lhs: edit.lhs,
+                                    rhs: edit.rhs,
+                                    timestamp: Date.now()
+                                }
+                            });
+                        }
+                    });
+                    
+                    // Clean up sentEdits set - remove edits that are no longer in the document
+                    // This allows re-tracking if user reverts and re-applies the same edit
+                    const currentKeys = new Set(currentEdits.map(e => e.key));
+                    for (const key of sentEdits) {
+                        if (!currentKeys.has(key)) {
+                            sentEdits.delete(key);
+                        }
+                    }
+                }
+            }
+        };
+    }
+});
 
 const plugins = [
     keymap(baseKeymap),
@@ -299,7 +360,8 @@ const plugins = [
     keymap({ 'Mod-z': undo, 'Mod-y': redo }),
     suggestChanges(), 
     suggestChangesViewPlugin, 
-    readOnlyGoalsPlugin
+    readOnlyGoalsPlugin,
+    editHistoryTrackingPlugin
 ];
 
 

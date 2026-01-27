@@ -136,7 +136,8 @@ export async function runCoqAgent(
     token?: vscode.CancellationToken,
     onSuggestion?: SuggestionCallback,
     conversationHistory?: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
-    onHistoryUpdate?: ConversationHistoryCallback
+    onHistoryUpdate?: ConversationHistoryCallback,
+    editHistory?: { edits: Array<{ lhs: string; rhs: string; timestamp?: number }> }
 ) {
     if (!clientReady || !model) {
         onUpdate("Error: Client or Model not ready.");
@@ -149,17 +150,43 @@ export async function runCoqAgent(
         `- ${t.name}: ${t.description}. Input: JSON arguments.`
     ).join('\n');
 
+    // Check if edit history is populated
+    const hasEditHistory = editHistory && editHistory.edits && editHistory.edits.length > 0;
+    const editHistoryRequirement = hasEditHistory 
+        ? `\n\n⚠️ MANDATORY FIRST STEP - EDIT HISTORY EXISTS:
+
+Edit history is populated with ${editHistory.edits.length} edit(s). 
+
+You MUST call get_edit_history FIRST before doing anything else - this is not optional.
+The edit history shows what transformations have already been attempted and is essential context for ALL your responses.
+You cannot suggest edits, answer questions about the proof state, or provide any assistance without first checking the edit history.
+
+After calling get_edit_history, you can then call other tools as needed (get_current_proof_state, get_current_proof_script, get_proof_context, etc.).`
+        : '';
+
     const systemPrompt = `You are an automated Coq assistant with access to tools that can inspect the proof state and suggest edits.
 
 You have access to the following tools:
 ${toolDescriptions}
+${editHistoryRequirement}
 
 IMPORTANT: When the user asks questions about:
 - The current proof state, goals, or hypotheses → use get_current_proof_state
-- What tactic to use → use get_current_proof_state first to see what needs to be proved
+- What tactic to use → use get_current_proof_state to see what needs to be proved
+- The proof script, what tactics have been used, or the theorem name → use get_current_proof_script
+- The name of the theorem being worked on → use get_current_proof_script
+- Questions like "what theorem am I working on?" or "what's the name of the theorem?" → use get_current_proof_script
 - Suggesting edits or transformations → use get_current_proof_state, get_proof_context, and suggest_proof_state_edit
 - Available theorems or context → use get_proof_context
 - Validating terms → use check_term_validity
+- Edit history → use get_edit_history to see what edits have been made
+
+CRITICAL: If the user asks about the current proof, theorem name, proof script, or what they're working on, you MUST use get_current_proof_script to get accurate information. Do not guess or make assumptions.
+
+MULTIPLE TOOL CALLS: You can and should make multiple tool calls in sequence when needed. After receiving a tool result, you can immediately call another tool if it's needed to answer the user's question. You are not limited to a single tool call - continue calling tools until you have enough information to provide a complete answer. For example:
+- If edit history exists, call get_edit_history first, then call other tools as needed (get_current_proof_state, get_proof_context, etc.)
+- If you need both the proof script and current state, call both tools
+- If you need multiple pieces of information, call multiple tools in sequence
 
 To use a tool, you MUST respond with ONLY a JSON block like this:
 \`\`\`json
@@ -168,10 +195,11 @@ To use a tool, you MUST respond with ONLY a JSON block like this:
 
 If you do not need to use a tool, just respond with text.
 When you receive a tool result, analyze it and either:
-1. Use another tool if needed, OR
+1. Use another tool if needed (you can make multiple tool calls in sequence), OR
 2. Provide a helpful answer based on the tool results.
 
-For questions about tactics or proof state, you should ALWAYS start by calling get_current_proof_state to understand what you're working with.
+For questions about tactics or proof state (when edit history is NOT populated), you should start by calling get_current_proof_state to understand what you're working with.
+For questions about the theorem name or proof script, you should use get_current_proof_script.
 `;
 
     // 2. Initialize Conversation History

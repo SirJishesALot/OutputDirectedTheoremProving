@@ -13,6 +13,7 @@
     "onCommand:outputdirectedtheoremproving.openProofState",
     "onCommand:outputdirectedtheoremproving.setOpenAiApiKey",
     "onCommand:outputdirectedtheoremproving.getDefaultChatModel",
+    "onCommand:outputdirectedtheoremproving.changeLLMModel",
     "onLanguage:coq"
   ],
   "main": "./dist/extension.js",
@@ -33,6 +34,10 @@
       {
         "command": "outputdirectedtheoremproving.getDefaultChatModel",
         "title": "Select LLM Service"
+      },
+      {
+        "command": "outputdirectedtheoremproving.changeLLMModel",
+        "title": "Change LLM Model"
       }
     ],
     "chatParticipants": [

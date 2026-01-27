@@ -110,7 +110,8 @@ export class ProofStatePanel {
             (async () => {
                 try {
                     // Ask the extension for a model object (may return null)
-                    const model = await vscode.commands.executeCommand('outputdirectedtheoremproving.getDefaultChatModel');
+                    // Pass useCache: true to use cached model if available, otherwise show picker
+                    const model = await vscode.commands.executeCommand('outputdirectedtheoremproving.getDefaultChatModel', { useCache: true });
                     if (!model) {
                         // No model available -- inform the webview
                         this.panel.webview.postMessage({ type: 'chatResponsePart', text: 'No chat model available. Open the Chat view to configure a model.' });
@@ -180,7 +181,8 @@ export class ProofStatePanel {
                         undefined, // token
                         handleSuggestion, // onSuggestion callback
                         this.conversationHistory, // conversation history
-                        handleHistoryUpdate // onHistoryUpdate callback
+                        handleHistoryUpdate, // onHistoryUpdate callback
+                        this.editHistory // edit history
                     );
                 } catch (e) {
                     console.error('Stream chat response failed:', e);
@@ -190,12 +192,31 @@ export class ProofStatePanel {
         } else if (cmd === 'agentRequest') { 
             console.log('Agent request received:', message.context);
             await this.handleAgentRequest(message.context);
+        } else if (cmd === 'updateEditHistory') {
+            // Update edit history when user makes edits in the proof state
+            const edit = message.edit;
+            if (edit && edit.lhs && edit.rhs) {
+                // Check if this edit already exists (avoid duplicates)
+                const isDuplicate = this.editHistory.edits.some(
+                    e => e.lhs === edit.lhs && e.rhs === edit.rhs
+                );
+                
+                if (!isDuplicate) {
+                    this.editHistory.edits.push({
+                        lhs: edit.lhs,
+                        rhs: edit.rhs,
+                        timestamp: edit.timestamp || Date.now()
+                    });
+                    console.log('Edit history updated:', this.editHistory.edits.length, 'edits');
+                }
+            }
         }
     }
 
     private async handleAgentRequest(context: { lhs: string, rhs: string }) {
         console.log("before getting model for agent"); 
-        const model = await vscode.commands.executeCommand('outputdirectedtheoremproving.getDefaultChatModel');
+        // Pass useCache: true to use cached model if available, otherwise show picker
+        const model = await vscode.commands.executeCommand('outputdirectedtheoremproving.getDefaultChatModel', { useCache: true });
         if (!model) {
             this.panel.webview.postMessage({ type: 'chatResponsePart', text: 'Error: No model selected.' });
             return;
@@ -333,6 +354,12 @@ export class ProofStatePanel {
     private enhancePromptForTools(prompt: string): string {
         const lowerPrompt = prompt.toLowerCase();
         
+        // Keywords that suggest the user needs proof script information (theorem name, proof script, etc.)
+        const proofScriptKeywords = [
+            'theorem', 'lemma', 'name', 'working on', 'proof script',
+            'what theorem', 'what lemma', 'theorem name', 'lemma name'
+        ];
+        
         // Keywords that suggest the user needs proof state information
         const proofStateKeywords = [
             'tactic', 'what should', 'how to', 'suggest', 'recommend',
@@ -340,7 +367,12 @@ export class ProofStatePanel {
             'hypothesis', 'hypotheses', 'here', 'this proof'
         ];
         
+        const needsProofScript = proofScriptKeywords.some(keyword => lowerPrompt.includes(keyword));
         const needsProofState = proofStateKeywords.some(keyword => lowerPrompt.includes(keyword));
+        
+        if (needsProofScript) {
+            return `${prompt}\n\nNote: To answer this question accurately, you should use the get_current_proof_script tool to see the theorem name and proof script.`;
+        }
         
         if (needsProofState) {
             return `${prompt}\n\nNote: To answer this question accurately, you should use the get_current_proof_state tool to see the current goals and hypotheses.`;

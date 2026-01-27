@@ -84,9 +84,11 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 	context.subscriptions.push(setOpenAiKeyCmd); 
 
-	const getModelCmd = vscode.commands.registerCommand('outputdirectedtheoremproving.getDefaultChatModel', async () => {
-		// If a default adapter was already selected, return it without prompting again.
-		if (defaultChatAdapter) {
+	const getModelCmd = vscode.commands.registerCommand('outputdirectedtheoremproving.getDefaultChatModel', async (args?: { useCache?: boolean }) => {
+		// If useCache is true (programmatic call), return cached adapter if available
+		// If useCache is false or undefined (command palette call), always show picker
+		const useCache = args?.useCache ?? false;
+		if (useCache && defaultChatAdapter) {
 		    return defaultChatAdapter;
 		}
 		// List all available LLM services and return an adapter for each.
@@ -203,6 +205,13 @@ export function activate(context: vscode.ExtensionContext) {
 		return adapter;
 	});
 	context.subscriptions.push(getModelCmd);
+
+	// Command that always shows the picker (for command palette use)
+	const changeModelCmd = vscode.commands.registerCommand('outputdirectedtheoremproving.changeLLMModel', async () => {
+		// Don't pass useCache, so it always shows the picker
+		return await vscode.commands.executeCommand('outputdirectedtheoremproving.getDefaultChatModel');
+	});
+	context.subscriptions.push(changeModelCmd);
 
 	const disposable = vscode.commands.registerCommand('outputdirectedtheoremproving.helloWorld', () => {
 		vscode.window.showInformationMessage('Hello World from OutputDirectedTheoremProving!');
