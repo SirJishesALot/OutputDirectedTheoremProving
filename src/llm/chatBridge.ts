@@ -311,3 +311,145 @@ For questions about the theorem name or proof script, you should use get_current
         onDone?.();
     }
 }
+
+/**
+ * Runs the prover agent that edits the proof script to achieve desired proof states.
+ * This agent validates proof state changes and suggests edits to the proof script.
+ */
+export async function runProverAgent(
+    clientReady: Promise<CoqLspClient> | undefined,
+    model: any,
+    proofStateChange: { originalValue: string; desiredValue: string },
+    tools: AgentTool[],
+    onUpdate: (text: string) => void,
+    onDone?: () => void,
+    token?: vscode.CancellationToken
+) {
+    if (!clientReady || !model) {
+        onUpdate("Error: Client or Model not ready.");
+        onDone?.();
+        return;
+    }
+
+    // Construct the System Prompt for the prover agent
+    const toolDescriptions = tools.map(t => 
+        `- ${t.name}: ${t.description}. Input: JSON arguments.`
+    ).join('\n');
+
+    const systemPrompt = `You are a prover agent that edits Coq proof scripts to achieve desired proof states.
+
+You have access to the following tools:
+${toolDescriptions}
+
+CRITICAL REQUIREMENTS:
+1. VALIDATION FIRST: Before suggesting ANY edit to the proof script, you MUST:
+   - Call validate_proof_state_change to verify the desired state type checks and is achievable
+   - If validation fails, report the error to the user and DO NOT suggest any edits
+   - Only proceed with edits if validation returns 'valid'
+
+2. UNDERSTANDING THE TASK:
+   - The user wants to change a proof state from "${proofStateChange.originalValue}" to "${proofStateChange.desiredValue}"
+   - You need to edit the proof script to achieve this transformation
+   - Get the current proof script using get_current_proof_script
+   - Get the current proof state using get_current_proof_state
+
+3. SUGGESTING EDITS:
+   - Use suggest_proof_script_edit to suggest edits to the proof script
+   - You can suggest multiple edits if needed
+   - Each edit must be validated before suggesting
+   - NEVER suggest an edit that hasn't been validated
+
+4. WORKFLOW:
+   Step 1: Call validate_proof_state_change with originalValue="${proofStateChange.originalValue}" and desiredValue="${proofStateChange.desiredValue}"
+   Step 2: If validation fails, report the error and stop
+   Step 3: If validation passes, call get_current_proof_script to see the current proof
+   Step 4: Call get_current_proof_state to understand the current state
+   Step 5: Plan the edits needed to achieve the desired state
+   Step 6: For each edit, call suggest_proof_script_edit with precise line numbers and text
+   Step 7: After all edits, verify they achieve the desired state
+
+5. PRECISION:
+   - Line numbers are 0-indexed in the tool, but display them as 1-indexed to the user
+   - Character positions are 0-indexed
+   - Be precise with oldText - include exactly what needs to be replaced
+   - newText should be the complete replacement
+
+To use a tool, you MUST respond with ONLY a JSON block like this:
+\`\`\`json
+{ "tool": "tool_name", "args": { ... } }
+\`\`\`
+
+When you receive a tool result, analyze it and either:
+1. Use another tool if needed (you can make multiple tool calls in sequence), OR
+2. Provide a helpful answer based on the tool results.
+
+Remember: NEVER suggest an edit that doesn't type check or doesn't achieve the desired proof state.`;
+
+    const userRequest = `The user wants to change the proof state from "${proofStateChange.originalValue}" to "${proofStateChange.desiredValue}". 
+Please validate this change and, if valid, edit the proof script to achieve this transformation.`;
+
+    const messages: any[] = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userRequest }
+    ];
+
+    const MAX_TURNS = 10; // Allow more turns for the prover agent
+    let turn = 0;
+
+    try {
+        while (turn < MAX_TURNS) {
+            turn++;
+            if (token?.isCancellationRequested) break;
+
+            // Call the Model
+            let fullResponseText = "";
+            const responseStream = await model.sendRequest(messages, { maxTokens: 2048 }, token);
+            
+            for await (const chunk of responseStream.text) {
+                fullResponseText += chunk;
+                onUpdate(chunk);
+            }
+
+            messages.push({ role: 'assistant', content: fullResponseText });
+
+            // Parse for Tool Calls
+            const jsonMatch = fullResponseText.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+            
+            if (!jsonMatch) {
+                // No tool call found -> The agent is done.
+                break;
+            }
+
+            // Execute Tool
+            try {
+                const command = JSON.parse(jsonMatch[1]);
+                const toolName = command.tool;
+                const toolArgs = command.args;
+
+                const targetTool = tools.find(t => t.name === toolName);
+                if (!targetTool) {
+                    throw new Error(`Unknown tool: ${toolName}`);
+                }
+
+                onUpdate(`\n\n_Executing tool: ${toolName}..._\n`);
+                
+                const result = await targetTool.execute(toolArgs);
+
+                messages.push({ 
+                    role: 'user',
+                    content: `TOOL RESULT (${toolName}): ${result}` 
+                });
+
+                onUpdate(`\n_Result: ${result}_\n\n`);
+
+            } catch (e) {
+                onUpdate(`\n_Tool Execution Error: ${e}_\n`);
+                messages.push({ role: 'user', content: `TOOL ERROR: ${e}` });
+            }
+        }
+    } catch (e) {
+        onUpdate(`\nProver Agent Error: ${e}`);
+    } finally {
+        onDone?.();
+    }
+}

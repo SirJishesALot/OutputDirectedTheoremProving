@@ -4,6 +4,8 @@ import { Uri } from '../utils/uri';
 import { runCoqAgent, AgentTool, streamCoqChat, SuggestionCallback, ConversationHistoryCallback } from '../llm/chatBridge';
 import { CoqTools } from '../tools/coqTools';
 import { createAutoformaliserTools, EditHistory } from '../tools/autoformaliserTools';
+import { createProverTools } from '../tools/proverTools';
+import { runProverAgent } from '../llm/chatBridge';
 import { convertToString, ProofGoal, Hyp, PpString, GoalsWithMessages } from '../lsp/coqLspTypes'; 
 
 type ClientReadyPromise = Promise<CoqLspClient>;
@@ -214,14 +216,15 @@ export class ProofStatePanel {
     }
 
     private async handleAgentRequest(context: { lhs: string, rhs: string }) {
-        console.log("before getting model for agent"); 
+        console.log("before getting model for prover agent"); 
         // Pass useCache: true to use cached model if available, otherwise show picker
         const model = await vscode.commands.executeCommand('outputdirectedtheoremproving.getDefaultChatModel', { useCache: true });
         if (!model) {
             this.panel.webview.postMessage({ type: 'chatResponsePart', text: 'Error: No model selected.' });
+            this.panel.webview.postMessage({ type: 'chatResponseDone' });
             return;
         }
-        console.log("after getting model for agent"); 
+        console.log("after getting model for prover agent"); 
 
         console.log("before getting active editor");
         let editor: vscode.TextEditor | undefined; 
@@ -239,10 +242,9 @@ export class ProofStatePanel {
         if (!editor) {
             console.error("Could not find the bound Coq editor.");
             this.panel.webview.postMessage({ type: 'chatResponsePart', text: 'Error: The Coq file for this proof state is no longer visible.' });
+            this.panel.webview.postMessage({ type: 'chatResponseDone' });
             return;
         }
-
-        const coqTools = new CoqTools(await this.clientReady, editor);
 
         const lhs = context.lhs.trim();
         const rhs = context.rhs.trim();
@@ -253,38 +255,38 @@ export class ProofStatePanel {
             rhs,
             timestamp: Date.now()
         });
-        
-        const assertion = `assert ((${lhs}) = (${rhs})).`;
 
+        // Create prover tools
+        const proverTools = createProverTools(this.clientReady, editor);
+
+        // Show initial message
         this.panel.webview.postMessage({ 
             type: 'chatResponsePart', 
-            text: `_Synthesizing equality check for:_\n\`${lhs}\` replaced by \`${rhs}\`\n\n` 
+            text: `_Prover Agent: Attempting to achieve proof state change_\n\`${lhs}\` → \`${rhs}\`\n\n` 
         });
 
+        // Run the prover agent
         try {
-            const checkResult = await coqTools.checkTermValidity(assertion);
-
-            if (checkResult === 'valid') {
-                await coqTools.insertCode(assertion);
-                this.panel.webview.postMessage({ 
-                    type: 'chatResponsePart', 
-                    text: `✅ **Verified and Inserted:**\n\`\`\`coq\n${assertion}\n\`\`\`` 
-                });
-            } else {
-                this.panel.webview.postMessage({ 
-                    type: 'chatResponsePart', 
-                    text: `❌ **Validation Failed:**\nThe term \`${assertion}\` is not valid in the current context.\n\n_Reason: ${checkResult}_` 
-                });
-            }
+            await runProverAgent(
+                this.clientReady,
+                model,
+                { originalValue: lhs, desiredValue: rhs },
+                proverTools,
+                (chunk: string) => {
+                    this.panel.webview.postMessage({ type: 'chatResponsePart', text: chunk });
+                },
+                () => {
+                    this.panel.webview.postMessage({ type: 'chatResponseDone' });
+                }
+            );
         } catch (e) {
+            console.error('Prover agent error:', e);
             this.panel.webview.postMessage({ 
                 type: 'chatResponsePart', 
-                text: `Error executing Coq tools: ${e}` 
+                text: `Error running prover agent: ${e instanceof Error ? e.message : String(e)}` 
             });
+            this.panel.webview.postMessage({ type: 'chatResponseDone' });
         }
-
-        // 6. Finish
-        this.panel.webview.postMessage({ type: 'chatResponseDone' });
 
 
     }

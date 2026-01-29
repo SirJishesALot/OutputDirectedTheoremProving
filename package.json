@@ -91,6 +91,7 @@
     "axios": "^1.12.2",
     "highlight.js": "^11.11.1",
     "marked": "^17.0.1",
+    "@google/genai": "^1.38.0",
     "openai": "^6.3.0",
     "prosemirror-example-setup": "^1.2.3",
     "prosemirror-model": "^1.25.4",

@@ -9,6 +9,7 @@ let coqLspClient: CoqLspClient | undefined = undefined;
 let coqLspClientReady: Promise<CoqLspClient> | undefined = undefined;
 let extensionContext: vscode.ExtensionContext | undefined;
 const OPENAI_SECRET_KEY = 'outputdirectedtheoremproving.openaiApiKey';
+const GEMINI_PROJECT_ID_KEY = 'outputdirectedtheoremproving.geminiProjectId';
 let defaultChatAdapter: any | undefined = undefined;
 
 import { streamCoqChat } from './llm/chatBridge';
@@ -100,6 +101,7 @@ export function activate(context: vscode.ExtensionContext) {
 		const services = [
 			{ label: 'PredefinedProofs', description: 'Offline fallback using simple tactics', instance: new PredefinedProofsService() },
 			{ label: 'OpenAI', description: 'OpenAI GPT models (requires API key)', instance: new OpenAiService() },
+			{ label: 'Gemini (Vertex AI)', description: 'Google Gemini models via Vertex AI (requires GCP project)', instance: null },
 			{ label: 'LMStudio', description: 'Local LMStudio server', instance: new LMStudioService() },
 			{ label: 'Grazie', description: 'JetBrains Grazie AI', instance: new GrazieService() },
 			{ label: 'DeepSeek', description: 'DeepSeek AI', instance: new DeepSeekService() },
@@ -133,6 +135,116 @@ export function activate(context: vscode.ExtensionContext) {
 			};
 			defaultChatAdapter = adapter;
 			return adapter;
+		}
+
+		if (choice.label === 'Gemini (Vertex AI)') {
+			// Get project ID from secrets or prompt; location is always 'global'
+			let projectId: string | undefined;
+			
+			if (extensionContext) {
+				projectId = await extensionContext.secrets.get(GEMINI_PROJECT_ID_KEY);
+			}
+
+			if (!projectId) {
+				const inputProjectId = await vscode.window.showInputBox({
+					prompt: 'Enter your Google Cloud Project ID',
+					placeHolder: 'your-project-id',
+					ignoreFocusOut: true,
+				});
+				if (!inputProjectId) {
+					return null;
+				}
+				projectId = inputProjectId;
+				if (extensionContext) {
+					await extensionContext.secrets.store(GEMINI_PROJECT_ID_KEY, projectId);
+				}
+			}
+
+			const location = 'global';
+
+			const modelOptions = [
+				{ label: 'gemini-3-deep-think', description: 'Gemini 3 Deep Think (most powerful)' }, 
+				{ label: 'gemini-3-pro-preview', description: 'Gemini 3.0 Pro (recommended' },
+				{ label: 'gemini-3-flash-preview', description: 'Gemini 3.0 Flash (faster)' },
+			];
+			const pickedModel = await vscode.window.showQuickPick(modelOptions, { 
+				placeHolder: 'Select Gemini model to use (requires Vertex AI API enabled)' 
+			});
+			const selectedModel = pickedModel?.label ?? 'gemini-3.0-pro-preview';
+
+			try {
+				const { GoogleGenAI } = require('@google/genai');
+				const ai = new GoogleGenAI({
+					vertexai: true,
+					project: projectId,
+					location: location,
+				});
+
+				const adapter = {
+					sendRequest: async (messages: any[], opts: any, token?: vscode.CancellationToken) => {
+						try {
+							// Convert messages to Gemini format
+							// The SDK accepts Content[] where Content has role and parts
+							const contents: any[] = [];
+							
+							for (const m of messages) {
+								if (typeof m === 'string') {
+									contents.push({ role: 'user', parts: [{ text: m }] });
+								} else if (m.role && m.content) {
+									// Map OpenAI-style roles to Gemini roles
+									const role = m.role === 'assistant' ? 'model' : 'user';
+									contents.push({ role: role, parts: [{ text: m.content }] });
+								} else if (m.role && m.parts) {
+									// Already in Gemini format
+									contents.push(m);
+								} else {
+									contents.push({ role: 'user', parts: [{ text: m.text ?? String(m) }] });
+								}
+							}
+
+							// Generate content with streaming
+							const stream = await ai.models.generateContentStream({
+								model: selectedModel,
+								contents: contents,
+								generationConfig: {
+									maxOutputTokens: opts?.maxTokens ?? 2048,
+									temperature: opts?.temperature ?? 0.2,
+								},
+							});
+
+							return {
+								text: (async function* () {
+									for await (const chunk of stream) {
+										if (token && token.isCancellationRequested) break;
+										// Extract text from the chunk
+										const text = chunk.text;
+										if (text) {
+											yield text;
+										}
+									}
+								})()
+							};
+						} catch (e: any) {
+							return { 
+								text: (async function* () { 
+									yield 'Gemini error: ' + (e && e.message ? e.message : String(e)); 
+								})() 
+							};
+						}
+					}
+				};
+				defaultChatAdapter = adapter;
+				return adapter;
+			} catch (e: any) {
+				vscode.window.showErrorMessage(`Failed to initialize Gemini client: ${e.message || String(e)}. Make sure you have run 'gcloud auth application-default login' and have Vertex AI API enabled.`);
+				return {
+					sendRequest: async () => ({ 
+						text: (async function* () { 
+							yield `Gemini initialization error: ${e.message || String(e)}. Please ensure Vertex AI API is enabled and you're authenticated.`; 
+						})() 
+					})
+				};
+			}
 		}
 
 		if (choice.label === 'OpenAI') {
