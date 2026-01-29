@@ -17038,10 +17038,5 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       }
     });
   }
-  var updateProofStateBtn = document.getElementById("updateProofStateBtn");
-  if (updateProofStateBtn) {
-    updateProofStateBtn.addEventListener("click", () => {
-      vscode.postMessage({ command: "requestUpdate" });
-    });
-  }
+  vscode.postMessage({ command: "requestUpdate" });
 })();

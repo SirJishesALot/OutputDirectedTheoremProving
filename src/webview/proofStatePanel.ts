@@ -72,7 +72,20 @@ export class ProofStatePanel {
 
         this.panel.webview.html = this.getHtmlForWebview(this.panel.webview);
 
+        vscode.window.onDidChangeTextEditorSelection(
+            () => this.updateProofState(),
+            null,
+            this.disposables
+        );
+
+        vscode.window.onDidChangeActiveTextEditor(
+            () => this.updateProofState(),
+            null,
+            this.disposables
+        );
+
         this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
+        this.updateProofState(); // initial update
     }
 
     /** Call this to refresh the proof state at the current editor cursor (e.g. from a keybinding or toolbar). */
@@ -467,10 +480,7 @@ export class ProofStatePanel {
 <title>Coq Proof State</title>
 </head>
 <body>
-  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5em;">
-    <h2 style="margin: 0;">Output Directed Theorem Prover</h2>
-    <button id="updateProofStateBtn" type="button" title="Update proof state at current cursor position">Update</button>
-  </div>
+  <h2>Output Directed Theorem Prover</h2>
   
   <div id="editor"></div>
 

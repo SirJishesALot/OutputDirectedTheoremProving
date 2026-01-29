@@ -616,9 +616,4 @@ if (chatInput) {
     });
 }
 
-const updateProofStateBtn = document.getElementById('updateProofStateBtn');
-if (updateProofStateBtn) {
-    updateProofStateBtn.addEventListener('click', () => {
-        vscode.postMessage({ command: 'requestUpdate' });
-    });
-}
+vscode.postMessage({ command: 'requestUpdate' });
