@@ -208,7 +208,7 @@ export function activate(context: vscode.ExtensionContext) {
 								contents: contents,
 								generationConfig: {
 									maxOutputTokens: opts?.maxTokens ?? 2048,
-									temperature: opts?.temperature ?? 0.2,
+									temperature: opts?.temperature ?? 1.0,
 								},
 							});
 

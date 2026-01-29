@@ -480,6 +480,7 @@ export class ProofStatePanel {
 
     <div id="chat" class="controls">
         <div id="chatLog"></div>
+        <div id="chatTypingIndicator" class="chat-typing-indicator" aria-hidden="true">Model is typing...</div>
         <div style="display: flex; flex-direction: row; align-items: center;">
             <input id="chatInput" type="text" placeholder="Consult the assistant." />
             <button id="chatSend">Send</button>

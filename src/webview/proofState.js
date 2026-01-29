@@ -2171,12 +2171,12 @@
     Create a properly sorted mark set from null, a single mark, or an
     unsorted array of marks.
     */
-    static setFrom(marks3) {
-      if (!marks3 || Array.isArray(marks3) && marks3.length == 0)
+    static setFrom(marks2) {
+      if (!marks2 || Array.isArray(marks2) && marks2.length == 0)
         return _Mark.none;
-      if (marks3 instanceof _Mark)
-        return [marks3];
-      let copy2 = marks3.slice();
+      if (marks2 instanceof _Mark)
+        return [marks2];
+      let copy2 = marks2.slice();
       copy2.sort((a, b2) => a.type.rank - b2.type.rank);
       return copy2;
     }
@@ -2545,11 +2545,11 @@
         main = other;
         other = tmp;
       }
-      let marks3 = main.marks;
-      for (var i = 0; i < marks3.length; i++)
-        if (marks3[i].type.spec.inclusive === false && (!other || !marks3[i].isInSet(other.marks)))
-          marks3 = marks3[i--].removeFromSet(marks3);
-      return marks3;
+      let marks2 = main.marks;
+      for (var i = 0; i < marks2.length; i++)
+        if (marks2[i].type.spec.inclusive === false && (!other || !marks2[i].isInSet(other.marks)))
+          marks2 = marks2[i--].removeFromSet(marks2);
+      return marks2;
     }
     /**
     Get the marks after the current position, if any, except those
@@ -2563,11 +2563,11 @@
       let after = this.parent.maybeChild(this.index());
       if (!after || !after.isInline)
         return null;
-      let marks3 = after.marks, next = $end.parent.maybeChild($end.index());
-      for (var i = 0; i < marks3.length; i++)
-        if (marks3[i].type.spec.inclusive === false && (!next || !marks3[i].isInSet(next.marks)))
-          marks3 = marks3[i--].removeFromSet(marks3);
-      return marks3;
+      let marks2 = after.marks, next = $end.parent.maybeChild($end.index());
+      for (var i = 0; i < marks2.length; i++)
+        if (marks2[i].type.spec.inclusive === false && (!next || !marks2[i].isInSet(next.marks)))
+          marks2 = marks2[i--].removeFromSet(marks2);
+      return marks2;
     }
     /**
     The depth up to which this position and the given (non-resolved)
@@ -2719,10 +2719,10 @@
     /**
     @internal
     */
-    constructor(type, attrs, content, marks3 = Mark.none) {
+    constructor(type, attrs, content, marks2 = Mark.none) {
       this.type = type;
       this.attrs = attrs;
-      this.marks = marks3;
+      this.marks = marks2;
       this.content = content || Fragment.empty;
     }
     /**
@@ -2835,8 +2835,8 @@
     Check whether this node's markup correspond to the given type,
     attributes, and marks.
     */
-    hasMarkup(type, attrs, marks3) {
-      return this.type == type && compareDeep(this.attrs, attrs || type.defaultAttrs || emptyAttrs) && Mark.sameSet(this.marks, marks3 || Mark.none);
+    hasMarkup(type, attrs, marks2) {
+      return this.type == type && compareDeep(this.attrs, attrs || type.defaultAttrs || emptyAttrs) && Mark.sameSet(this.marks, marks2 || Mark.none);
     }
     /**
     Create a new node with the same markup as this node, containing
@@ -2851,8 +2851,8 @@
     Create a copy of this node, with the given set of marks instead
     of the node's own marks.
     */
-    mark(marks3) {
-      return marks3 == this.marks ? this : new _Node(this.type, this.attrs, this.content, marks3);
+    mark(marks2) {
+      return marks2 == this.marks ? this : new _Node(this.type, this.attrs, this.content, marks2);
     }
     /**
     Create a copy of this node with only the content between the
@@ -3042,8 +3042,8 @@
     Test whether replacing the range `from` to `to` (by index) with
     a node of the given type would leave the node's content valid.
     */
-    canReplaceWith(from2, to, type, marks3) {
-      if (marks3 && !this.type.allowsMarks(marks3))
+    canReplaceWith(from2, to, type, marks2) {
+      if (marks2 && !this.type.allowsMarks(marks2))
         return false;
       let start = this.contentMatchAt(from2).matchType(type);
       let end = start && start.matchFragment(this.content, to);
@@ -3099,19 +3099,19 @@
     static fromJSON(schema3, json) {
       if (!json)
         throw new RangeError("Invalid input for Node.fromJSON");
-      let marks3 = void 0;
+      let marks2 = void 0;
       if (json.marks) {
         if (!Array.isArray(json.marks))
           throw new RangeError("Invalid mark data for Node.fromJSON");
-        marks3 = json.marks.map(schema3.markFromJSON);
+        marks2 = json.marks.map(schema3.markFromJSON);
       }
       if (json.type == "text") {
         if (typeof json.text != "string")
           throw new RangeError("Invalid text node in JSON");
-        return schema3.text(json.text, marks3);
+        return schema3.text(json.text, marks2);
       }
       let content = Fragment.fromJSON(schema3, json.content);
-      let node = schema3.nodeType(json.type).create(json.attrs, content, marks3);
+      let node = schema3.nodeType(json.type).create(json.attrs, content, marks2);
       node.type.checkAttrs(node.attrs);
       return node;
     }
@@ -3121,8 +3121,8 @@
     /**
     @internal
     */
-    constructor(type, attrs, content, marks3) {
-      super(type, attrs, null, marks3);
+    constructor(type, attrs, content, marks2) {
+      super(type, attrs, null, marks2);
       if (!content)
         throw new RangeError("Empty text nodes are not allowed");
       this.text = content;
@@ -3141,8 +3141,8 @@
     get nodeSize() {
       return this.text.length;
     }
-    mark(marks3) {
-      return marks3 == this.marks ? this : new _TextNode(this.type, this.attrs, this.text, marks3);
+    mark(marks2) {
+      return marks2 == this.marks ? this : new _TextNode(this.type, this.attrs, this.text, marks2);
     }
     withText(text) {
       if (text == this.text)
@@ -3163,9 +3163,9 @@
       return base2;
     }
   };
-  function wrapMarks(marks3, str) {
-    for (let i = marks3.length - 1; i >= 0; i--)
-      str = marks3[i].type.name + "(" + str + ")";
+  function wrapMarks(marks2, str) {
+    for (let i = marks2.length - 1; i >= 0; i--)
+      str = marks2[i].type.name + "(" + str + ")";
     return str;
   }
   var ContentMatch = class _ContentMatch {
@@ -3701,20 +3701,20 @@
     `null`. Similarly `marks` may be `null` to default to the empty
     set of marks.
     */
-    create(attrs = null, content, marks3) {
+    create(attrs = null, content, marks2) {
       if (this.isText)
         throw new Error("NodeType.create can't construct text nodes");
-      return new Node(this, this.computeAttrs(attrs), Fragment.from(content), Mark.setFrom(marks3));
+      return new Node(this, this.computeAttrs(attrs), Fragment.from(content), Mark.setFrom(marks2));
     }
     /**
     Like [`create`](https://prosemirror.net/docs/ref/#model.NodeType.create), but check the given content
     against the node type's content restrictions, and throw an error
     if it doesn't match.
     */
-    createChecked(attrs = null, content, marks3) {
+    createChecked(attrs = null, content, marks2) {
       content = Fragment.from(content);
       this.checkContent(content);
-      return new Node(this, this.computeAttrs(attrs), content, Mark.setFrom(marks3));
+      return new Node(this, this.computeAttrs(attrs), content, Mark.setFrom(marks2));
     }
     /**
     Like [`create`](https://prosemirror.net/docs/ref/#model.NodeType.create), but see if it is
@@ -3724,7 +3724,7 @@
     always be created, this will always succeed if you pass null or
     `Fragment.empty` as content.
     */
-    createAndFill(attrs = null, content, marks3) {
+    createAndFill(attrs = null, content, marks2) {
       attrs = this.computeAttrs(attrs);
       content = Fragment.from(content);
       if (content.size) {
@@ -3737,7 +3737,7 @@
       let after = matched && matched.fillBefore(Fragment.empty, true);
       if (!after)
         return null;
-      return new Node(this, attrs, content.append(after), Mark.setFrom(marks3));
+      return new Node(this, attrs, content.append(after), Mark.setFrom(marks2));
     }
     /**
     Returns true if the given fragment is valid content for this node
@@ -3776,30 +3776,30 @@
     /**
     Test whether the given set of marks are allowed in this node.
     */
-    allowsMarks(marks3) {
+    allowsMarks(marks2) {
       if (this.markSet == null)
         return true;
-      for (let i = 0; i < marks3.length; i++)
-        if (!this.allowsMarkType(marks3[i].type))
+      for (let i = 0; i < marks2.length; i++)
+        if (!this.allowsMarkType(marks2[i].type))
           return false;
       return true;
     }
     /**
     Removes the marks that are not allowed in this node from the given set.
     */
-    allowedMarks(marks3) {
+    allowedMarks(marks2) {
       if (this.markSet == null)
-        return marks3;
+        return marks2;
       let copy2;
-      for (let i = 0; i < marks3.length; i++) {
-        if (!this.allowsMarkType(marks3[i].type)) {
+      for (let i = 0; i < marks2.length; i++) {
+        if (!this.allowsMarkType(marks2[i].type)) {
           if (!copy2)
-            copy2 = marks3.slice(0, i);
+            copy2 = marks2.slice(0, i);
         } else if (copy2) {
-          copy2.push(marks3[i]);
+          copy2.push(marks2[i]);
         }
       }
-      return !copy2 ? marks3 : copy2.length ? copy2 : Mark.none;
+      return !copy2 ? marks2 : copy2.length ? copy2 : Mark.none;
     }
     /**
     @internal
@@ -3862,9 +3862,9 @@
     /**
     @internal
     */
-    static compile(marks3, schema3) {
+    static compile(marks2, schema3) {
       let result = /* @__PURE__ */ Object.create(null), rank = 0;
-      marks3.forEach((name, spec) => result[name] = new _MarkType(name, rank++, schema3, spec));
+      marks2.forEach((name, spec) => result[name] = new _MarkType(name, rank++, schema3, spec));
       return result;
     }
     /**
@@ -3944,22 +3944,22 @@
     `content` may be a `Fragment`, `null`, a `Node`, or an array of
     nodes.
     */
-    node(type, attrs = null, content, marks3) {
+    node(type, attrs = null, content, marks2) {
       if (typeof type == "string")
         type = this.nodeType(type);
       else if (!(type instanceof NodeType))
         throw new RangeError("Invalid node type: " + type);
       else if (type.schema != this)
         throw new RangeError("Node type from different schema used (" + type.name + ")");
-      return type.createChecked(attrs, content, marks3);
+      return type.createChecked(attrs, content, marks2);
     }
     /**
     Create a text node in the schema. Empty text nodes are not
     allowed.
     */
-    text(text, marks3) {
+    text(text, marks2) {
       let type = this.nodes.text;
-      return new TextNode(type, type.defaultAttrs, text, Mark.setFrom(marks3));
+      return new TextNode(type, type.defaultAttrs, text, Mark.setFrom(marks2));
     }
     /**
     Create a mark with the given type and attributes.
@@ -3979,10 +3979,10 @@
       return found2;
     }
   };
-  function gatherMarks(schema3, marks3) {
+  function gatherMarks(schema3, marks2) {
     let found2 = [];
-    for (let i = 0; i < marks3.length; i++) {
-      let name = marks3[i], mark = schema3.marks[name], ok = mark;
+    for (let i = 0; i < marks2.length; i++) {
+      let name = marks2[i], mark = schema3.marks[name], ok = mark;
       if (mark) {
         found2.push(mark);
       } else {
@@ -3993,7 +3993,7 @@
         }
       }
       if (!ok)
-        throw new SyntaxError("Unknown mark type: '" + marks3[i] + "'");
+        throw new SyntaxError("Unknown mark type: '" + marks2[i] + "'");
     }
     return found2;
   }
@@ -4184,10 +4184,10 @@
     return type && type.whitespace == "pre" ? OPT_PRESERVE_WS | OPT_PRESERVE_WS_FULL : base2 & ~OPT_OPEN_LEFT;
   }
   var NodeContext = class {
-    constructor(type, attrs, marks3, solid, match, options) {
+    constructor(type, attrs, marks2, solid, match, options) {
       this.type = type;
       this.attrs = attrs;
-      this.marks = marks3;
+      this.marks = marks2;
       this.solid = solid;
       this.options = options;
       this.content = [];
@@ -4262,13 +4262,13 @@
     // Add a DOM node to the content. Text is inserted as text node,
     // otherwise, the node is passed to `addElement` or, if it has a
     // `style` attribute, `addElementWithStyles`.
-    addDOM(dom, marks3) {
+    addDOM(dom, marks2) {
       if (dom.nodeType == 3)
-        this.addTextNode(dom, marks3);
+        this.addTextNode(dom, marks2);
       else if (dom.nodeType == 1)
-        this.addElement(dom, marks3);
+        this.addElement(dom, marks2);
     }
-    addTextNode(dom, marks3) {
+    addTextNode(dom, marks2) {
       let value = dom.nodeValue;
       let top = this.top, preserveWS = top.options & OPT_PRESERVE_WS_FULL ? "full" : this.localPreserveWS || (top.options & OPT_PRESERVE_WS) > 0;
       let { schema: schema3 } = this.parser;
@@ -4287,16 +4287,16 @@
           let lines = value.split(/\r?\n|\r/);
           for (let i = 0; i < lines.length; i++) {
             if (i)
-              this.insertNode(schema3.linebreakReplacement.create(), marks3, true);
+              this.insertNode(schema3.linebreakReplacement.create(), marks2, true);
             if (lines[i])
-              this.insertNode(schema3.text(lines[i]), marks3, !/\S/.test(lines[i]));
+              this.insertNode(schema3.text(lines[i]), marks2, !/\S/.test(lines[i]));
           }
           value = "";
         } else {
           value = value.replace(/\r?\n|\r/g, " ");
         }
         if (value)
-          this.insertNode(schema3.text(value), marks3, !/\S/.test(value));
+          this.insertNode(schema3.text(value), marks2, !/\S/.test(value));
         this.findInText(dom);
       } else {
         this.findInside(dom);
@@ -4304,7 +4304,7 @@
     }
     // Try to find a handler for the given tag and use that to parse. If
     // none is found, the element's content nodes are added directly.
-    addElement(dom, marks3, matchAfter) {
+    addElement(dom, marks2, matchAfter) {
       let outerWS = this.localPreserveWS, top = this.top;
       if (dom.tagName == "PRE" || /pre/.test(dom.style && dom.style.whiteSpace))
         this.localPreserveWS = true;
@@ -4314,7 +4314,7 @@
       let rule = this.options.ruleFromNode && this.options.ruleFromNode(dom) || (ruleID = this.parser.matchTag(dom, this, matchAfter));
       out: if (rule ? rule.ignore : ignoreTags.hasOwnProperty(name)) {
         this.findInside(dom);
-        this.ignoreFallback(dom, marks3);
+        this.ignoreFallback(dom, marks2);
       } else if (!rule || rule.skip || rule.closeParent) {
         if (rule && rule.closeParent)
           this.open = Math.max(0, this.open - 1);
@@ -4330,36 +4330,36 @@
           if (!top.type)
             this.needsBlock = true;
         } else if (!dom.firstChild) {
-          this.leafFallback(dom, marks3);
+          this.leafFallback(dom, marks2);
           break out;
         }
-        let innerMarks = rule && rule.skip ? marks3 : this.readStyles(dom, marks3);
+        let innerMarks = rule && rule.skip ? marks2 : this.readStyles(dom, marks2);
         if (innerMarks)
           this.addAll(dom, innerMarks);
         if (sync)
           this.sync(top);
         this.needsBlock = oldNeedsBlock;
       } else {
-        let innerMarks = this.readStyles(dom, marks3);
+        let innerMarks = this.readStyles(dom, marks2);
         if (innerMarks)
           this.addElementByRule(dom, rule, innerMarks, rule.consuming === false ? ruleID : void 0);
       }
       this.localPreserveWS = outerWS;
     }
     // Called for leaf DOM nodes that would otherwise be ignored
-    leafFallback(dom, marks3) {
+    leafFallback(dom, marks2) {
       if (dom.nodeName == "BR" && this.top.type && this.top.type.inlineContent)
-        this.addTextNode(dom.ownerDocument.createTextNode("\n"), marks3);
+        this.addTextNode(dom.ownerDocument.createTextNode("\n"), marks2);
     }
     // Called for ignored nodes
-    ignoreFallback(dom, marks3) {
+    ignoreFallback(dom, marks2) {
       if (dom.nodeName == "BR" && (!this.top.type || !this.top.type.inlineContent))
-        this.findPlace(this.parser.schema.text("-"), marks3, true);
+        this.findPlace(this.parser.schema.text("-"), marks2, true);
     }
     // Run any style parser associated with the node's styles. Either
     // return an updated array of marks, or null to indicate some of the
     // styles had a rule with `ignore` set.
-    readStyles(dom, marks3) {
+    readStyles(dom, marks2) {
       let styles = dom.style;
       if (styles && styles.length)
         for (let i = 0; i < this.parser.matchedStyles.length; i++) {
@@ -4372,45 +4372,45 @@
               if (rule.ignore)
                 return null;
               if (rule.clearMark)
-                marks3 = marks3.filter((m2) => !rule.clearMark(m2));
+                marks2 = marks2.filter((m2) => !rule.clearMark(m2));
               else
-                marks3 = marks3.concat(this.parser.schema.marks[rule.mark].create(rule.attrs));
+                marks2 = marks2.concat(this.parser.schema.marks[rule.mark].create(rule.attrs));
               if (rule.consuming === false)
                 after = rule;
               else
                 break;
             }
         }
-      return marks3;
+      return marks2;
     }
     // Look up a handler for the given node. If none are found, return
     // false. Otherwise, apply it, use its return value to drive the way
     // the node's content is wrapped, and return true.
-    addElementByRule(dom, rule, marks3, continueAfter) {
+    addElementByRule(dom, rule, marks2, continueAfter) {
       let sync, nodeType;
       if (rule.node) {
         nodeType = this.parser.schema.nodes[rule.node];
         if (!nodeType.isLeaf) {
-          let inner = this.enter(nodeType, rule.attrs || null, marks3, rule.preserveWhitespace);
+          let inner = this.enter(nodeType, rule.attrs || null, marks2, rule.preserveWhitespace);
           if (inner) {
             sync = true;
-            marks3 = inner;
+            marks2 = inner;
           }
-        } else if (!this.insertNode(nodeType.create(rule.attrs), marks3, dom.nodeName == "BR")) {
-          this.leafFallback(dom, marks3);
+        } else if (!this.insertNode(nodeType.create(rule.attrs), marks2, dom.nodeName == "BR")) {
+          this.leafFallback(dom, marks2);
         }
       } else {
         let markType = this.parser.schema.marks[rule.mark];
-        marks3 = marks3.concat(markType.create(rule.attrs));
+        marks2 = marks2.concat(markType.create(rule.attrs));
       }
       let startIn = this.top;
       if (nodeType && nodeType.isLeaf) {
         this.findInside(dom);
       } else if (continueAfter) {
-        this.addElement(dom, marks3, continueAfter);
+        this.addElement(dom, marks2, continueAfter);
       } else if (rule.getContent) {
         this.findInside(dom);
-        rule.getContent(dom, this.parser.schema).forEach((node) => this.insertNode(node, marks3, false));
+        rule.getContent(dom, this.parser.schema).forEach((node) => this.insertNode(node, marks2, false));
       } else {
         let contentDOM = dom;
         if (typeof rule.contentElement == "string")
@@ -4420,7 +4420,7 @@
         else if (rule.contentElement)
           contentDOM = rule.contentElement;
         this.findAround(dom, contentDOM, true);
-        this.addAll(contentDOM, marks3);
+        this.addAll(contentDOM, marks2);
         this.findAround(dom, contentDOM, false);
       }
       if (sync && this.sync(startIn))
@@ -4429,18 +4429,18 @@
     // Add all child nodes between `startIndex` and `endIndex` (or the
     // whole node, if not given). If `sync` is passed, use it to
     // synchronize after every block element.
-    addAll(parent, marks3, startIndex, endIndex) {
+    addAll(parent, marks2, startIndex, endIndex) {
       let index = startIndex || 0;
       for (let dom = startIndex ? parent.childNodes[startIndex] : parent.firstChild, end = endIndex == null ? null : parent.childNodes[endIndex]; dom != end; dom = dom.nextSibling, ++index) {
         this.findAtPoint(parent, index);
-        this.addDOM(dom, marks3);
+        this.addDOM(dom, marks2);
       }
       this.findAtPoint(parent, index);
     }
     // Try to find a way to fit the given node type into the current
     // context. May add intermediate wrappers and/or leave non-solid
     // nodes that we're in.
-    findPlace(node, marks3, cautious) {
+    findPlace(node, marks2, cautious) {
       let route, sync;
       for (let depth = this.open, penalty = 0; depth >= 0; depth--) {
         let cx = this.nodes[depth];
@@ -4461,17 +4461,17 @@
         return null;
       this.sync(sync);
       for (let i = 0; i < route.length; i++)
-        marks3 = this.enterInner(route[i], null, marks3, false);
-      return marks3;
+        marks2 = this.enterInner(route[i], null, marks2, false);
+      return marks2;
     }
     // Try to insert the given node, adjusting the context when needed.
-    insertNode(node, marks3, cautious) {
+    insertNode(node, marks2, cautious) {
       if (node.isInline && this.needsBlock && !this.top.type) {
         let block = this.textblockFromContext();
         if (block)
-          marks3 = this.enterInner(block, null, marks3);
+          marks2 = this.enterInner(block, null, marks2);
       }
-      let innerMarks = this.findPlace(node, marks3, cautious);
+      let innerMarks = this.findPlace(node, marks2, cautious);
       if (innerMarks) {
         this.closeExtra();
         let top = this.top;
@@ -4488,14 +4488,14 @@
     }
     // Try to start a node of the given type, adjusting the context when
     // necessary.
-    enter(type, attrs, marks3, preserveWS) {
-      let innerMarks = this.findPlace(type.create(attrs), marks3, false);
+    enter(type, attrs, marks2, preserveWS) {
+      let innerMarks = this.findPlace(type.create(attrs), marks2, false);
       if (innerMarks)
-        innerMarks = this.enterInner(type, attrs, marks3, true, preserveWS);
+        innerMarks = this.enterInner(type, attrs, marks2, true, preserveWS);
       return innerMarks;
     }
     // Open a node of the given type
-    enterInner(type, attrs, marks3, solid = false, preserveWS) {
+    enterInner(type, attrs, marks2, solid = false, preserveWS) {
       this.closeExtra();
       let top = this.top;
       top.match = top.match && top.match.matchType(type);
@@ -4503,7 +4503,7 @@
       if (top.options & OPT_OPEN_LEFT && top.content.length == 0)
         options |= OPT_OPEN_LEFT;
       let applyMarks = Mark.none;
-      marks3 = marks3.filter((m2) => {
+      marks2 = marks2.filter((m2) => {
         if (top.type ? top.type.allowsMarkType(m2.type) : markMayApply(m2.type, type)) {
           applyMarks = m2.addToSet(applyMarks);
           return false;
@@ -4512,7 +4512,7 @@
       });
       this.nodes.push(new NodeContext(type, attrs, applyMarks, solid, null, options));
       this.open++;
-      return marks3;
+      return marks2;
     }
     // Make sure all nodes above this.open are finished and added to
     // their parents
@@ -4679,9 +4679,9 @@
     serializer may be `null` to indicate that marks of that type
     should not be serialized.
     */
-    constructor(nodes3, marks3) {
+    constructor(nodes3, marks2) {
       this.nodes = nodes3;
-      this.marks = marks3;
+      this.marks = marks2;
     }
     /**
     Serialize the content of this fragment to a DOM fragment. When
@@ -5603,16 +5603,16 @@
     tr.doc.nodesBetween(from2, to, (node, pos, parent) => {
       if (!node.isInline)
         return;
-      let marks3 = node.marks;
-      if (!mark.isInSet(marks3) && parent.type.allowsMarkType(mark.type)) {
+      let marks2 = node.marks;
+      if (!mark.isInSet(marks2) && parent.type.allowsMarkType(mark.type)) {
         let start = Math.max(pos, from2), end = Math.min(pos + node.nodeSize, to);
-        let newSet = mark.addToSet(marks3);
-        for (let i = 0; i < marks3.length; i++) {
-          if (!marks3[i].isInSet(newSet)) {
-            if (removing && removing.to == start && removing.mark.eq(marks3[i]))
+        let newSet = mark.addToSet(marks2);
+        for (let i = 0; i < marks2.length; i++) {
+          if (!marks2[i].isInSet(newSet)) {
+            if (removing && removing.to == start && removing.mark.eq(marks2[i]))
               removing.to = end;
             else
-              removed.push(removing = new RemoveMarkStep(start, end, marks3[i]));
+              removed.push(removing = new RemoveMarkStep(start, end, marks2[i]));
           }
         }
         if (adding && adding.to == start)
@@ -5797,13 +5797,13 @@
     let $pos = doc3.resolve(pos), index = $pos.index();
     return $pos.parent.canReplaceWith(index, index + 1, type);
   }
-  function setNodeMarkup(tr, pos, type, attrs, marks3) {
+  function setNodeMarkup(tr, pos, type, attrs, marks2) {
     let node = tr.doc.nodeAt(pos);
     if (!node)
       throw new RangeError("No node at given position");
     if (!type)
       type = node.type;
-    let newNode = type.create(attrs, null, marks3 || node.marks);
+    let newNode = type.create(attrs, null, marks2 || node.marks);
     if (node.isLeaf)
       return tr.replaceWith(pos, pos + node.nodeSize, newNode);
     if (!type.validContent(node.content))
@@ -6552,8 +6552,8 @@
     Change the type, attributes, and/or marks of the node at `pos`.
     When `type` isn't given, the existing node type is preserved,
     */
-    setNodeMarkup(pos, type, attrs = null, marks3) {
-      setNodeMarkup(this, pos, type, attrs, marks3);
+    setNodeMarkup(pos, type, attrs = null, marks2) {
+      setNodeMarkup(this, pos, type, attrs, marks2);
       return this;
     }
     /**
@@ -6864,9 +6864,9 @@
     replace(tr, content = Slice.empty) {
       super.replace(tr, content);
       if (content == Slice.empty) {
-        let marks3 = this.$from.marksAcross(this.$to);
-        if (marks3)
-          tr.ensureMarks(marks3);
+        let marks2 = this.$from.marksAcross(this.$to);
+        if (marks2)
+          tr.ensureMarks(marks2);
       }
     }
     eq(other) {
@@ -7132,8 +7132,8 @@
     /**
     Set the current stored marks.
     */
-    setStoredMarks(marks3) {
-      this.storedMarks = marks3;
+    setStoredMarks(marks2) {
+      this.storedMarks = marks2;
       this.updated |= UPDATED_MARKS;
       return this;
     }
@@ -7142,9 +7142,9 @@
     at the selection, match the given set of marks. Does nothing if
     this is already the case.
     */
-    ensureMarks(marks3) {
-      if (!Mark.sameSet(this.storedMarks || this.selection.$from.marks(), marks3))
-        this.setStoredMarks(marks3);
+    ensureMarks(marks2) {
+      if (!Mark.sameSet(this.storedMarks || this.selection.$from.marks(), marks2))
+        this.setStoredMarks(marks2);
       return this;
     }
     /**
@@ -7221,12 +7221,12 @@
           to = from2;
         if (!text)
           return this.deleteRange(from2, to);
-        let marks3 = this.storedMarks;
-        if (!marks3) {
+        let marks2 = this.storedMarks;
+        if (!marks2) {
           let $from = this.doc.resolve(from2);
-          marks3 = to == from2 ? $from.marks() : $from.marksAcross(this.doc.resolve(to));
+          marks2 = to == from2 ? $from.marks() : $from.marksAcross(this.doc.resolve(to));
         }
-        this.replaceRangeWith(from2, to, schema3.text(text, marks3));
+        this.replaceRangeWith(from2, to, schema3.text(text, marks2));
         if (!this.selection.empty && this.selection.to == from2 + text.length)
           this.setSelection(Selection.near(this.selection.$to));
         return this;
@@ -9183,10 +9183,10 @@
     }
     // Sync the current stack of mark descs with the given array of
     // marks, reusing existing mark descs when possible.
-    syncToMarks(marks3, inline, view2) {
+    syncToMarks(marks2, inline, view2) {
       let keep = 0, depth = this.stack.length >> 1;
-      let maxKeep = Math.min(depth, marks3.length);
-      while (keep < maxKeep && (keep == depth - 1 ? this.top : this.stack[keep + 1 << 1]).matchesMark(marks3[keep]) && marks3[keep].type.spec.spanning !== false)
+      let maxKeep = Math.min(depth, marks2.length);
+      while (keep < maxKeep && (keep == depth - 1 ? this.top : this.stack[keep + 1 << 1]).matchesMark(marks2[keep]) && marks2[keep].type.spec.spanning !== false)
         keep++;
       while (keep < depth) {
         this.destroyRest();
@@ -9195,12 +9195,12 @@
         this.top = this.stack.pop();
         depth--;
       }
-      while (depth < marks3.length) {
+      while (depth < marks2.length) {
         this.stack.push(this.top, this.index + 1);
         let found2 = -1;
         for (let i = this.index; i < Math.min(this.index + 3, this.top.children.length); i++) {
           let next = this.top.children[i];
-          if (next.matchesMark(marks3[depth]) && !this.isLocked(next.dom)) {
+          if (next.matchesMark(marks2[depth]) && !this.isLocked(next.dom)) {
             found2 = i;
             break;
           }
@@ -9212,7 +9212,7 @@
           }
           this.top = this.top.children[this.index];
         } else {
-          let markDesc = MarkViewDesc.create(this.top, marks3[depth], inline, view2);
+          let markDesc = MarkViewDesc.create(this.top, marks2[depth], inline, view2);
           this.top.children.splice(this.index, 0, markDesc);
           this.top = markDesc;
           this.changed = true;
@@ -10100,13 +10100,13 @@
       if (parsed) {
         slice2 = parsed;
       } else {
-        let marks3 = $context.marks();
+        let marks2 = $context.marks();
         let { schema: schema3 } = view2.state, serializer = DOMSerializer.fromSchema(schema3);
         dom = document.createElement("div");
         text.split(/(?:\r\n?|\n)+/).forEach((block) => {
           let p = dom.appendChild(document.createElement("p"));
           if (block)
-            p.appendChild(serializer.serializeNode(schema3.text(block, marks3)));
+            p.appendChild(serializer.serializeNode(schema3.text(block, marks2)));
         });
       }
     } else {
@@ -12096,9 +12096,9 @@
           setTimeout(() => selectionToDOM(view2), 20);
         }
         let tr = mkTr(view2.state.tr.delete(chFrom, chTo));
-        let marks3 = doc3.resolve(change.start).marksAcross(doc3.resolve(change.endA));
-        if (marks3)
-          tr.ensureMarks(marks3);
+        let marks2 = doc3.resolve(change.start).marksAcross(doc3.resolve(change.endA));
+        if (marks2)
+          tr.ensureMarks(marks2);
         view2.dispatch(tr);
       } else if (
         // Adding or removing a mark
@@ -15822,9 +15822,9 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       }
     ]
   };
-  function addSuggestionMarks(marks3) {
+  function addSuggestionMarks(marks2) {
     return {
-      ...marks3,
+      ...marks2,
       deletion,
       insertion,
       modification
@@ -15978,12 +15978,12 @@ Please report this to https://github.com/markedjs/marked.`, e) {
 
   // node_modules/@handlewithcare/prosemirror-suggest-changes/dist/commands.js
   function applySuggestionsToTransform(node, tr, markTypeToApply, markTypeToRevert, suggestionId, from2, to) {
-    const toApplyIsInSet = suggestionId === void 0 ? (marks3) => markTypeToApply.isInSet(marks3) : (marks3) => markTypeToApply.create({
+    const toApplyIsInSet = suggestionId === void 0 ? (marks2) => markTypeToApply.isInSet(marks2) : (marks2) => markTypeToApply.create({
       id: suggestionId
-    }).isInSet(marks3);
-    const toRevertIsInSet = suggestionId === void 0 ? (marks3) => markTypeToRevert.isInSet(marks3) : (marks3) => markTypeToRevert.create({
+    }).isInSet(marks2);
+    const toRevertIsInSet = suggestionId === void 0 ? (marks2) => markTypeToRevert.isInSet(marks2) : (marks2) => markTypeToRevert.create({
       id: suggestionId
-    }).isInSet(marks3);
+    }).isInSet(marks2);
     const isToApply = toApplyIsInSet(node.marks);
     if (isToApply) {
       if (node.isInline) {
@@ -16051,8 +16051,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       }
     }
   }
-  function modificationIsInSet(modification2, id, marks3) {
-    const mark = modification2.isInSet(marks3);
+  function modificationIsInSet(modification2, id, marks2) {
+    const mark = modification2.isInSet(marks2);
     if (id === void 0) return mark;
     if (mark?.attrs["id"] === id) return mark;
     return void 0;
@@ -16300,14 +16300,14 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     const rebasedPos = rebasePos(step.pos, prevSteps, trackedTransaction.steps);
     const $pos = trackedTransaction.doc.resolve(rebasedPos);
     const node = $pos.nodeAfter;
-    let marks3 = node?.marks ?? [];
-    const existingMods = marks3.filter((mark) => mark.type === modification2 && mark.attrs["type"] === "mark" && step.mark.type.excludes(state.schema.markFromJSON(mark.attrs["newValue"]).type));
+    let marks2 = node?.marks ?? [];
+    const existingMods = marks2.filter((mark) => mark.type === modification2 && mark.attrs["type"] === "mark" && step.mark.type.excludes(state.schema.markFromJSON(mark.attrs["newValue"]).type));
     existingMods.forEach((mark) => {
-      marks3 = mark.removeFromSet(marks3);
+      marks2 = mark.removeFromSet(marks2);
     });
-    let newMarks = step.mark.addToSet(marks3);
+    let newMarks = step.mark.addToSet(marks2);
     let previousValue = null;
-    for (const mark of marks3) {
+    for (const mark of marks2) {
       if (!newMarks.some((m2) => m2.eq(mark))) {
         previousValue = mark;
         break;
@@ -16331,12 +16331,12 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     const rebasedPos = rebasePos(step.pos, prevSteps, trackedTransaction.steps);
     const $pos = trackedTransaction.doc.resolve(rebasedPos);
     const node = $pos.nodeAfter;
-    let marks3 = node?.marks ?? [];
-    const existingMod = marks3.find((mark) => mark.type === modification2 && mark.attrs["type"] === "attr" && mark.attrs["attrName"] === step.attr);
+    let marks2 = node?.marks ?? [];
+    const existingMod = marks2.find((mark) => mark.type === modification2 && mark.attrs["type"] === "attr" && mark.attrs["attrName"] === step.attr);
     if (existingMod) {
-      marks3 = existingMod.removeFromSet(marks3);
+      marks2 = existingMod.removeFromSet(marks2);
     }
-    marks3 = modification2.create({
+    marks2 = modification2.create({
       id: suggestionId,
       type: "attr",
       attrName: step.attr,
@@ -16344,7 +16344,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       previousValue: node?.attrs[step.attr],
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       newValue: step.value
-    }).addToSet(marks3);
+    }).addToSet(marks2);
     trackedTransaction.setNodeMarkup(
       rebasedPos,
       null,
@@ -16353,7 +16353,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         ...node?.attrs,
         [step.attr]: step.value
       },
-      marks3
+      marks2
     );
     return true;
   }
@@ -16374,22 +16374,22 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     const rebasedPos = rebasePos(step.pos, prevSteps, trackedTransaction.steps);
     const $pos = trackedTransaction.doc.resolve(rebasedPos);
     const node = $pos.nodeAfter;
-    let marks3 = node?.marks ?? [];
-    const existingMod = marks3.find((mark) => mark.type === modification2 && mark.attrs["type"] === "mark" && mark.attrs["newValue"] && step.mark.eq(state.schema.markFromJSON(mark.attrs["newValue"])));
+    let marks2 = node?.marks ?? [];
+    const existingMod = marks2.find((mark) => mark.type === modification2 && mark.attrs["type"] === "mark" && mark.attrs["newValue"] && step.mark.eq(state.schema.markFromJSON(mark.attrs["newValue"])));
     if (existingMod) {
       trackedTransaction.removeNodeMark(rebasedPos, existingMod);
       trackedTransaction.removeNodeMark(rebasedPos, state.schema.markFromJSON(existingMod.attrs["newValue"]));
       return false;
     }
-    marks3 = step.mark.removeFromSet(marks3);
-    marks3 = modification2.create({
+    marks2 = step.mark.removeFromSet(marks2);
+    marks2 = modification2.create({
       id: suggestionId,
       type: "mark",
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       previousValue: step.mark.toJSON(),
       newValue: null
-    }).addToSet(marks3);
-    trackedTransaction.setNodeMarkup(rebasedPos, null, null, marks3);
+    }).addToSet(marks2);
+    trackedTransaction.setNodeMarkup(rebasedPos, null, null, marks2);
     return true;
   }
 
@@ -16429,18 +16429,18 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         if (!node) {
           throw new Error("Failed to apply modifications to node: no node found");
         }
-        let marks3 = node.marks;
-        const existingMod = marks3.find((mark) => mark.type === modification2 && mark.attrs["type"] === "nodeType");
+        let marks2 = node.marks;
+        const existingMod = marks2.find((mark) => mark.type === modification2 && mark.attrs["type"] === "nodeType");
         if (existingMod) {
-          marks3 = existingMod.removeFromSet(marks3);
+          marks2 = existingMod.removeFromSet(marks2);
         }
-        marks3 = modification2.create({
+        marks2 = modification2.create({
           id: suggestionId,
           type: "nodeType",
           previousValue: node.type.name,
           newValue: newNode.type.name
-        }).addToSet(marks3);
-        trackedTransaction.setNodeMarkup(rebasedPos, newNode.type, null, marks3);
+        }).addToSet(marks2);
+        trackedTransaction.setNodeMarkup(rebasedPos, newNode.type, null, marks2);
       }
       const attrNames = /* @__PURE__ */ new Set([
         ...Object.keys(newNode.attrs),
@@ -16588,26 +16588,42 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     hypothesis: {
       content: "text*",
       group: "block",
+      code: true,
+      // new 
+      defining: true,
+      // new 
       toDOM() {
-        return ["pre", {
+        return ["div", {
           class: "hypothesis",
           style: "margin: 0; white-space: pre-wrap; font-family: var(--vscode-editor-font-family);"
         }, 0];
       },
       // ADD preserveWhitespace: "full" HERE
-      parseDOM: [{ tag: "pre.hypothesis", priority: 60, preserveWhitespace: "full" }]
+      // parseDOM: [{ tag: "pre.hypothesis", priority: 60, preserveWhitespace: "full" }]
+      parseDOM: [
+        { tag: "div.hypothesis", priority: 60, preserveWhitespace: "full" },
+        { tag: "pre.hypothesis", priority: 60, preserveWhitespace: "full" }
+      ]
     },
     goalType: {
       content: "text*",
       group: "block",
+      code: true,
+      // new 
+      defining: true,
+      // new 
       toDOM() {
-        return ["pre", {
+        return ["div", {
           class: "goalType",
           style: "margin: 0; white-space: pre-wrap; font-weight: bold; font-family: var(--vscode-editor-font-family);"
         }, 0];
       },
       // ADD preserveWhitespace: "full" HERE
-      parseDOM: [{ tag: "pre.goalType", priority: 60, preserveWhitespace: "full" }]
+      // parseDOM: [{ tag: "pre.goalType", priority: 60, preserveWhitespace: "full" }]
+      parseDOM: [
+        { tag: "div.goalType", priority: 60, preserveWhitespace: "full" },
+        { tag: "pre.goalType", priority: 60, preserveWhitespace: "full" }
+      ]
     },
     messagesSection: {
       content: "messagesHeader message*",
@@ -16650,10 +16666,57 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       }
     }
   };
-  var marks2 = addSuggestionMarks(myMarks);
+  function highlightPlugin() {
+    return new Plugin({
+      state: {
+        init(_2, { doc: doc3 }) {
+          return getHighlightDecorations(doc3);
+        },
+        apply(tr, old, oldState, newState) {
+          return tr.docChanged ? getHighlightDecorations(newState.doc) : old;
+        }
+      },
+      props: {
+        decorations(state) {
+          return this.getState(state);
+        }
+      }
+    });
+  }
+  function getHighlightDecorations(doc3) {
+    const decorations = [];
+    doc3.descendants((node, pos) => {
+      if (node.type.name === "hypothesis" || node.type.name === "goalType") {
+        let traverse2 = function(domNode) {
+          if (domNode.nodeType === 3) {
+            currentIndex += domNode.nodeValue.length;
+          } else if (domNode.nodeType === 1) {
+            const start = currentIndex;
+            domNode.childNodes.forEach(traverse2);
+            const end = currentIndex;
+            if (domNode.tagName === "SPAN" && domNode.className.startsWith("hljs-")) {
+              decorations.push(
+                Decoration.inline(pos + 1 + start, pos + 1 + end, {
+                  class: domNode.className
+                })
+              );
+            }
+          }
+        };
+        var traverse = traverse2;
+        const textContent = node.textContent;
+        const highlightedHtml = core_default.highlight(textContent, { language: "coq" }).value;
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = highlightedHtml;
+        let currentIndex = 0;
+        tempDiv.childNodes.forEach(traverse2);
+      }
+    });
+    return DecorationSet.create(doc3, decorations);
+  }
   var schema2 = new Schema({
     nodes: nodes2,
-    marks: marks2
+    marks: addSuggestionMarks(marks)
   });
   function getDiffFromNode(node) {
     let deletedText = "";
@@ -16677,13 +16740,12 @@ Please report this to https://github.com/markedjs/marked.`, e) {
           html += '<div class="hyps">';
           g.hyps.forEach((h) => {
             const rawText = h.names.join(", ") + ": " + h.ty;
-            const highlighted = core_default.highlight(rawText, { language: "coq" }).value;
-            html += `<pre class="hypothesis">${highlighted}</pre>`;
+            html += `<pre class="hypothesis">${escapeHtml(rawText)}</pre>`;
           });
           html += "</div>";
         }
-        const highlightedGoal = core_default.highlight(g.ty, { language: "coq" }).value;
-        html += `<pre class="goalType">${highlightedGoal}</pre>`;
+        const rawGoal = g.ty;
+        html += `<pre class="goalType">${escapeHtml(rawGoal)}</pre>`;
         html += "</div>";
       }
     }
@@ -16844,6 +16906,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     history(),
     keymap({ "Mod-z": undo, "Mod-y": redo }),
     suggestChanges(),
+    highlightPlugin(),
     suggestChangesViewPlugin,
     readOnlyGoalsPlugin,
     editHistoryTrackingPlugin
@@ -16940,8 +17003,15 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   var chatLog = document.getElementById("chatLog");
   var chatInput = document.getElementById("chatInput");
   var chatSend = document.getElementById("chatSend");
+  var chatTypingIndicator = document.getElementById("chatTypingIndicator");
   var currentPartialElem = null;
   var streamBuffer = "";
+  function setTypingIndicator(visible) {
+    if (chatTypingIndicator) {
+      chatTypingIndicator.classList.toggle("visible", !!visible);
+      chatTypingIndicator.setAttribute("aria-hidden", !visible);
+    }
+  }
   function appendChatMessage(text, cls = "assistant") {
     if (!chatLog) return;
     const el = document.createElement("div");
@@ -16954,6 +17024,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   function appendChatStreamPart(text) {
     if (!chatLog) return;
     if (!currentPartialElem) {
+      setTypingIndicator(true);
       currentPartialElem = document.createElement("div");
       currentPartialElem.className = "chatMessage assistant streaming";
       chatLog.appendChild(currentPartialElem);
@@ -16964,6 +17035,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     chatLog.scrollTop = chatLog.scrollHeight;
   }
   function finalizeChatStream() {
+    setTypingIndicator(false);
     if (currentPartialElem) {
       currentPartialElem.classList.remove("streaming");
     }
@@ -16978,6 +17050,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       appendChatMessage(prompt, "user");
       chatInput.value = "";
       currentPartialElem = null;
+      setTypingIndicator(true);
       vscode.postMessage({ command: "chat", prompt });
     });
   }

@@ -1,5 +1,5 @@
 import { EditorState, Plugin } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
+import { EditorView, Decoration, DecorationSet } from 'prosemirror-view';
 import { Schema, DOMParser } from 'prosemirror-model';
 import { schema as basicSchema, marks as basicMarks } from 'prosemirror-schema-basic';
 import { history, undo, redo } from 'prosemirror-history';
@@ -57,26 +57,34 @@ const nodes = {
     hypothesis: { 
         content: "text*",
         group: "block",
+        code: true,
+        defining: true,
         toDOM() { 
-            return ['pre', { 
+            return ['div', { 
                 class: 'hypothesis', 
                 style: 'margin: 0; white-space: pre-wrap; font-family: var(--vscode-editor-font-family);' 
             }, 0]; 
         },
-        // ADD preserveWhitespace: "full" HERE
-        parseDOM: [{ tag: "pre.hypothesis", priority: 60, preserveWhitespace: "full" }]
+        parseDOM: [
+            { tag: "div.hypothesis", priority: 60, preserveWhitespace: "full" },
+            { tag: "pre.hypothesis", priority: 60, preserveWhitespace: "full" }
+        ]
     },
     goalType: { 
         content: "text*",
         group: "block",
+        code: true, 
+        defining: true,
         toDOM() { 
-            return ['pre', { 
+            return ['div', { 
                 class: 'goalType', 
                 style: 'margin: 0; white-space: pre-wrap; font-weight: bold; font-family: var(--vscode-editor-font-family);' 
             }, 0]; 
         },
-        // ADD preserveWhitespace: "full" HERE
-        parseDOM: [{ tag: "pre.goalType", priority: 60, preserveWhitespace: "full" }]
+        parseDOM: [
+            { tag: "div.goalType", priority: 60, preserveWhitespace: "full" },
+            { tag: "pre.goalType", priority: 60, preserveWhitespace: "full" }
+        ]
     },
     messagesSection: {
         content: "messagesHeader message*",
@@ -98,26 +106,74 @@ const nodes = {
     }
 };
 
-
-const myMarks = {
-    ...basicMarks, 
-    syntax: {
-        attrs: { class: {} },
-        parseDOM: [{ 
-            tag: "span", 
-            getAttrs: dom => {
-                const cls = dom.getAttribute("class");
-                return cls && cls.startsWith('hljs-') ? { class: cls } : false; 
+function highlightPlugin() {
+    return new Plugin({
+        state: {
+            init(_, { doc }) {
+                return getHighlightDecorations(doc);
+            },
+            apply(tr, old, oldState, newState) {
+                return tr.docChanged ? getHighlightDecorations(newState.doc) : old;
             }
-        }],
-        toDOM(node) { return ["span", { class: node.attrs.class }, 0]; }
-    }
-};
+        },
+        props: {
+            decorations(state) {
+                return this.getState(state);
+            }
+        }
+    });
+}
 
-const marks = addSuggestionMarks(myMarks);
+function getHighlightDecorations(doc) {
+    const decorations = [];
+
+    doc.descendants((node, pos) => {
+        // Only highlight specific code blocks
+        if (node.type.name === 'hypothesis' || node.type.name === 'goalType') {
+            const textContent = node.textContent;
+            
+            // 1. Run highlight.js on the plain text
+            // value is the HTML string with <span> tags
+            const highlightedHtml = hljs.highlight(textContent, { language: 'coq' }).value;
+
+            // 2. Parse the HTML to find the ranges for each color
+            // We use a temporary DOM element to parse the hljs output
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = highlightedHtml;
+
+            let currentIndex = 0;
+            
+            // Helper to traverse the hljs DOM and create decorations
+            function traverse(domNode) {
+                if (domNode.nodeType === 3) { // Text node
+                    currentIndex += domNode.nodeValue.length;
+                } else if (domNode.nodeType === 1) { // Element node (span)
+                    const start = currentIndex;
+                    // Recursively handle children
+                    domNode.childNodes.forEach(traverse);
+                    const end = currentIndex;
+
+                    // If this was a syntax span, add a decoration
+                    if (domNode.tagName === 'SPAN' && domNode.className.startsWith('hljs-')) {
+                        decorations.push(
+                            Decoration.inline(pos + 1 + start, pos + 1 + end, {
+                                class: domNode.className
+                            })
+                        );
+                    }
+                }
+            }
+            
+            tempDiv.childNodes.forEach(traverse);
+        }
+    });
+
+    return DecorationSet.create(doc, decorations);
+}
+
 const schema = new Schema({
     nodes,
-    marks
+    marks: addSuggestionMarks(basicMarks)
 });
 
 function getDiffFromNode(node) {
@@ -148,13 +204,16 @@ function renderGoalsToHtml(goals, messages, error) {
                 html += '<div class="hyps">';
                 g.hyps.forEach(h => {
                     const rawText = h.names.join(', ') + ': ' + h.ty; 
-                    const highlighted = hljs.highlight(rawText, {language: 'coq'}).value; 
-                    html += `<pre class="hypothesis">${highlighted}</pre>`;
+                    // const highlighted = hljs.highlight(rawText, {language: 'coq'}).value; 
+                    // html += `<pre class="hypothesis">${highlighted}</pre>`;
+                    html += `<pre class="hypothesis">${escapeHtml(rawText)}</pre>`;
                 });
                 html += '</div>';
             }
-            const highlightedGoal = hljs.highlight(g.ty, { language: 'coq' }).value;
-            html += `<pre class="goalType">${highlightedGoal}</pre>`;
+            // const highlightedGoal = hljs.highlight(g.ty, { language: 'coq' }).value;
+            // html += `<pre class="goalType">${highlightedGoal}</pre>`;
+            const rawGoal = g.ty;
+            html += `<pre class="goalType">${escapeHtml(rawGoal)}</pre>`;
             html += '</div>';
         }
     }
@@ -359,6 +418,7 @@ const plugins = [
     history(),
     keymap({ 'Mod-z': undo, 'Mod-y': redo }),
     suggestChanges(), 
+    highlightPlugin(), 
     suggestChangesViewPlugin, 
     readOnlyGoalsPlugin,
     editHistoryTrackingPlugin
@@ -488,8 +548,16 @@ function handleSuggestion(suggestion) {
 const chatLog = document.getElementById('chatLog');
 const chatInput = document.getElementById('chatInput');
 const chatSend = document.getElementById('chatSend');
+const chatTypingIndicator = document.getElementById('chatTypingIndicator');
 let currentPartialElem = null;
 let streamBuffer = ""; 
+
+function setTypingIndicator(visible) {
+    if (chatTypingIndicator) {
+        chatTypingIndicator.classList.toggle('visible', !!visible);
+        chatTypingIndicator.setAttribute('aria-hidden', !visible);
+    }
+}
 
 function appendChatMessage(text, cls = 'assistant') {
     if (!chatLog) return; 
@@ -504,6 +572,7 @@ function appendChatMessage(text, cls = 'assistant') {
 function appendChatStreamPart(text) {
     if (!chatLog) return;
     if (!currentPartialElem) {
+        setTypingIndicator(true);
         currentPartialElem = document.createElement('div'); 
         currentPartialElem.className = 'chatMessage assistant streaming';
         chatLog.appendChild(currentPartialElem);
@@ -515,6 +584,7 @@ function appendChatStreamPart(text) {
 }
 
 function finalizeChatStream() {
+    setTypingIndicator(false);
     if (currentPartialElem) { 
         currentPartialElem.classList.remove('streaming'); 
     }
@@ -532,6 +602,7 @@ if (chatSend) {
         chatInput.value = '';
 
         currentPartialElem = null;
+        setTypingIndicator(true);
         vscode.postMessage({ command: 'chat', prompt });
     });
 }
