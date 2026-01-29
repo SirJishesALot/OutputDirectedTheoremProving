@@ -616,4 +616,9 @@ if (chatInput) {
     });
 }
 
-vscode.postMessage({ command: 'requestUpdate' });
+const updateProofStateBtn = document.getElementById('updateProofStateBtn');
+if (updateProofStateBtn) {
+    updateProofStateBtn.addEventListener('click', () => {
+        vscode.postMessage({ command: 'requestUpdate' });
+    });
+}

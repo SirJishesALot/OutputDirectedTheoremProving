@@ -49,6 +49,8 @@ import {
 export interface DocumentSpec {
     uri: Uri;
     version?: number;
+    /** When set, this content is sent to the LSP instead of reading from disk (e.g. current editor buffer). */
+    content?: string;
 }
 
 export interface CoqLspClient extends Disposable {
@@ -93,7 +95,7 @@ export interface CoqLspClient extends Disposable {
         version: number
     ): Promise<PpString[] | Message<PpString>[] | CoqLspError>;
 
-    openTextDocument(uri: Uri, version?: number): Promise<DiagnosticMessage>;
+    openTextDocument(uri: Uri, version?: number, content?: string): Promise<DiagnosticMessage>;
 
     updateTextDocument(
         oldDocumentText: string[],
@@ -250,11 +252,12 @@ export class CoqLspClientImpl implements CoqLspClient {
 
     async openTextDocument(
         uri: Uri,
-        version: number = 1
+        version: number = 1,
+        content?: string
     ): Promise<DiagnosticMessage> {
         return await this.mutex.runExclusive(async () => {
             throwOnAbort(this.abortSignal);
-            return this.openTextDocumentUnsafe(uri, version);
+            return this.openTextDocumentUnsafe(uri, version, content);
         });
     }
 
@@ -287,7 +290,8 @@ export class CoqLspClientImpl implements CoqLspClient {
     ): Promise<T> {
         const diagnostic = await this.openTextDocument(
             documentSpec.uri,
-            documentSpec.version
+            documentSpec.version,
+            documentSpec.content
         );
         // TODO: discuss whether coq-lsp is capable of maintaining several docs opened
         // or we need a common lock for open-close here
@@ -569,9 +573,13 @@ export class CoqLspClientImpl implements CoqLspClient {
 
     private async openTextDocumentUnsafe(
         uri: Uri,
-        version: number = 1
+        version: number = 1,
+        content?: string
     ): Promise<DiagnosticMessage> {
-        const docText = readFileSync(uri.fsPath).toString();
+        const docText =
+            content !== undefined
+                ? content
+                : readFileSync(uri.fsPath).toString();
         const params: DidOpenTextDocumentParams = {
             textDocument: {
                 uri: uri.uri,

@@ -72,20 +72,12 @@ export class ProofStatePanel {
 
         this.panel.webview.html = this.getHtmlForWebview(this.panel.webview);
 
-        vscode.window.onDidChangeTextEditorSelection(
-            () => this.updateProofState(),
-            null,
-            this.disposables
-        );
-
-        vscode.window.onDidChangeActiveTextEditor(
-            () => this.updateProofState(),
-            null,
-            this.disposables
-        );
-
         this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
-        this.updateProofState(); // initial update
+    }
+
+    /** Call this to refresh the proof state at the current editor cursor (e.g. from a keybinding or toolbar). */
+    public async requestProofStateUpdate(): Promise<void> {
+        await this.updateProofState();
     }
 
     public dispose() {
@@ -396,10 +388,11 @@ export class ProofStatePanel {
             const docUri = Uri.fromPath(editor.document.uri.fsPath);
             const version = editor.document.version;
             const position = editor.selection.active;
+            const content = editor.document.getText();
 
             const client = await this.clientReady;
 
-            await client.withTextDocument({ uri: docUri, version }, async () => {
+            await client.withTextDocument({ uri: docUri, version, content }, async () => {
                 const result = await client.getGoalsAtPoint(position as any, docUri as any, version);
 
                 if (result.ok) {
@@ -474,7 +467,10 @@ export class ProofStatePanel {
 <title>Coq Proof State</title>
 </head>
 <body>
-  <h2>Output Directed Theorem Prover</h2>
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5em;">
+    <h2 style="margin: 0;">Output Directed Theorem Prover</h2>
+    <button id="updateProofStateBtn" type="button" title="Update proof state at current cursor position">Update</button>
+  </div>
   
   <div id="editor"></div>
 

@@ -16589,17 +16589,13 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       content: "text*",
       group: "block",
       code: true,
-      // new 
       defining: true,
-      // new 
       toDOM() {
         return ["div", {
           class: "hypothesis",
           style: "margin: 0; white-space: pre-wrap; font-family: var(--vscode-editor-font-family);"
         }, 0];
       },
-      // ADD preserveWhitespace: "full" HERE
-      // parseDOM: [{ tag: "pre.hypothesis", priority: 60, preserveWhitespace: "full" }]
       parseDOM: [
         { tag: "div.hypothesis", priority: 60, preserveWhitespace: "full" },
         { tag: "pre.hypothesis", priority: 60, preserveWhitespace: "full" }
@@ -16609,17 +16605,13 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       content: "text*",
       group: "block",
       code: true,
-      // new 
       defining: true,
-      // new 
       toDOM() {
         return ["div", {
           class: "goalType",
           style: "margin: 0; white-space: pre-wrap; font-weight: bold; font-family: var(--vscode-editor-font-family);"
         }, 0];
       },
-      // ADD preserveWhitespace: "full" HERE
-      // parseDOM: [{ tag: "pre.goalType", priority: 60, preserveWhitespace: "full" }]
       parseDOM: [
         { tag: "div.goalType", priority: 60, preserveWhitespace: "full" },
         { tag: "pre.goalType", priority: 60, preserveWhitespace: "full" }
@@ -16648,22 +16640,6 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         return ["div", { class: "message" }, 0];
       },
       parseDOM: [{ tag: "div.message", priority: 60 }, { tag: "div.error-message", priority: 50 }]
-    }
-  };
-  var myMarks = {
-    ...marks,
-    syntax: {
-      attrs: { class: {} },
-      parseDOM: [{
-        tag: "span",
-        getAttrs: (dom) => {
-          const cls = dom.getAttribute("class");
-          return cls && cls.startsWith("hljs-") ? { class: cls } : false;
-        }
-      }],
-      toDOM(node) {
-        return ["span", { class: node.attrs.class }, 0];
-      }
     }
   };
   function highlightPlugin() {
@@ -17062,5 +17038,10 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       }
     });
   }
-  vscode.postMessage({ command: "requestUpdate" });
+  var updateProofStateBtn = document.getElementById("updateProofStateBtn");
+  if (updateProofStateBtn) {
+    updateProofStateBtn.addEventListener("click", () => {
+      vscode.postMessage({ command: "requestUpdate" });
+    });
+  }
 })();

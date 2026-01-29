@@ -69,6 +69,18 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 	context.subscriptions.push(openProofStateDisposable);
 
+	const updateProofStateDisposable = vscode.commands.registerCommand(
+		'outputdirectedtheoremproving.updateProofState',
+		async () => {
+			if (ProofStatePanel.currentPanel) {
+				await ProofStatePanel.currentPanel.requestProofStateUpdate();
+			} else {
+				vscode.window.showInformationMessage('Open the Coq Proof State view first (e.g. Command Palette: "Open Coq Proof State").');
+			}
+		}
+	);
+	context.subscriptions.push(updateProofStateDisposable);
+
 	const setOpenAiKeyCmd = vscode.commands.registerCommand('outputdirectedtheoremproving.setOpenAiApiKey', async () => {
 		const key = await vscode.window.showInputBox({
 			prompt: 'Enter your OpenAI API key',

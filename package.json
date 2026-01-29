@@ -14,6 +14,7 @@
     "onCommand:outputdirectedtheoremproving.setOpenAiApiKey",
     "onCommand:outputdirectedtheoremproving.getDefaultChatModel",
     "onCommand:outputdirectedtheoremproving.changeLLMModel",
+    "onCommand:outputdirectedtheoremproving.updateProofState",
     "onLanguage:coq"
   ],
   "main": "./dist/extension.js",
@@ -38,6 +39,18 @@
       {
         "command": "outputdirectedtheoremproving.changeLLMModel",
         "title": "Change LLM Model"
+      },
+      {
+        "command": "outputdirectedtheoremproving.updateProofState",
+        "title": "Update Proof State at Cursor"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "outputdirectedtheoremproving.updateProofState",
+        "key": "ctrl+alt+u",
+        "mac": "cmd+alt+u",
+        "when": "editorTextFocus && editorLangId == 'coq'"
       }
     ],
     "chatParticipants": [
