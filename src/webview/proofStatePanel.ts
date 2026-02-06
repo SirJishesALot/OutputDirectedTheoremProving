@@ -463,6 +463,10 @@ export class ProofStatePanel {
             this.extensionUri, 'node_modules', 'prosemirror-view', 'style', 'prosemirror.css'
         ));
 
+        const katexCssUri = webview.asWebviewUri(vscode.Uri.joinPath(
+            this.extensionUri, 'node_modules', 'katex', 'dist', 'katex.min.css'
+        ));
+
         return `<!doctype html>
 <html lang="en">
 <head>
@@ -470,12 +474,13 @@ export class ProofStatePanel {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'none'; 
-    style-src ${webview.cspSource}; 
+    style-src ${webview.cspSource} ${katexCssUri} 'unsafe-inline'; 
     script-src ${webview.cspSource};
   ">
 
   <link rel="stylesheet" type="text/css" href="${proseMirrorCssUri}">
   <link rel="stylesheet" type="text/css" href="${cssUri}">
+  <link rel="stylesheet" type="text/css" href="${katexCssUri}">
   
 <title>Coq Proof State</title>
 </head>

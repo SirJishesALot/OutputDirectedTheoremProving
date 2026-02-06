@@ -29,14 +29,16 @@ export async function parseCoqFile(
     client: CoqLspClient,
     abortSignal: AbortSignal,
     extractTheoremInitialGoal: boolean = true,
-    eventLogger?: EventLogger
+    eventLogger?: EventLogger,
+    documentTextOverride?: string
 ): Promise<Theorem[]> {
+    const documentText = documentTextOverride !== undefined
+        ? documentTextOverride.split("\n")
+        : readFileSync(uri.fsPath).toString().split("\n");
+
     return client
         .getFlecheDocument(uri)
         .then((doc) => {
-            const documentText = readFileSync(uri.fsPath)
-                .toString()
-                .split("\n");
             return parseFlecheDocument(
                 doc,
                 documentText,

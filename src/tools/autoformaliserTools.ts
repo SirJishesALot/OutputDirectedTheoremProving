@@ -45,7 +45,7 @@ export function createAutoformaliserTools(
     return [
         {
             name: 'get_current_proof_state',
-            description: `Gets the current proof state at the cursor position, including all goals, hypotheses, their types, and any error messages. 
+            description: `Gets the current proof state at the cursor position, including all goals, hypotheses, their types, and any error messages.
 Returns a formatted string with:
 - Current goal(s) and their types
 - All hypotheses with their names and types
@@ -58,10 +58,11 @@ Returns a formatted string with:
                     const docUri = Uri.fromPath(editor.document.uri.fsPath);
                     const version = editor.document.version;
                     const position = editor.selection.active;
+                    const content = editor.document.getText();
 
                     let result: string = '';
 
-                    await client.withTextDocument({ uri: docUri, version }, async () => {
+                    await client.withTextDocument({ uri: docUri, version, content }, async () => {
                         const goalsResult = await client.getGoalsAtPoint(
                             position as any,
                             docUri as any,
@@ -201,55 +202,58 @@ Use this to understand what tactics have been used, the structure of the current
                 try {
                     const client = await clientReady;
                     const docUri = Uri.fromPath(editor.document.uri.fsPath);
+                    const version = editor.document.version;
                     const position = editor.selection.active;
-                    const textLines = editor.document.getText().split('\n');
+                    const content = editor.document.getText();
 
-                    // Parse the file to find theorems and their proofs
-                    const theorems = await parseCoqFile(
-                        docUri,
-                        client,
-                        new AbortController().signal,
-                        false // don't extract initial goals
-                    );
+                    let result = '';
 
-                    // Find the theorem/proof that contains the cursor position
-                    let currentProof = null;
-                    for (const thm of theorems) {
-                        if (thm.proof && thm.proof.proof_steps.length > 0) {
-                            // Get the range from the first proof step (should be "Proof.") to end_pos
-                            const firstStep = thm.proof.proof_steps[0];
-                            const proofStart = firstStep.range.start;
-                            const proofEnd = thm.proof.end_pos.end;
-                            
-                            // Check if cursor is within this proof's range
-                            if (position.line >= proofStart.line && position.line <= proofEnd.line) {
-                                // Also check column if on the same line
-                                if (position.line === proofStart.line && position.character < proofStart.character) {
-                                    continue;
+                    await client.withTextDocument({ uri: docUri, version, content }, async () => {
+                        // Parse the file to find theorems and their proofs (using current buffer)
+                        const theorems = await parseCoqFile(
+                            docUri,
+                            client,
+                            new AbortController().signal,
+                            false, // don't extract initial goals
+                            undefined,
+                            content
+                        );
+
+                        // Find the theorem/proof that contains the cursor position
+                        let currentProof = null;
+                        for (const thm of theorems) {
+                            if (thm.proof && thm.proof.proof_steps.length > 0) {
+                                const firstStep = thm.proof.proof_steps[0];
+                                const proofStart = firstStep.range.start;
+                                const proofEnd = thm.proof.end_pos.end;
+
+                                if (position.line >= proofStart.line && position.line <= proofEnd.line) {
+                                    if (position.line === proofStart.line && position.character < proofStart.character) {
+                                        continue;
+                                    }
+                                    if (position.line === proofEnd.line && position.character > proofEnd.character) {
+                                        continue;
+                                    }
+                                    currentProof = thm;
+                                    break;
                                 }
-                                if (position.line === proofEnd.line && position.character > proofEnd.character) {
-                                    continue;
-                                }
-                                currentProof = thm;
-                                break;
                             }
                         }
-                    }
 
-                    if (!currentProof || !currentProof.proof) {
-                        return 'No proof found at the current cursor position. Make sure you are inside a proof block (between "Proof." and "Qed."/ "Defined."/ "Admitted.").';
-                    }
+                        if (!currentProof || !currentProof.proof) {
+                            result = 'No proof found at the current cursor position. Make sure you are inside a proof block (between "Proof." and "Qed."/ "Defined."/ "Admitted.").';
+                            return;
+                        }
 
-                    // Extract the proof script text using the proof steps
-                    // The onlyText() method returns the proof script without extra formatting
-                    const proofScript = currentProof.proof.onlyText();
+                        const proofScript = currentProof.proof.onlyText();
 
-                    let result = `=== CURRENT PROOF SCRIPT ===\n\n`;
-                    result += `Theorem/Lemma: ${currentProof.name}\n`;
-                    result += `Statement: ${currentProof.statement}\n\n`;
-                    result += `--- Proof Script ---\n`;
-                    result += proofScript;
-                    result += `\n\n--- End of Proof ---\n`;
+                        result = `=== CURRENT PROOF SCRIPT ===\n\n`;
+                        result += `Theorem/Lemma: ${currentProof.name}\n`;
+                        result += `Statement: ${currentProof.statement}\n\n`;
+                        result += `--- Proof Script ---\n`;
+                        result += proofScript;
+                        result += `\n\n--- End of Proof ---\n`;
+                    });
 
                     return result;
                 } catch (e) {

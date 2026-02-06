@@ -103,6 +103,7 @@
     "async-mutex": "^0.5.0",
     "axios": "^1.12.2",
     "highlight.js": "^11.11.1",
+    "katex": "^0.16.11",
     "marked": "^17.0.1",
     "@google/genai": "^1.38.0",
     "openai": "^6.3.0",

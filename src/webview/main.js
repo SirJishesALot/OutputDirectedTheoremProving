@@ -5,7 +5,8 @@ import { schema as basicSchema, marks as basicMarks } from 'prosemirror-schema-b
 import { history, undo, redo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import { baseKeymap } from 'prosemirror-commands';
-import { marked } from 'marked'; 
+import { marked } from 'marked';
+import katex from 'katex';
 
 import hljs from 'highlight.js/lib/core'; 
 import coq from 'highlight.js/lib/languages/coq'; 
@@ -559,11 +560,48 @@ function setTypingIndicator(visible) {
     }
 }
 
+/**
+ * Renders markdown with LaTeX math: $...$ (inline) and $$...$$ (block).
+ * Placeholders use {{...}} so they are safe in HTML (no < or >) and Markdown does not alter them.
+ */
+function renderMarkdownWithMath(text) {
+    const blockPlaceholders = [];
+    const inlinePlaceholders = [];
+    let s = text
+        .replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
+            const i = blockPlaceholders.length;
+            blockPlaceholders.push(math.trim());
+            return `{{MATHB_${i}}}`;
+        })
+        .replace(/\$([^$\n]+)\$/g, (_, math) => {
+            const i = inlinePlaceholders.length;
+            inlinePlaceholders.push(math.trim());
+            return `{{MATHI_${i}}}`;
+        });
+    let html = marked.parse(s);
+    const katexOpts = { throwOnError: false, output: 'html' };
+    blockPlaceholders.forEach((math, i) => {
+        try {
+            html = html.replace(`{{MATHB_${i}}}`, katex.renderToString(math, { ...katexOpts, displayMode: true }));
+        } catch (_) {
+            html = html.replace(`{{MATHB_${i}}}`, `<span class="katex-error">$$${math}$$</span>`);
+        }
+    });
+    inlinePlaceholders.forEach((math, i) => {
+        try {
+            html = html.replace(`{{MATHI_${i}}}`, katex.renderToString(math, { ...katexOpts, displayMode: false }));
+        } catch (_) {
+            html = html.replace(`{{MATHI_${i}}}`, `<span class="katex-error">$${math}$</span>`);
+        }
+    });
+    return html;
+}
+
 function appendChatMessage(text, cls = 'assistant') {
     if (!chatLog) return; 
     const el = document.createElement('div');
     el.className = 'chatMessage ' + cls;
-    el.innerHTML = marked.parse(text); 
+    el.innerHTML = renderMarkdownWithMath(text); 
     chatLog.appendChild(el);
     chatLog.scrollTop = chatLog.scrollHeight;
     return el;
@@ -579,7 +617,7 @@ function appendChatStreamPart(text) {
         streamBuffer = ""; 
     } 
     streamBuffer += text; 
-    currentPartialElem.innerHTML = marked.parse(streamBuffer); 
+    currentPartialElem.innerHTML = renderMarkdownWithMath(streamBuffer); 
     chatLog.scrollTop = chatLog.scrollHeight;
 }
 
