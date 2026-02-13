@@ -1,6 +1,7 @@
 import { OutputChannel, Uri } from "vscode";
 import {
     LanguageClientOptions,
+    ProtocolNotificationType,
     RevealOutputChannelOn,
     Trace,
 } from "vscode-languageclient";
@@ -11,8 +12,19 @@ import { getErrorMessage } from "../utils/errorsUtils";
 
 import { CoqLspClientConfig, CoqLspServerConfig } from "./coqLspConfig";
 
+export interface CoqServerVersion {
+    coq: string;
+    ocaml: string;
+    coq_lsp: string;
+}
+
+const ServerVersionNotification =
+    new ProtocolNotificationType<CoqServerVersion, void>("$/coq/serverVersion");
+
 export class CoqLspConnector extends LanguageClient {
     static wrongServerSuspectedEvent = "wrong-lsp-server-suspected";
+
+    private serverVersion: CoqServerVersion | undefined;
 
     constructor(
         serverConfig: CoqLspServerConfig,
@@ -64,6 +76,9 @@ export class CoqLspConnector extends LanguageClient {
 
     override async start(): Promise<void> {
         super.setTrace(Trace.Verbose);
+        this.onNotification(ServerVersionNotification, (params: CoqServerVersion) => {
+            this.serverVersion = params;
+        });
         await super
             .start()
             .then()
@@ -74,6 +89,10 @@ export class CoqLspConnector extends LanguageClient {
                 );
                 throw e;
             });
+    }
+
+    getServerVersion(): CoqServerVersion | undefined {
+        return this.serverVersion;
     }
 
     private isVersioningError(message: string): boolean {

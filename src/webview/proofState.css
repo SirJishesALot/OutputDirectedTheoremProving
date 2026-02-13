@@ -17,6 +17,13 @@ h2 {
     flex: 0 0 auto;
 }
 
+.webview-status {
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    min-height: 1.2em;
+    margin-bottom: 4px;
+}
+
 /* This is the main ProseMirror editor container */
 #editor {
     flex: 0 0 auto;
@@ -170,6 +177,33 @@ del {
 }
 
 /* Typing indicator - shown while model is streaming */
+.synthesizing-indicator {
+    display: none;
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    padding: 6px 8px;
+    margin-bottom: 6px;
+    border-radius: 4px;
+    background: var(--vscode-editor-inactiveSelectionBackground, rgba(100, 100, 100, 0.2));
+    align-items: center;
+    gap: 8px;
+}
+.synthesizing-indicator.visible {
+    display: flex;
+}
+.synthesizing-indicator::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border: 2px solid var(--vscode-descriptionForeground);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: synthesizingSpin 0.7s linear infinite;
+}
+@keyframes synthesizingSpin {
+    to { transform: rotate(360deg); }
+}
+
 .chat-typing-indicator {
     display: none;
     font-size: 12px;

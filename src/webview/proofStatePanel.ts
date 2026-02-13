@@ -17,6 +17,8 @@ export class ProofStatePanel {
     private disposables: vscode.Disposable[] = [];
     private clientReady: ClientReadyPromise;
     private currentDocumentUri: vscode.Uri | undefined;
+    /** Last cursor position when proof state was updated (Coq file had focus). Used by prover tools when panel has focus. */
+    private savedCursorPosition: { line: number; character: number } | undefined;
     private editHistory: EditHistory = { edits: [] };
     private conversationHistory: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = []; 
 
@@ -104,6 +106,7 @@ export class ProofStatePanel {
 
     private async handleMessage(message: any) {
         const cmd = message.command;
+        console.log('[Proof State Panel] handleMessage command:', cmd);
         if (cmd === 'requestUpdate') {
             console.log('proof state update requested');
             await this.updateProofState();
@@ -196,8 +199,8 @@ export class ProofStatePanel {
                     this.panel.webview.postMessage({ type: 'chatResponseDone' });
                 }
             })();
-        } else if (cmd === 'agentRequest') { 
-            console.log('Agent request received:', message.context);
+        } else if (cmd === 'agentRequest') {
+            console.log('[Proof State Panel] agentRequest received, context:', JSON.stringify(message.context));
             await this.handleAgentRequest(message.context);
         } else if (cmd === 'updateEditHistory') {
             // Update edit history when user makes edits in the proof state
@@ -220,18 +223,34 @@ export class ProofStatePanel {
         }
     }
 
-    private async handleAgentRequest(context: { lhs: string, rhs: string }) {
-        console.log("before getting model for prover agent"); 
+    private async handleAgentRequest(context: { lhs?: string; rhs?: string; fullOriginalState?: string; fullDesiredState?: string }) {
+        const lhs = (context?.lhs ?? '').trim();
+        const rhs = (context?.rhs ?? '').trim();
+        const fullOriginalState = (context?.fullOriginalState ?? '').trim() || undefined;
+        const fullDesiredState = (context?.fullDesiredState ?? '').trim() || undefined;
+        console.log('[Proof State Panel] handleAgentRequest started', { lhs, rhs, hasFullState: !!(fullOriginalState && fullDesiredState) });
+        this.panel.webview.postMessage({ type: 'proverAgentStarted' });
+        try {
+        const hasFullState = !!(fullOriginalState && fullDesiredState);
+        if (!hasFullState && (!lhs || !rhs)) {
+            this.panel.webview.postMessage({
+                type: 'chatResponsePart',
+                text: '_No proof state change selected._ Enable **Suggestions**, then mark a change on a hypothesis or goal (e.g. edit it to show old → new). Click **Synthesize Equality** again.',
+            });
+            this.panel.webview.postMessage({ type: 'chatResponseDone' });
+            return;
+        }
         // Pass useCache: true to use cached model if available, otherwise show picker
         const model = await vscode.commands.executeCommand('outputdirectedtheoremproving.getDefaultChatModel', { useCache: true });
         if (!model) {
+            console.log('[Proof State Panel] No model selected, aborting');
             this.panel.webview.postMessage({ type: 'chatResponsePart', text: 'Error: No model selected.' });
             this.panel.webview.postMessage({ type: 'chatResponseDone' });
             return;
         }
-        console.log("after getting model for prover agent"); 
+        console.log('[Proof State Panel] Model obtained');
 
-        console.log("before getting active editor");
+        console.log('[Proof State Panel] Resolving Coq editor');
         let editor: vscode.TextEditor | undefined; 
         if (this.currentDocumentUri) {
             editor = vscode.window.visibleTextEditors.find(
@@ -245,15 +264,17 @@ export class ProofStatePanel {
         }
 
         if (!editor) {
-            console.error("Could not find the bound Coq editor.");
+            console.error('[Proof State Panel] Could not find the bound Coq editor.');
             this.panel.webview.postMessage({ type: 'chatResponsePart', text: 'Error: The Coq file for this proof state is no longer visible.' });
             this.panel.webview.postMessage({ type: 'chatResponseDone' });
             return;
         }
+        console.log('[Proof State Panel] Editor found, running prover agent');
 
-        const lhs = context.lhs.trim();
-        const rhs = context.rhs.trim();
-        
+        if (!this.savedCursorPosition) {
+            this.savedCursorPosition = { line: editor.selection.active.line, character: editor.selection.active.character };
+        }
+
         // Track this edit in history
         this.editHistory.edits.push({
             lhs,
@@ -261,21 +282,42 @@ export class ProofStatePanel {
             timestamp: Date.now()
         });
 
-        // Create prover tools
-        const proverTools = createProverTools(this.clientReady, editor);
+        // Compute full state text for the agent (and for tool session fallback when agent sends empty)
+        const originalValue = (fullOriginalState || lhs).trim() || lhs;
+        const desiredValue = (fullDesiredState || rhs).trim() || rhs;
+        if (!originalValue || !desiredValue) {
+            this.panel.webview.postMessage({ type: 'chatResponsePart', text: 'Error: Proof state text is empty; cannot run the prover agent.' });
+            this.panel.webview.postMessage({ type: 'chatResponseDone' });
+            return;
+        }
 
-        // Show initial message
-        this.panel.webview.postMessage({ 
-            type: 'chatResponsePart', 
-            text: `_Prover Agent: Attempting to achieve proof state change_\n\`${lhs}\` → \`${rhs}\`\n\n` 
+        // Create prover tools with session state and saved cursor (so tools use proof position when panel has focus)
+        const proverTools = createProverTools(this.clientReady, editor, {
+            sessionOriginalValue: originalValue,
+            sessionDesiredValue: desiredValue,
+            cursorPositionOverride: this.savedCursorPosition,
         });
 
-        // Run the prover agent
+        // Show initial message (show full-state summary when available)
+        const summary = fullOriginalState && fullDesiredState
+            ? 'Full proof state (before) → (after)'
+            : `\`${lhs}\` → \`${rhs}\``;
+        this.panel.webview.postMessage({ 
+            type: 'chatResponsePart', 
+            text: `_Prover Agent: Attempting to achieve proof state change_\n${summary}\n\n` 
+        });
+
         try {
+            console.log('[Proof State Panel] Calling runProverAgent');
             await runProverAgent(
                 this.clientReady,
                 model,
-                { originalValue: lhs, desiredValue: rhs },
+                {
+                    originalValue,
+                    desiredValue,
+                    validationLhs: lhs || undefined,
+                    validationRhs: rhs || undefined,
+                },
                 proverTools,
                 (chunk: string) => {
                     this.panel.webview.postMessage({ type: 'chatResponsePart', text: chunk });
@@ -284,16 +326,18 @@ export class ProofStatePanel {
                     this.panel.webview.postMessage({ type: 'chatResponseDone' });
                 }
             );
+            console.log('[Proof State Panel] runProverAgent finished');
         } catch (e) {
-            console.error('Prover agent error:', e);
+            console.error('[Proof State Panel] Prover agent error:', e);
             this.panel.webview.postMessage({ 
                 type: 'chatResponsePart', 
                 text: `Error running prover agent: ${e instanceof Error ? e.message : String(e)}` 
             });
             this.panel.webview.postMessage({ type: 'chatResponseDone' });
         }
-
-
+        } finally {
+            this.panel.webview.postMessage({ type: 'proverAgentDone' });
+        }
     }
 
     
@@ -388,7 +432,7 @@ export class ProofStatePanel {
         return prompt;
     }
 
-    private async updateProofState() { 
+    private async updateProofState() {
         try {
             if (this.panel.active) { return; }
             const editor = vscode.window.activeTextEditor;
@@ -396,7 +440,7 @@ export class ProofStatePanel {
                 this.panel.webview.postMessage({ type: 'noDocument' });
                 return;
             }
-            
+
             this.currentDocumentUri = editor.document.uri; 
             const docUri = Uri.fromPath(editor.document.uri.fsPath);
             const version = editor.document.version;
@@ -405,46 +449,50 @@ export class ProofStatePanel {
 
             const client = await this.clientReady;
 
-            await client.withTextDocument({ uri: docUri, version, content }, async () => {
-                const result = await client.getGoalsAtPoint(position as any, docUri as any, version);
+            await client.withTextDocument(
+                { uri: docUri, version, content, openTimeoutMs: 45000 },
+                async () => {
+                    const result = await client.getGoalsAtPoint(position as any, docUri as any, version);
 
-                if (result.ok) {
-                    const goalsWithMessages = result.val;
-                    const goals = goalsWithMessages.goals;
-                    const messages = goalsWithMessages.messages || [];
-                    const error = goalsWithMessages.error;
+                    if (result.ok) {
+                        this.savedCursorPosition = { line: position.line, character: position.character };
+                        const goalsWithMessages = result.val;
+                        const goals = goalsWithMessages.goals;
+                        const messages = goalsWithMessages.messages || [];
+                        const error = goalsWithMessages.error;
 
-                    // Log the retrieved goal state
-                    console.log('Retrieved goal state:', JSON.stringify({
-                        goals: goals,
-                        messages: messages,
-                        error: error,
-                        rawResult: result
-                    }, null, 2));
+                        // Log the retrieved goal state
+                        console.log('Retrieved goal state:', JSON.stringify({
+                            goals: goals,
+                            messages: messages,
+                            error: error,
+                            rawResult: result
+                        }, null, 2));
 
-                    // Convert PpString to strings to preserve newlines
-                    const convertedGoals = goals.map((g: ProofGoal) => ({
-                        ty: convertToString(g.ty),
-                        hyps: g.hyps.map((h: Hyp<PpString>) => ({
-                            names: h.names.map(n => convertToString(n)),
-                            def: h.def ? convertToString(h.def) : undefined,
-                            ty: convertToString(h.ty)
-                        }))
-                    }));
-                    
-                    // Send goals and messages to webview
-                    this.panel.webview.postMessage({ 
-                        type: 'proofUpdate', 
-                        goals: convertedGoals,
-                        messages: messages,
-                        error: error
-                    });
-                } else {
-                    // If request failed, show error
-                    const err = result.val;
-                    this.postError(err?.message ?? JSON.stringify(err));
+                        // Convert PpString to strings to preserve newlines
+                        const convertedGoals = goals.map((g: ProofGoal) => ({
+                            ty: convertToString(g.ty),
+                            hyps: g.hyps.map((h: Hyp<PpString>) => ({
+                                names: h.names.map(n => convertToString(n)),
+                                def: h.def ? convertToString(h.def) : undefined,
+                                ty: convertToString(h.ty)
+                            }))
+                        }));
+
+                        // Send goals and messages to webview
+                        this.panel.webview.postMessage({
+                            type: 'proofUpdate',
+                            goals: convertedGoals,
+                            messages: messages,
+                            error: error
+                        });
+                    } else {
+                        // If request failed, show error
+                        const err = result.val;
+                        this.postError(err?.message ?? JSON.stringify(err));
+                    }
                 }
-            });
+            );
         } catch (e) {
             this.postError(e instanceof Error ? e.message : String(e));
         }
@@ -486,10 +534,11 @@ export class ProofStatePanel {
 </head>
 <body>
   <h2>Output Directed Theorem Prover</h2>
-  
+  <div id="webviewStatus" class="webview-status" aria-live="polite"></div>
   <div id="editor"></div>
 
     <div id="chat" class="controls">
+        <div id="synthesizingIndicator" class="synthesizing-indicator" aria-hidden="true">Synthesizing proof...</div>
         <div id="chatLog"></div>
         <div id="chatTypingIndicator" class="chat-typing-indicator" aria-hidden="true">Model is typing...</div>
         <div style="display: flex; flex-direction: row; align-items: center;">

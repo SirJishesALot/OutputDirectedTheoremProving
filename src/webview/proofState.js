@@ -31078,6 +31078,10 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     return lang;
   });
   var vscode = acquireVsCodeApi();
+  function updateWebviewStatus(text2) {
+    const el = document.getElementById("webviewStatus");
+    if (el) el.textContent = text2;
+  }
   var nodes2 = {
     doc: {
       content: "(goal | paragraph | messagesSection)*",
@@ -31219,12 +31223,55 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     let deletedText = "";
     let insertedText = "";
     node.content.forEach((child) => {
-      const isDeleted = child.marks.some((m2) => m2.type.name === "deletion");
-      const isInserted = child.marks.some((m2) => m2.type.name === "insertion");
-      if (isDeleted) deletedText += child.text;
-      if (isInserted) insertedText += child.text;
+      const deletionMark = child.marks.find((m2) => m2.type.name === "deletion");
+      const insertionMark = child.marks.find((m2) => m2.type.name === "insertion");
+      const modificationMark = child.marks.find((m2) => m2.type.name === "modification" && m2.attrs?.type === "replace");
+      if (deletionMark) deletedText += child.text;
+      if (insertionMark) insertedText += child.text;
+      if (modificationMark && modificationMark.attrs) {
+        deletedText += modificationMark.attrs.previousValue ?? child.text;
+        insertedText += modificationMark.attrs.newValue ?? "";
+      }
     });
     return { deletedText, insertedText };
+  }
+  function getFullStateBeforeAfter(doc3) {
+    let before = "";
+    let after = "";
+    let needNewline = false;
+    doc3.descendants((node) => {
+      const isBlock = node.type && node.isBlock && node.type.name !== "doc";
+      if (isBlock && needNewline) {
+        before += "\n";
+        after += "\n";
+      }
+      if (isBlock) needNewline = true;
+      if (node.isText) {
+        const modificationMark = node.marks.find((m2) => m2.type.name === "modification" && m2.attrs?.type === "replace");
+        const deletionMark = node.marks.find((m2) => m2.type.name === "deletion");
+        const insertionMark = node.marks.find((m2) => m2.type.name === "insertion");
+        if (modificationMark && modificationMark.attrs) {
+          before += modificationMark.attrs.previousValue ?? node.text;
+          after += modificationMark.attrs.newValue ?? "";
+        } else if (deletionMark) {
+          before += node.text;
+        } else if (insertionMark) {
+          after += node.text;
+        } else {
+          before += node.text;
+          after += node.text;
+        }
+      }
+      return true;
+    });
+    if (!before && !after && doc3.content && typeof doc3.textBetween === "function") {
+      const plain = doc3.textBetween(0, doc3.content.size, "\n");
+      if (plain) {
+        before = plain;
+        after = plain;
+      }
+    }
+    return { before, after };
   }
   function renderGoalsToHtml(goals, messages, error) {
     let html = "";
@@ -31295,27 +31342,28 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       const synthesizeButton = document.createElement("button");
       synthesizeButton.textContent = "Synthesize Equality";
       synthesizeButton.classList.add("synthesize-button");
-      synthesizeButton.style.display = "none";
       synthesizeButton.addEventListener("click", () => {
-        let diffFound = false;
-        view2.state.doc.descendants((node, pos) => {
-          if (diffFound) return false;
-          if (node.type.name === "hypothesis") {
-            const { deletedText, insertedText } = getDiffFromNode(node);
-            if (deletedText && insertedText) {
-              diffFound = true;
-              console.log("Sending agent request:", deletedText, "->", insertedText);
-              vscode.postMessage({
-                command: "agentRequest",
-                context: { lhs: deletedText, rhs: insertedText }
-              });
+        updateWebviewStatus("Synthesize clicked");
+        let lhs = "";
+        let rhs = "";
+        view2.state.doc.descendants((node) => {
+          const isEditableBlock = node.type.name === "hypothesis" || node.type.name === "goalType";
+          if (isEditableBlock) {
+            const diff = getDiffFromNode(node);
+            if (diff.deletedText && diff.insertedText) {
+              lhs = diff.deletedText;
+              rhs = diff.insertedText;
+              return false;
             }
           }
           return true;
         });
-        if (!diffFound) {
-          console.log("No hypothesis changes found.");
-        }
+        const { before: fullOriginalState, after: fullDesiredState } = getFullStateBeforeAfter(view2.state.doc);
+        updateWebviewStatus("Sending agentRequest " + (lhs ? "with diff" : "(no diff)"));
+        vscode.postMessage({
+          command: "agentRequest",
+          context: { lhs, rhs, fullOriginalState, fullDesiredState }
+        });
       });
       const commandsContainer = document.createElement("div");
       commandsContainer.classList.add("suggestion-commands");
@@ -31328,12 +31376,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         if (isSuggestChangesEnabled(state)) {
           toggleButton.textContent = "Disable Suggestions";
           commandsContainer.style.display = "flex";
-          synthesizeButton.style.display = "inline-block";
         } else {
           toggleButton.textContent = "Enable Suggestions";
-          commandsContainer.style.display = "none";
-          synthesizeButton.style.display = "none";
+          commandsContainer.style.display = "flex";
         }
+        synthesizeButton.style.display = "inline-block";
       };
       syncUI(view2.state);
       return {
@@ -31418,6 +31465,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   });
   window.addEventListener("message", (event) => {
     const msg = event.data;
+    if (msg && msg.type) updateWebviewStatus("Got: " + msg.type);
     let html;
     switch (msg.type) {
       case "noDocument":
@@ -31435,6 +31483,14 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         return;
       case "chatResponseDone":
         finalizeChatStream();
+        return;
+      case "proverAgentStarted":
+        updateWebviewStatus("Synthesizing proof\u2026");
+        setSynthesizingIndicator(true);
+        return;
+      case "proverAgentDone":
+        updateWebviewStatus("");
+        setSynthesizingIndicator(false);
         return;
       case "suggestion":
         handleSuggestion(msg.suggestion);
@@ -31507,6 +31563,13 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     if (chatTypingIndicator) {
       chatTypingIndicator.classList.toggle("visible", !!visible);
       chatTypingIndicator.setAttribute("aria-hidden", !visible);
+    }
+  }
+  var synthesizingIndicator = document.getElementById("synthesizingIndicator");
+  function setSynthesizingIndicator(visible) {
+    if (synthesizingIndicator) {
+      synthesizingIndicator.classList.toggle("visible", !!visible);
+      synthesizingIndicator.setAttribute("aria-hidden", !visible);
     }
   }
   function renderMarkdownWithMath(text2) {

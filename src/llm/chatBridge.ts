@@ -312,6 +312,15 @@ For questions about the theorem name or proof script, you should use get_current
     }
 }
 
+/** Proof state change for the prover agent. Full state is used for context; validation uses specific expressions when provided. */
+export type ProverProofStateChange = {
+    originalValue: string;
+    desiredValue: string;
+    /** When set, use these for validate_proof_state_change (single Coq expressions). Otherwise use originalValue/desiredValue. */
+    validationLhs?: string;
+    validationRhs?: string;
+};
+
 /**
  * Runs the prover agent that edits the proof script to achieve desired proof states.
  * This agent validates proof state changes and suggests edits to the proof script.
@@ -319,7 +328,7 @@ For questions about the theorem name or proof script, you should use get_current
 export async function runProverAgent(
     clientReady: Promise<CoqLspClient> | undefined,
     model: any,
-    proofStateChange: { originalValue: string; desiredValue: string },
+    proofStateChange: ProverProofStateChange,
     tools: AgentTool[],
     onUpdate: (text: string) => void,
     onDone?: () => void,
@@ -341,52 +350,43 @@ export async function runProverAgent(
 You have access to the following tools:
 ${toolDescriptions}
 
-CRITICAL REQUIREMENTS:
-1. VALIDATION FIRST: Before suggesting ANY edit to the proof script, you MUST:
-   - Call validate_proof_state_change to verify the desired state type checks and is achievable
-   - If validation fails, report the error to the user and DO NOT suggest any edits
-   - Only proceed with edits if validation returns 'valid'
+CRITICAL: How validate_proof_state_change works
+1. It takes the current theorem and proof script (from the editor) and your proposedAddition (tactics to add at the user's cursor).
+2. It builds: existing proof script + your proposed addition at the cursor, then runs Coq on that.
+3. If it compiles and the resulting proof state matches or is close to the desired state, it applies the edit and returns success.
+4. If not (compile error or state mismatch), it returns an error and the current state so you can try again with a different proposedAddition.
 
-2. UNDERSTANDING THE TASK:
-   - The user wants to change a proof state from "${proofStateChange.originalValue}" to "${proofStateChange.desiredValue}"
-   - You need to edit the proof script to achieve this transformation
-   - Get the current proof script using get_current_proof_script
-   - Get the current proof state using get_current_proof_state
+WORKFLOW:
+1. Call get_current_proof_script to see the theorem and where the proof stands.
+2. Call get_current_proof_state to see the current goals and hypotheses at the cursor.
+3. Call validate_proof_state_change with args using exactly these keys (no other names):
+   - originalValue: copy the EXACT full text from the "Original state" block below (do not use empty string)
+   - desiredValue: copy the EXACT full text from the "Desired state" block below (do not use empty string)
+   - proposedAddition: the tactics/code to INSERT AT THE CURSOR (e.g. " reflexivity." or " simpl. reflexivity.")
+   If it returns an error, try again with a different proposedAddition (e.g. different tactics).
+4. When validate_proof_state_change returns success, the edit has already been applied; tell the user they can undo or keep it.
 
-3. SUGGESTING EDITS:
-   - Use suggest_proof_script_edit to suggest edits to the proof script
-   - You can suggest multiple edits if needed
-   - Each edit must be validated before suggesting
-   - NEVER suggest an edit that hasn't been validated
+Original state (full proof state before the user's edit) — use this EXACT text as originalValue:
+\`\`\`
+${proofStateChange.originalValue}
+\`\`\`
 
-4. WORKFLOW:
-   Step 1: Call validate_proof_state_change with originalValue="${proofStateChange.originalValue}" and desiredValue="${proofStateChange.desiredValue}"
-   Step 2: If validation fails, report the error and stop
-   Step 3: If validation passes, call get_current_proof_script to see the current proof
-   Step 4: Call get_current_proof_state to understand the current state
-   Step 5: Plan the edits needed to achieve the desired state
-   Step 6: For each edit, call suggest_proof_script_edit with precise line numbers and text
-   Step 7: After all edits, verify they achieve the desired state
+Desired state (full proof state after the user's edit) — use this EXACT text as desiredValue:
+\`\`\`
+${proofStateChange.desiredValue}
+\`\`\`
 
-5. PRECISION:
-   - Line numbers are 0-indexed in the tool, but display them as 1-indexed to the user
-   - Character positions are 0-indexed
-   - Be precise with oldText - include exactly what needs to be replaced
-   - newText should be the complete replacement
+If you need to make a multi-step edit (e.g. replace existing text rather than only appending at cursor), use suggest_proof_script_edit with line, character, oldText, newText. That tool also verifies with Coq before applying.
 
-To use a tool, you MUST respond with ONLY a JSON block like this:
+To use a tool, respond with ONLY a JSON block:
 \`\`\`json
 { "tool": "tool_name", "args": { ... } }
 \`\`\`
 
-When you receive a tool result, analyze it and either:
-1. Use another tool if needed (you can make multiple tool calls in sequence), OR
-2. Provide a helpful answer based on the tool results.
+When you receive a tool result, either use another tool or reply to the user.`;
 
-Remember: NEVER suggest an edit that doesn't type check or doesn't achieve the desired proof state.`;
-
-    const userRequest = `The user wants to change the proof state from "${proofStateChange.originalValue}" to "${proofStateChange.desiredValue}". 
-Please validate this change and, if valid, edit the proof script to achieve this transformation.`;
+    const userRequest = `The user wants to go from the current proof state (Original state in system prompt) to the desired state (Desired state in system prompt).
+First call get_current_proof_script and get_current_proof_state. Then call validate_proof_state_change with args: originalValue = the exact Original state text from the system prompt, desiredValue = the exact Desired state text from the system prompt, proposedAddition = your proposed tactics (e.g. " reflexivity."). Do not pass empty strings or use parameter names "original" or "desired". If the tool returns an error, try a different proposedAddition.`;
 
     const messages: any[] = [
         { role: 'system', content: systemPrompt },

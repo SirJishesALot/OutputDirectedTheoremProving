@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { CoqLspClient } from '../lsp/coqLspClient';
 import { Uri } from '../utils/uri';
-import { ProofGoal, Hyp, PpString, GoalsWithMessages } from '../lsp/coqLspTypes';
+import { ProofGoal, Hyp, PpString, GoalsWithMessages, convertToString } from '../lsp/coqLspTypes';
 import { AgentTool } from '../llm/chatBridge';
 import { parseCoqFile } from '../parser/parseCoqFile';
 import { hypToString } from '../core/exposedCompletionGeneratorUtils';
@@ -33,6 +33,96 @@ export interface ProofScriptEdit {
     reason?: string;
 }
 
+/** Serialize goals to the same format as the proof state panel (so we can compare to desired state from webview). */
+function serializeGoalsToPanelFormat(goals: ProofGoal[]): string {
+    return goals
+        .map((g) => {
+            const hypLines = g.hyps.map((h) => hypToString(h));
+            const goalTy = typeof g.ty === 'string' ? g.ty : convertToString(g.ty);
+            return [...hypLines, goalTy].join('\n');
+        })
+        .join('\n\n');
+}
+
+/** Normalize whitespace for comparison. */
+function normalizeProofState(s: string): string {
+    return s
+        .trim()
+        .replace(/\s+/g, ' ')
+        .replace(/\n+/g, '\n');
+}
+
+/** Extract the theorem/lemma (or definition) and its proof script from full content, for the proof block containing cursorLine. */
+function extractTheoremAndProofScript(content: string, cursorLine: number): string {
+    const lines = content.split('\n');
+    const block = findProofBlockContainingLine(lines, cursorLine);
+    if (!block) return '(Proof block containing this line not found.)';
+    let statementStart = block.startLine;
+    for (let i = block.startLine - 1; i >= 0; i--) {
+        if (/\b(Theorem|Lemma|Definition|Example|Fixpoint)\b/.test(lines[i] ?? '')) {
+            statementStart = i;
+            break;
+        }
+    }
+    return lines.slice(statementStart, block.endLine + 1).join('\n');
+}
+
+/** Find a proof block (Proof. ... Qed./Defined./Admitted.) that contains the given 0-based line. Returns [startLine, endLine] or null. */
+function findProofBlockContainingLine(lines: string[], cursorLine: number): { startLine: number; endLine: number } | null {
+    const endMarkers = /\b(Qed|Defined|Admitted)\s*\./;
+    let proofStart: number | null = null;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (/\bProof\s*\./.test(line)) {
+            proofStart = i;
+        }
+        if (proofStart !== null && endMarkers.test(line)) {
+            if (cursorLine >= proofStart && cursorLine <= i) return { startLine: proofStart, endLine: i };
+            proofStart = null;
+        }
+    }
+    return null;
+}
+
+/** Find position to insert a tactic: after "Proof." or at end of the line containing the cursor if inside a proof. */
+function findTacticInsertionPosition(lines: string[], position: vscode.Position): vscode.Position {
+    const block = findProofBlockContainingLine(lines, position.line);
+    if (block) {
+        const lineIdx = position.line;
+        const line = lines[lineIdx] ?? '';
+        const trimmed = line.trimEnd();
+        return new vscode.Position(lineIdx, trimmed.length);
+    }
+    const proofLine = lines.findIndex((l) => /\bProof\s*\./.test(l));
+    if (proofLine >= 0) {
+        const line = lines[proofLine] ?? '';
+        return new vscode.Position(proofLine, line.trimEnd().length);
+    }
+    return position;
+}
+
+/** True if resulting state matches or is close enough to desired (normalized comparison). */
+function stateMatchesDesired(resultState: string, desiredState: string): boolean {
+    const a = normalizeProofState(resultState);
+    const b = normalizeProofState(desiredState);
+    if (a === b || a.includes(b) || b.includes(a)) {
+        return true;
+    }
+    // Proof closed (no goals): treat as match if desired state is empty or indicates "no goals"
+    if (a.includes('no remaining goals') && (!b || b.includes('no goal') || b.length < 20)) {
+        return true;
+    }
+    return false;
+}
+
+/** Optional session state and cursor: when the agent runs with the panel focused, use saved position from when proof state was last updated. */
+export interface ProverToolsOptions {
+    sessionOriginalValue?: string;
+    sessionDesiredValue?: string;
+    /** Use this position instead of editor.selection.active (e.g. last position when Coq file had focus). */
+    cursorPositionOverride?: { line: number; character: number };
+}
+
 /**
  * Creates tools for the prover agent.
  * These tools allow the agent to:
@@ -42,76 +132,166 @@ export interface ProofScriptEdit {
  */
 export function createProverTools(
     clientReady: Promise<CoqLspClient>,
-    editor: vscode.TextEditor
+    editor: vscode.TextEditor,
+    options?: ProverToolsOptions
 ): AgentTool[] {
+    const sessionOriginal = (options?.sessionOriginalValue ?? '').trim();
+    const sessionDesired = (options?.sessionDesiredValue ?? '').trim();
+    const cursorOverride = options?.cursorPositionOverride;
+    const getPosition = (): vscode.Position =>
+        cursorOverride
+            ? new vscode.Position(cursorOverride.line, cursorOverride.character)
+            : editor.selection.active;
+
     return [
         {
             name: 'validate_proof_state_change',
-            description: `Validates that a proof state change is valid and achievable.
-Takes a proof state change (original value -> desired value) and checks:
-1. If the desired state type checks
-2. If the desired state is actually achievable from the current state
-Returns 'valid' if both conditions pass, or an error message explaining why it fails.`,
-            execute: async (args: { originalValue: string; desiredValue: string }) => {
+            description: `Proposes tactics to add at the cursor to go from the current (old) proof state to the desired proof state.
+1. Takes the current theorem and proof script, and a proposed addition (tactics/code to insert at the cursor).
+2. Builds the proof script = existing content + your proposed addition at the cursor.
+3. Checks if the new script compiles with Coq.
+4. If it compiles, checks if the resulting proof state matches or is close to the desired state.
+5. If both pass: the proposed addition is applied as an edit; you can then tell the user it was suggested (they can undo).
+6. If not: returns an error (compile error or current state) so you can try again with different tactics.
+
+Args: originalValue (full proof state before the change), desiredValue (full proof state after the change), proposedAddition (the tactics/code to add at the cursor, e.g. " reflexivity." or " simpl. reflexivity.").`,
+            execute: async (args: {
+                originalValue?: string;
+                desiredValue?: string;
+                proposedAddition?: string;
+                /** Aliases some models use */
+                original?: string;
+                desired?: string;
+            }) => {
                 try {
+                    // Use args first; when the agent sends empty (e.g. doesn't copy from prompt), use session state from the panel
+                    let originalValue = (args.originalValue ?? args.original ?? '').trim();
+                    let desiredValue = (args.desiredValue ?? args.desired ?? '').trim();
+                    if (!originalValue && sessionOriginal) originalValue = sessionOriginal;
+                    if (!desiredValue && sessionDesired) desiredValue = sessionDesired;
+
+                    const addition = (args.proposedAddition ?? '').trim();
+
+                    if (!originalValue || !desiredValue) {
+                        return (
+                            'error: originalValue and desiredValue are required and must not be empty. ' +
+                            'Use the EXACT text from the "Original state" and "Desired state" blocks in the system prompt (copy them in full). ' +
+                            'Parameter names must be: originalValue, desiredValue, proposedAddition (not "original" or "desired").'
+                        );
+                    }
+                    if (!addition) {
+                        return (
+                            'error: proposedAddition is required and must be non-empty (e.g. " reflexivity." or " simpl. reflexivity."). ' +
+                            'This is the tactics/code to insert at the cursor.'
+                        );
+                    }
+
                     const client = await clientReady;
                     const docUri = Uri.fromPath(editor.document.uri.fsPath);
                     const version = editor.document.version;
-                    const position = editor.selection.active;
+                    const cursorPos = getPosition();
+                    const content = editor.document.getText();
+                    const lines = content.split('\n');
 
-                    // First, check if the desired value type checks
-                    const desiredAssertion = `assert (${args.desiredValue}).`;
-                    let result: string = '';
+                    const insertText = addition.trimEnd();
+                    const position = new vscode.Position(cursorPos.line, cursorPos.character);
+                    const offset =
+                        lines.slice(0, position.line).join('\n').length + position.character;
+                    const charBefore = offset > 0 ? content[offset - 1] : '';
+                    const needsLeadingSpace = charBefore !== '' && !/[\s\n\r]/.test(charBefore);
+                    const textToInsert = (needsLeadingSpace ? ' ' : '') + insertText + ' \n';
 
-                    await client.withTextDocument({ uri: docUri, version }, async () => {
-                        const desiredCheck = await client.getGoalsAtPoint(
-                            position as any,
-                            docUri as any,
-                            version,
-                            desiredAssertion
-                        );
+                    const insertedInfo = `Inserted text: ${JSON.stringify(textToInsert)}`;
+                    const whereStr = `Insertion at cursor: line ${position.line + 1}, column ${position.character + 1} (0-based: ${position.line}, ${position.character}).`;
 
-                        if (!desiredCheck.ok) {
-                            const err = desiredCheck.val;
-                            const errorMessage = err instanceof Error ? err.message : (typeof err === 'string' ? err : 'Unable to validate desired state');
-                            return `error: The desired proof state does not type check. ${errorMessage}`;
+                    const newContent =
+                        content.substring(0, offset) + textToInsert + content.substring(offset);
+
+                    const newScriptBlock = `\n--- Theorem and new proof script (proposed) ---\n${extractTheoremAndProofScript(newContent, position.line)}\n--- End ---`;
+
+                    const addLines = textToInsert.split('\n');
+                    const endLine =
+                        position.line + addLines.length - 1;
+                    const endChar =
+                        addLines.length === 1
+                            ? position.character + textToInsert.length
+                            : addLines[addLines.length - 1].length;
+                    const positionAfterInsert = new vscode.Position(endLine, endChar);
+                    const editRange = new vscode.Range(position, position);
+
+                    type TryResult = {
+                        verified: boolean;
+                        error?: string;
+                        state?: string;
+                        applied?: boolean;
+                        /** Location where Coq reported the error (0-based line/character). */
+                        errorAt?: { line: number; character: number };
+                    };
+
+                    // Same as panel: only use getGoalsAtPoint at insertion position; ignore diagnostics.
+                    const tryResult: TryResult = await client.withTextDocument(
+                        { uri: docUri, version: version + 1, content: newContent },
+                        async () => {
+                            const goalsResult = await client.getGoalsAtPoint(
+                                positionAfterInsert as any,
+                                docUri as any,
+                                version + 1
+                            );
+                            if (!goalsResult.ok) {
+                                const err = goalsResult.val;
+                                const msg =
+                                    err instanceof Error ? err.message : String(err);
+                                return {
+                                    verified: false,
+                                    error: `Could not get goals after proposed addition: ${msg}`,
+                                };
+                            }
+                            const goalsWithMessages = goalsResult.val as GoalsWithMessages;
+                            const goals = goalsWithMessages.goals;
+                            if (!goals || goals.length === 0) {
+                                const stateStr = '(no remaining goals)';
+                                const match = stateMatchesDesired(stateStr, desiredValue);
+                                if (match) return { verified: true, applied: true };
+                                return {
+                                    verified: false,
+                                    error: 'Proof state does not match desired. Result: no remaining goals.',
+                                    state: stateStr,
+                                };
+                            }
+                            const stateStr = serializeGoalsToPanelFormat(goals);
+                            if (stateMatchesDesired(stateStr, desiredValue)) {
+                                return { verified: true, applied: true, state: stateStr };
+                            }
+                            return {
+                                verified: false,
+                                error: 'Proof state after proposed addition does not match desired state.',
+                                state: stateStr,
+                            };
                         }
+                    );
 
-                        // Get current goals to see what we're working with
-                        const currentGoals = await client.getGoalsAtPoint(
-                            position as any,
-                            docUri as any,
-                            version
-                        );
-
-                        if (!currentGoals.ok) {
-                            return 'error: Could not retrieve current proof state.';
+                    if (tryResult.verified && tryResult.applied) {
+                        const applied = await editor.edit((editBuilder) => {
+                            editBuilder.replace(editRange, textToInsert);
+                        });
+                        if (applied) {
+                            return (
+                                'valid: Proposed addition compiles and brings the proof state to the desired state. ' +
+                                `The edit has been applied; the user can undo (Ctrl+Z / Cmd+Z) or keep it.\n\n${insertedInfo}\n${whereStr}${newScriptBlock}`
+                            );
                         }
+                        return `error: Validation passed but failed to apply the edit.\n\n${insertedInfo}\n${whereStr}${newScriptBlock}`;
+                    }
 
-                        const currentGoalsData = currentGoals.val as GoalsWithMessages;
-                        
-                        // Check if the desired state is achievable
-                        // This is a simplified check - in practice, you might want more sophisticated logic
-                        // For now, we'll check if we can construct a term that transforms originalValue to desiredValue
-                        const transformationCheck = `assert ((${args.originalValue}) = (${args.desiredValue})).`;
-                        
-                        const transformationResult = await client.getGoalsAtPoint(
-                            position as any,
-                            docUri as any,
-                            version,
-                            transformationCheck
-                        );
-
-                        if (!transformationResult.ok) {
-                            const err = transformationResult.val;
-                            const errorMessage = err instanceof Error ? err.message : (typeof err === 'string' ? err : 'Unable to validate transformation');
-                            return `error: The transformation from "${args.originalValue}" to "${args.desiredValue}" is not achievable. ${errorMessage}`;
-                        }
-
-                        result = 'valid: Both type checking and achievability checks passed.';
-                    });
-
-                    return result || 'error: Failed to validate proof state change.';
+                    let msg = tryResult.error ?? 'Validation failed.';
+                    if (tryResult.errorAt !== undefined) {
+                        const { line, character } = tryResult.errorAt;
+                        msg += `\nError location: line ${line + 1}, column ${character + 1} (1-based). Compare with insertion line above.`;
+                    }
+                    if (tryResult.state) {
+                        msg += `\n\nCurrent state after your proposed addition:\n${tryResult.state}`;
+                    }
+                    return `error: ${msg}\n\n${insertedInfo}\n${whereStr}\nTry again with a different proposedAddition.${newScriptBlock}`;
                 } catch (e) {
                     return `error: ${e instanceof Error ? e.message : String(e)}`;
                 }
@@ -131,55 +311,77 @@ Use this to understand what tactics have been used, the structure of the current
                 try {
                     const client = await clientReady;
                     const docUri = Uri.fromPath(editor.document.uri.fsPath);
-                    const position = editor.selection.active;
-                    const textLines = editor.document.getText().split('\n');
+                    const version = editor.document.version;
+                    const position = getPosition();
+                    const content = editor.document.getText();
+                    const textLines = content.split('\n');
 
-                    // Parse the file to find theorems and their proofs
-                    const theorems = await parseCoqFile(
-                        docUri,
-                        client,
-                        new AbortController().signal,
-                        false // don't extract initial goals
-                    );
+                    // Use current buffer so LSP has latest content when parsing
+                    let theorems: Awaited<ReturnType<typeof parseCoqFile>> = [];
+                    await client.withTextDocument({ uri: docUri, version, content }, async () => {
+                        theorems = await parseCoqFile(
+                            docUri,
+                            client,
+                            new AbortController().signal,
+                            false // don't extract initial goals
+                        );
+                    });
 
-                    // Find the theorem/proof that contains the cursor position
+                    // Find the theorem/proof that contains the cursor position (allow proofs with 0 steps, e.g. just "Proof.")
                     let currentProof = null;
                     for (const thm of theorems) {
-                        if (thm.proof && thm.proof.proof_steps.length > 0) {
-                            const firstStep = thm.proof.proof_steps[0];
-                            const proofStart = firstStep.range.start;
-                            const proofEnd = thm.proof.end_pos.end;
-                            
-                            if (position.line >= proofStart.line && position.line <= proofEnd.line) {
-                                if (position.line === proofStart.line && position.character < proofStart.character) {
-                                    continue;
-                                }
-                                if (position.line === proofEnd.line && position.character > proofEnd.character) {
-                                    continue;
-                                }
-                                currentProof = thm;
-                                break;
-                            }
+                        if (!thm.proof) continue;
+                        const proofStart = thm.proof.proof_steps.length > 0
+                            ? thm.proof.proof_steps[0].range.start
+                            : { line: thm.statement_range.end.line + 1, character: 0 };
+                        const proofEnd = thm.proof.end_pos.end;
+                        if (position.line >= proofStart.line && position.line <= proofEnd.line) {
+                            if (position.line === proofStart.line && position.character < proofStart.character) continue;
+                            if (position.line === proofEnd.line && position.character > proofEnd.character) continue;
+                            currentProof = thm;
+                            break;
                         }
                     }
 
                     if (!currentProof || !currentProof.proof) {
-                        return 'No proof found at the current cursor position. Make sure you are inside a proof block (between "Proof." and "Qed."/ "Defined."/ "Admitted.").';
+                        const block = findProofBlockContainingLine(textLines, position.line);
+                        if (block) {
+                            const segment = textLines.slice(block.startLine, block.endLine + 1).join('\n');
+                            const ver = client.getServerVersion?.();
+                            let result = `=== CURRENT PROOF SCRIPT (from document scan) ===\n\n`;
+                            if (ver) result += `Coq: ${ver.coq} | coq-lsp: ${ver.coq_lsp}\n\n`;
+                            result += `Cursor is inside a proof block (lines ${block.startLine + 1}--${block.endLine + 1}).\n\n`;
+                            result += `--- Proof block text ---\n${segment}\n\n--- End ---\n`;
+                            return result;
+                        }
+                        const lineNum = position.line;
+                        const colNum = position.character;
+                        const lineContent = textLines[lineNum] ?? '(no such line)';
+                        const docLines = textLines.length;
+                        return (
+                            `No proof found at the current cursor position. Make sure you are inside a proof block (between "Proof." and "Qed."/ "Defined."/ "Admitted.").\n\n` +
+                            `**Position used:** line ${lineNum + 1} (0-based: ${lineNum}), column ${colNum + 1} (0-based: ${colNum}). Document has ${docLines} lines.\n\n` +
+                            `**Line at cursor:**\n${JSON.stringify(lineContent)}\n\n` +
+                            `(If this position is wrong, click inside the proof in the Coq file so the proof state panel updates, then try Synthesize again.)`
+                        );
                     }
 
-                    const proofScript = currentProof.proof.onlyText();
-
+                    const ver = client.getServerVersion?.();
                     let result = `=== CURRENT PROOF SCRIPT ===\n\n`;
+                    if (ver) result += `Coq: ${ver.coq} | coq-lsp: ${ver.coq_lsp}\n\n`;
                     result += `Theorem/Lemma: ${currentProof.name}\n`;
                     result += `Statement: ${currentProof.statement}\n\n`;
-                    result += `--- Proof Script (with line numbers) ---\n`;
-                    
-                    // Include line numbers by showing the proof steps with their ranges
-                    currentProof.proof.proof_steps.forEach((step, idx) => {
-                        const stepText = textLines.slice(step.range.start.line, step.range.end.line + 1).join('\n');
-                        result += `Line ${step.range.start.line + 1}: ${stepText}\n`;
-                    });
-                    
+                    result += `--- Full proof (theorem + Proof. ... Qed.) ---\n`;
+                    result += currentProof.onlyText();
+                    result += `\n\n--- Proof steps (with line numbers) ---\n`;
+                    if (currentProof.proof.proof_steps.length > 0) {
+                        currentProof.proof.proof_steps.forEach((step) => {
+                            const stepText = textLines.slice(step.range.start.line, step.range.end.line + 1).join('\n');
+                            result += `Line ${step.range.start.line + 1}: ${stepText}\n`;
+                        });
+                    } else {
+                        result += `(no tactics yet)\n`;
+                    }
                     result += `\n--- End of Proof ---\n`;
 
                     return result;
@@ -191,10 +393,10 @@ Use this to understand what tactics have been used, the structure of the current
         {
             name: 'suggest_proof_script_edit',
             description: `Suggests an edit to the proof script to achieve a desired proof state.
-Takes a proof script edit specification (line, character, oldText, newText) and creates an inline suggestion in the editor.
-The user can then accept or reject the suggestion.
-Returns a confirmation message with the edit details.
-CRITICAL: Only call this tool if you have validated that the edit will achieve the desired proof state and type checks.`,
+Takes a proof script edit specification (line, character, oldText, newText).
+The tool will VERIFY the edit with the Coq LSP before applying: if the proposed script produces a Coq error, the tool returns an error and you must try a different edit.
+Only when the edit verifies successfully is it applied as an inline suggestion; the user can then accept (keep) or undo the change.
+Call this with your proposed edit; if you get an error back, try again with a different proof script.`,
             execute: async (args: {
                 line: number;
                 character: number;
@@ -208,39 +410,95 @@ CRITICAL: Only call this tool if you have validated that the edit will achieve t
                         return 'error: line and character are required.';
                     }
 
-                    const docUri = editor.document.uri;
-                    const line = args.line; // 0-indexed
-                    const character = args.character; // 0-indexed
+                    const client = await clientReady;
+                    const docUri = Uri.fromPath(editor.document.uri.fsPath);
+                    const version = editor.document.version;
+                    const content = editor.document.getText();
+                    const lines = content.split('\n');
+                    let line = args.line;
+                    if (line >= 1 && line <= lines.length) {
+                        line = line - 1;
+                    }
+                    const character = args.character;
                     const oldText = args.oldText || '';
-                    const newText = args.newText || '';
+                    const newText = (args.newText || '').trimEnd() + ' ';
 
                     // Validate line number
-                    if (line < 0 || line >= editor.document.lineCount) {
-                        return `error: Line number ${line + 1} is out of range (document has ${editor.document.lineCount} lines).`;
+                    if (line < 0 || line >= lines.length) {
+                        return `error: Line number ${line + 1} is out of range (document has ${lines.length} lines).`;
                     }
 
-                    const lineText = editor.document.lineAt(line).text;
-                    
+                    const lineText = lines[line];
+
                     // Validate character position
                     if (character < 0 || character > lineText.length) {
                         return `error: Character position ${character} is out of range for line ${line + 1} (line has ${lineText.length} characters).`;
                     }
 
-                    // Use the editor's edit API to apply the change
-                    // This will show the change in the editor and allow the user to undo it
-                    const range = new vscode.Range(
-                        new vscode.Position(line, character),
-                        new vscode.Position(line, character + oldText.length)
+                    // Build proposed document content: replace oldText with newText at (line, character)
+                    const startOffset = lines.slice(0, line).join('\n').length + character;
+                    const proposedContent =
+                        content.substring(0, startOffset) +
+                        newText +
+                        content.substring(startOffset + oldText.length);
+
+                    const newScriptBlock = `\n--- Theorem and new proof script (proposed) ---\n${extractTheoremAndProofScript(proposedContent, line)}\n--- End ---`;
+
+                    const linesProposed = proposedContent.split('\n');
+                    const proofBlockEdit = findProofBlockContainingLine(linesProposed, line);
+
+                    // Verify with Coq LSP: only fail on errors inside or before the proof block we edited
+                    type VerifyResult = { verified: boolean; error?: string; errorAt?: { line: number; character: number } };
+                    const verifyResult: VerifyResult = await client.withTextDocument(
+                        { uri: docUri, version: version + 1, content: proposedContent },
+                        async (diagnostic) => {
+                            if (diagnostic?.ppMessage) {
+                                const at = diagnostic.range?.start;
+                                const errorAfterOurProof =
+                                    proofBlockEdit !== null &&
+                                    at !== undefined &&
+                                    at.line > proofBlockEdit.endLine;
+                                if (errorAfterOurProof) {
+                                    return { verified: true };
+                                }
+                                return {
+                                    verified: false,
+                                    error: diagnostic.ppMessage,
+                                    errorAt: at !== undefined ? { line: at.line, character: at.character } : undefined,
+                                };
+                            }
+                            return { verified: true };
+                        }
                     );
 
-                    const applied = await editor.edit(editBuilder => {
+                    if (!verifyResult.verified) {
+                        let errMsg = `error: The proposed proof script produces a Coq error. Try a different tactic or edit.\n\nCoq error: ${verifyResult.error}`;
+                        if (verifyResult.errorAt) {
+                            const { line, character } = verifyResult.errorAt;
+                            errMsg += `\nError location: line ${line + 1}, column ${character + 1} (1-based).`;
+                        } else {
+                            errMsg += "\nNo error location given.";
+                        }
+                        return errMsg + newScriptBlock;
+                    }
+
+                    // Verified: apply the edit in the editor (one undoable edit; do not save so user can undo)
+                    const oldLines = oldText.split('\n');
+                    const endLine = line + oldLines.length - 1;
+                    const endCharacter =
+                        oldLines.length === 1
+                            ? character + oldText.length
+                            : oldLines[oldLines.length - 1].length;
+                    const range = new vscode.Range(
+                        new vscode.Position(line, character),
+                        new vscode.Position(endLine, endCharacter)
+                    );
+
+                    const applied = await editor.edit((editBuilder) => {
                         editBuilder.replace(range, newText);
                     });
 
                     if (applied) {
-                        // Save the document to trigger Coq LSP validation
-                        await editor.document.save();
-                        
                         let result = `=== PROOF SCRIPT EDIT APPLIED ===\n\n`;
                         result += `Line ${line + 1}, Column ${character + 1}:\n`;
                         if (oldText) {
@@ -248,14 +506,14 @@ CRITICAL: Only call this tool if you have validated that the edit will achieve t
                         } else {
                             result += `Inserted at position ${character + 1}\n`;
                         }
-                        result += `With: "${newText}"\n`;
+                        result += `With: ${JSON.stringify(newText)} (trailing space added after tactic)\n`;
                         if (args.reason) {
                             result += `Reason: ${args.reason}\n`;
                         }
-                        result += `\nThe edit has been applied to the proof script. You can undo it (Ctrl+Z / Cmd+Z) if it doesn't achieve the desired state.`;
-                        return result;
+                        result += `\nThe edit has been applied. You can undo it (Ctrl+Z / Cmd+Z) or keep it.`;
+                        return result + newScriptBlock;
                     } else {
-                        return 'error: Failed to apply the edit. The document may have been modified.';
+                        return 'error: Failed to apply the edit. The document may have been modified.' + newScriptBlock;
                     }
                 } catch (e) {
                     return `error: ${e instanceof Error ? e.message : String(e)}`;
@@ -275,11 +533,12 @@ Use this to understand the current state before planning edits.`,
                     const client = await clientReady;
                     const docUri = Uri.fromPath(editor.document.uri.fsPath);
                     const version = editor.document.version;
-                    const position = editor.selection.active;
+                    const position = getPosition();
+                    const content = editor.document.getText();
 
                     let result: string = '';
 
-                    await client.withTextDocument({ uri: docUri, version }, async () => {
+                    await client.withTextDocument({ uri: docUri, version, content }, async () => {
                         const goalsResult = await client.getGoalsAtPoint(
                             position as any,
                             docUri as any,
@@ -308,6 +567,8 @@ Use this to understand the current state before planning edits.`,
                         }
 
                         result = '=== CURRENT PROOF STATE ===\n\n';
+                        const ver = client.getServerVersion?.();
+                        if (ver) result += `Coq: ${ver.coq} | coq-lsp: ${ver.coq_lsp}\n\n`;
                         goals.forEach((goal: ProofGoal, index: number) => {
                             result += `--- Goal ${index + 1} ---\n`;
                             result += `Goal Type: ${goal.ty}\n\n`;

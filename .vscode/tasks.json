@@ -1,7 +1,7 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
+	"version": "2.0.0",
+	"tasks": [
+		{
             "type": "npm",
             "script": "watch",
             "problemMatcher": [],
@@ -24,7 +24,7 @@
             "detail": "node esbuild.js --watch",
             "isBackground": true
         },
-        {
+		{
             "type": "npm",
             "script": "watch:tsc",
             "problemMatcher": "$tsc-watch",
@@ -32,8 +32,8 @@
             "detail": "tsc --noEmit --watch --project tsconfig.json",
             "isBackground": true
         },
-        {
-            "type": "npm",
+		{
+			"type": "npm",
             "script": "watch:webview",
             "problemMatcher": [],
             "label": "npm: watch:webview",
@@ -50,6 +50,6 @@
                 "kind": "build",
                 "isDefault": true
             }
-        }
-    ]
+		}
+	]
 }

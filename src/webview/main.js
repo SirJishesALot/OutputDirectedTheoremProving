@@ -35,6 +35,11 @@ import {
 
 
 const vscode = acquireVsCodeApi();
+
+function updateWebviewStatus(text) {
+    const el = document.getElementById('webviewStatus');
+    if (el) el.textContent = text;
+}
 const nodes = {
     doc: { 
         content: "(goal | paragraph | messagesSection)*", // Can contain goals, errors, or messages
@@ -182,14 +187,65 @@ function getDiffFromNode(node) {
     let insertedText = "";
 
     node.content.forEach((child) => {
-        const isDeleted = child.marks.some(m => m.type.name === 'deletion');
-        const isInserted = child.marks.some(m => m.type.name === 'insertion');
+        const deletionMark = child.marks.find(m => m.type.name === 'deletion');
+        const insertionMark = child.marks.find(m => m.type.name === 'insertion');
+        const modificationMark = child.marks.find(m => m.type.name === 'modification' && m.attrs?.type === 'replace');
 
-        if (isDeleted) deletedText += child.text;
-        if (isInserted) insertedText += child.text;
+        if (deletionMark) deletedText += child.text;
+        if (insertionMark) insertedText += child.text;
+        if (modificationMark && modificationMark.attrs) {
+            deletedText += modificationMark.attrs.previousValue ?? child.text;
+            insertedText += modificationMark.attrs.newValue ?? '';
+        }
     });
 
     return { deletedText, insertedText };
+}
+
+/** Serialize the full proof state doc into "before" and "after" strings.
+ * Before = all content with modification/deletion/insertion expanded to previous values.
+ * After = all content with modification/insertion expanded to new values.
+ * Used so the agent sees the whole state transition, not just the edited fragment.
+ */
+function getFullStateBeforeAfter(doc) {
+    let before = '';
+    let after = '';
+    let needNewline = false;
+    doc.descendants((node) => {
+        const isBlock = node.type && node.isBlock && node.type.name !== 'doc';
+        if (isBlock && needNewline) {
+            before += '\n';
+            after += '\n';
+        }
+        if (isBlock) needNewline = true;
+
+        if (node.isText) {
+            const modificationMark = node.marks.find(m => m.type.name === 'modification' && m.attrs?.type === 'replace');
+            const deletionMark = node.marks.find(m => m.type.name === 'deletion');
+            const insertionMark = node.marks.find(m => m.type.name === 'insertion');
+            if (modificationMark && modificationMark.attrs) {
+                before += modificationMark.attrs.previousValue ?? node.text;
+                after += modificationMark.attrs.newValue ?? '';
+            } else if (deletionMark) {
+                before += node.text;
+            } else if (insertionMark) {
+                after += node.text;
+            } else {
+                before += node.text;
+                after += node.text;
+            }
+        }
+        return true;
+    });
+    // Fallback: if doc has no text nodes (e.g. different schema/parsing), use plain text so we always send full state
+    if (!before && !after && doc.content && typeof doc.textBetween === 'function') {
+        const plain = doc.textBetween(0, doc.content.size, '\n');
+        if (plain) {
+            before = plain;
+            after = plain;
+        }
+    }
+    return { before, after };
 }
 
 function renderGoalsToHtml(goals, messages, error) {
@@ -275,43 +331,35 @@ const suggestChangesViewPlugin = new Plugin({
         });
 
         const synthesizeButton = document.createElement('button');
-        synthesizeButton.textContent = 'Synthesize Equality'; 
+        synthesizeButton.textContent = 'Synthesize Equality';
         synthesizeButton.classList.add('synthesize-button');
-        synthesizeButton.style.display = 'none'; // Hidden by default
-        
-        synthesizeButton.addEventListener('click', () => {
-            // Scan the document for the first hypothesis that has changes
-            let diffFound = false;
-            
-            view.state.doc.descendants((node, pos) => {
-                if (diffFound) return false; // Stop if already found
 
-                if (node.type.name === 'hypothesis') {
-                    const { deletedText, insertedText } = getDiffFromNode(node);
-                    
-                    // Only trigger if we have a valid replacement (something deleted AND inserted)
-                    if (deletedText && insertedText) {
-                        diffFound = true;
-                        
-                        // Send the context to VS Code
-                        console.log("Sending agent request:", deletedText, "->", insertedText);
-                        vscode.postMessage({ 
-                            command: 'agentRequest', 
-                            context: { lhs: deletedText, rhs: insertedText } 
-                        });
+        synthesizeButton.addEventListener('click', () => {
+            updateWebviewStatus('Synthesize clicked');
+            let lhs = '';
+            let rhs = '';
+            view.state.doc.descendants((node) => {
+                const isEditableBlock = node.type.name === 'hypothesis' || node.type.name === 'goalType';
+                if (isEditableBlock) {
+                    const diff = getDiffFromNode(node);
+                    if (diff.deletedText && diff.insertedText) {
+                        lhs = diff.deletedText;
+                        rhs = diff.insertedText;
+                        return false; // stop
                     }
                 }
-                return true; 
+                return true;
             });
-
-            if (!diffFound) {
-                // Optional: Show a toast notification in the webview
-                console.log("No hypothesis changes found.");
-            }
+            const { before: fullOriginalState, after: fullDesiredState } = getFullStateBeforeAfter(view.state.doc);
+            updateWebviewStatus('Sending agentRequest ' + (lhs ? 'with diff' : '(no diff)'));
+            vscode.postMessage({
+                command: 'agentRequest',
+                context: { lhs, rhs, fullOriginalState, fullDesiredState }
+            });
         });
 
         const commandsContainer = document.createElement('div');
-        commandsContainer.classList.add('suggestion-commands'); 
+        commandsContainer.classList.add('suggestion-commands');
         commandsContainer.append(applyAllButton, revertAllButton, synthesizeButton);
 
         const container = document.createElement('div');
@@ -322,14 +370,13 @@ const suggestChangesViewPlugin = new Plugin({
 
         const syncUI = (state) => {
             if (isSuggestChangesEnabled(state)) {
-                toggleButton.textContent = 'Disable Suggestions'; 
+                toggleButton.textContent = 'Disable Suggestions';
                 commandsContainer.style.display = 'flex';
-                synthesizeButton.style.display = 'inline-block';
             } else {
-                toggleButton.textContent = 'Enable Suggestions'; 
-                commandsContainer.style.display = 'none'; 
-                synthesizeButton.style.display = 'none';
+                toggleButton.textContent = 'Enable Suggestions';
+                commandsContainer.style.display = 'flex';
             }
+            synthesizeButton.style.display = 'inline-block';
         }; 
 
         syncUI(view.state);
@@ -439,6 +486,7 @@ const view = new EditorView(document.getElementById('editor'), {
 
 window.addEventListener('message', (event) => {
     const msg = event.data;
+    if (msg && msg.type) updateWebviewStatus('Got: ' + msg.type);
     let html;
 
     switch (msg.type) {
@@ -458,6 +506,14 @@ window.addEventListener('message', (event) => {
             return;
         case 'chatResponseDone':
             finalizeChatStream();
+            return;
+        case 'proverAgentStarted':
+            updateWebviewStatus('Synthesizing proof…');
+            setSynthesizingIndicator(true);
+            return;
+        case 'proverAgentDone':
+            updateWebviewStatus('');
+            setSynthesizingIndicator(false);
             return;
         case 'suggestion':
             handleSuggestion(msg.suggestion);
@@ -557,6 +613,14 @@ function setTypingIndicator(visible) {
     if (chatTypingIndicator) {
         chatTypingIndicator.classList.toggle('visible', !!visible);
         chatTypingIndicator.setAttribute('aria-hidden', !visible);
+    }
+}
+
+const synthesizingIndicator = document.getElementById('synthesizingIndicator');
+function setSynthesizingIndicator(visible) {
+    if (synthesizingIndicator) {
+        synthesizingIndicator.classList.toggle('visible', !!visible);
+        synthesizingIndicator.setAttribute('aria-hidden', !visible);
     }
 }
 

@@ -70,10 +70,10 @@ async function createCompletionContexts(
         if (result.ok) {
             const goalsWithMessages: GoalsWithMessages = result.val;
             if (goalsWithMessages.goals && goalsWithMessages.goals.length !== 0) {
-                completionContexts.push({
+            completionContexts.push({
                     proofGoal: goalsWithMessages.goals[0],
-                    admitRange: hole.range,
-                });
+                admitRange: hole.range,
+            });
             }
         }
     }

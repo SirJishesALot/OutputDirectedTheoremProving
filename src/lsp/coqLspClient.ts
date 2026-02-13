@@ -51,6 +51,8 @@ export interface DocumentSpec {
     version?: number;
     /** When set, this content is sent to the LSP instead of reading from disk (e.g. current editor buffer). */
     content?: string;
+    /** Max ms to wait for coq-lsp to respond after opening (default 300000). Use a shorter value (e.g. 45000) for proof-state updates. */
+    openTimeoutMs?: number;
 }
 
 export interface CoqLspClient extends Disposable {
@@ -110,6 +112,9 @@ export interface CoqLspClient extends Disposable {
         documentSpec: DocumentSpec,
         block: (openedDocDiagnostic: DiagnosticMessage) => Promise<T>
     ): Promise<T>;
+
+    /** Coq / coq-lsp version info when provided by the server via $/coq/serverVersion. */
+    getServerVersion?(): { coq: string; ocaml: string; coq_lsp: string } | undefined;
 }
 
 const goalReqType = new RequestType<GoalRequest, GoalAnswer<PpString>, void>(
@@ -142,6 +147,10 @@ export class CoqLspClientImpl implements CoqLspClient {
     ) {
         this.client = coqLspConnector;
         this.trackSuspiciousLspErrors();
+    }
+
+    getServerVersion(): { coq: string; ocaml: string; coq_lsp: string } | undefined {
+        return (this.client as CoqLspConnector).getServerVersion?.();
     }
 
     static async create(
@@ -253,11 +262,12 @@ export class CoqLspClientImpl implements CoqLspClient {
     async openTextDocument(
         uri: Uri,
         version: number = 1,
-        content?: string
+        content?: string,
+        openTimeoutMs?: number
     ): Promise<DiagnosticMessage> {
         return await this.mutex.runExclusive(async () => {
             throwOnAbort(this.abortSignal);
-            return this.openTextDocumentUnsafe(uri, version, content);
+            return this.openTextDocumentUnsafe(uri, version, content, openTimeoutMs);
         });
     }
 
@@ -291,7 +301,8 @@ export class CoqLspClientImpl implements CoqLspClient {
         const diagnostic = await this.openTextDocument(
             documentSpec.uri,
             documentSpec.version,
-            documentSpec.content
+            documentSpec.content,
+            documentSpec.openTimeoutMs
         );
         // TODO: discuss whether coq-lsp is capable of maintaining several docs opened
         // or we need a common lock for open-close here
@@ -508,6 +519,29 @@ export class CoqLspClientImpl implements CoqLspClient {
         });
     }
 
+    /** Normalize file URI for comparison so encoded vs decoded paths (e.g. spaces) match. */
+    private normalizeFileUriForCompare(uriStr: string): string {
+        try {
+            return decodeURIComponent(uriStr);
+        } catch {
+            return uriStr;
+        }
+    }
+
+    /** Return decoded path from a file URI for robust comparison (handles different file:// formats). */
+    private fileUriToPath(uriStr: string): string {
+        try {
+            const decoded = this.normalizeFileUriForCompare(uriStr);
+            if (!decoded.startsWith("file://")) {
+                return decoded;
+            }
+            const afterScheme = decoded.slice(7);
+            return afterScheme.replace(/^\/+/, "/") || "/";
+        } catch {
+            return uriStr;
+        }
+    }
+
     private async waitUntilFileFullyChecked(
         requestType: ProtocolNotificationType<any, any>,
         params: any,
@@ -515,42 +549,43 @@ export class CoqLspClientImpl implements CoqLspClient {
         lastDocumentEndPosition?: Position,
         timeout: number = 300000
     ): Promise<DiagnosticMessage> {
-        await this.client.sendNotification(requestType, params);
-
         let pendingProgress = true;
         let pendingDiagnostic = true;
         let awaitedDiagnostics: Diagnostic[] | undefined = undefined;
+        const expectedUriNormalized = this.normalizeFileUriForCompare(uri.uri);
 
+        // Register handlers BEFORE sending the notification so we do not miss the response
         this.subscriptions.push(
-            this.client.onNotification(LogTraceNotification.type, (params) => {
-                if (params.message.includes("document fully checked")) {
+            this.client.onNotification(LogTraceNotification.type, (notifParams) => {
+                if (notifParams.message.includes("document fully checked")) {
                     pendingProgress = false;
                 }
             })
         );
 
+        const expectedPath = this.fileUriToPath(uri.uri);
         this.subscriptions.push(
             this.client.onNotification(
                 PublishDiagnosticsNotification.type,
-                (params) => {
-                    if (params.uri.toString() === uri.uri) {
+                (diagParams: PublishDiagnosticsParams) => {
+                    const receivedUri = diagParams.uri?.toString?.() ?? String(diagParams.uri);
+                    const receivedNormalized = this.normalizeFileUriForCompare(receivedUri);
+                    const receivedPath = this.fileUriToPath(receivedUri);
+                    const uriMatches =
+                        receivedNormalized === expectedUriNormalized ||
+                        receivedPath === expectedPath;
+                    if (uriMatches) {
                         pendingDiagnostic = false;
-                        awaitedDiagnostics = params.diagnostics;
-
-                        if (
-                            lastDocumentEndPosition &&
-                            this.filterDiagnostics(
-                                params.diagnostics,
-                                lastDocumentEndPosition
-                            ) !== undefined
-                        ) {
-                            pendingProgress = false;
-                        }
+                        awaitedDiagnostics = diagParams.diagnostics;
+                        pendingProgress = false;
                     }
                 }
             )
         );
 
+        await this.client.sendNotification(requestType, params);
+
+        const timeoutMs = timeout;
         while (timeout > 0 && (pendingProgress || pendingDiagnostic)) {
             await this.sleep(100);
             timeout -= 100;
@@ -562,7 +597,10 @@ export class CoqLspClientImpl implements CoqLspClient {
             pendingDiagnostic ||
             awaitedDiagnostics === undefined
         ) {
-            throw new CoqLspError("coq-lsp did not respond in time");
+            const sec = Math.round(timeoutMs / 1000);
+            throw new CoqLspError(
+                `coq-lsp did not respond in time (waited ${sec}s). The file may be large or the server busy. Try moving the cursor again or reloading the window.`
+            );
         }
 
         return this.filterDiagnostics(
@@ -574,7 +612,8 @@ export class CoqLspClientImpl implements CoqLspClient {
     private async openTextDocumentUnsafe(
         uri: Uri,
         version: number = 1,
-        content?: string
+        content?: string,
+        openTimeoutMs: number = 300000
     ): Promise<DiagnosticMessage> {
         const docText =
             content !== undefined
@@ -592,7 +631,9 @@ export class CoqLspClientImpl implements CoqLspClient {
         return await this.waitUntilFileFullyChecked(
             DidOpenTextDocumentNotification.type,
             params,
-            uri
+            uri,
+            undefined,
+            openTimeoutMs
         );
     }
 
