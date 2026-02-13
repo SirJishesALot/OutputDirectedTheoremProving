@@ -4,9 +4,13 @@ import { Uri } from '../utils/uri';
 import { runCoqAgent, AgentTool, streamCoqChat, SuggestionCallback, ConversationHistoryCallback } from '../llm/chatBridge';
 import { CoqTools } from '../tools/coqTools';
 import { createAutoformaliserTools, EditHistory } from '../tools/autoformaliserTools';
-import { createProverTools } from '../tools/proverTools';
+import { createProverTools, clearSuggestedEditDecoration } from '../tools/proverTools';
 import { runProverAgent } from '../llm/chatBridge';
 import { convertToString, ProofGoal, Hyp, PpString, GoalsWithMessages } from '../lsp/coqLspTypes'; 
+
+// --- NEW IMPORT FOR INLINE SUGGESTIONS ---
+import { globalSuggestionManager } from '../extension';
+// -----------------------------------------
 
 type ClientReadyPromise = Promise<CoqLspClient>;
 
@@ -20,7 +24,9 @@ export class ProofStatePanel {
     /** Last cursor position when proof state was updated (Coq file had focus). Used by prover tools when panel has focus. */
     private savedCursorPosition: { line: number; character: number } | undefined;
     private editHistory: EditHistory = { edits: [] };
-    private conversationHistory: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = []; 
+    private conversationHistory: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [];
+    /** When the prover applies a suggested edit, we store the editor so Keep/Revert can clear the decoration and optionally undo. */
+    private pendingSuggestedEditor: vscode.TextEditor | undefined; 
 
     public static createOrShow(
         context: vscode.ExtensionContext,
@@ -113,6 +119,17 @@ export class ProofStatePanel {
         } else if (cmd === 'applyTactic') {
             const tactic: string = message.tactic;
             await this.applyTactic(tactic);
+        } else if (cmd === 'proofSuggestionKeep') {
+            const ed = this.pendingSuggestedEditor;
+            this.pendingSuggestedEditor = undefined;
+            if (ed) clearSuggestedEditDecoration(ed);
+        } else if (cmd === 'proofSuggestionRevert') {
+            const ed = this.pendingSuggestedEditor;
+            this.pendingSuggestedEditor = undefined;
+            if (ed) {
+                clearSuggestedEditDecoration(ed);
+                await vscode.commands.executeCommand('undo');
+            }
         } else if (cmd === 'chat') {
             const prompt: string = message.prompt;
             console.log('Chat prompt received from webview:', prompt);
@@ -296,6 +313,15 @@ export class ProofStatePanel {
             sessionOriginalValue: originalValue,
             sessionDesiredValue: desiredValue,
             cursorPositionOverride: this.savedCursorPosition,
+            // --- UPDATED: Connect the suggestion event to the global manager ---
+            onSuggestedEditApplied: (ed, range, oldText) => {
+                this.pendingSuggestedEditor = ed;
+                if (globalSuggestionManager) {
+                    globalSuggestionManager.setSuggestion(ed.document.uri, range, oldText);
+                }
+                this.panel.webview.postMessage({ type: 'proofSuggestionApplied' });
+            },
+            // -------------------------------------------------------------------
         });
 
         // Show initial message (show full-state summary when available)

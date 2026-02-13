@@ -43,6 +43,14 @@
       {
         "command": "outputdirectedtheoremproving.updateProofState",
         "title": "Update Proof State at Cursor"
+      },
+      {
+        "command": "outputdirectedtheoremproving.acceptSuggestion",
+        "title": "Accept Proof Suggestion"
+      },
+      {
+        "command": "outputdirectedtheoremproving.rejectSuggestion",
+        "title": "Reject Proof Suggestion"
       }
     ],
     "keybindings": [
@@ -51,6 +59,18 @@
         "key": "ctrl+alt+u",
         "mac": "cmd+alt+u",
         "when": "editorTextFocus && editorLangId == 'coq'"
+      },
+      {
+        "command": "outputdirectedtheoremproving.acceptSuggestion",
+        "key": "ctrl+shift+y",
+        "mac": "cmd+shift+y",
+        "when": "coqExtension.suggestionActive && editorTextFocus"
+      },
+      {
+        "command": "outputdirectedtheoremproving.rejectSuggestion",
+        "key": "ctrl+shift+n",
+        "mac": "cmd+shift+n",
+        "when": "coqExtension.suggestionActive && editorTextFocus"
       }
     ],
     "chatParticipants": [

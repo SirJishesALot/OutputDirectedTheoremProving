@@ -127,6 +127,13 @@ export interface ProverToolsOptions {
     sessionDesiredValue?: string;
     /** Use this position instead of editor.selection.active (e.g. last position when Coq file had focus). */
     cursorPositionOverride?: { line: number; character: number };
+    /** Called when a proof edit is applied as a suggestion (green highlight). Panel can show Keep/Revert UI. */
+    onSuggestedEditApplied?: (editor: vscode.TextEditor, range: vscode.Range, oldText: string) => void;
+}
+
+/** Clears the green suggestion decoration from an editor. Call when user chooses Keep or Revert. */
+export function clearSuggestedEditDecoration(editor: vscode.TextEditor): void {
+    editor.setDecorations(suggestedEditDecorationType, []);
 }
 
 /**
@@ -283,24 +290,10 @@ Args: originalValue (full proof state before the change), desiredValue (full pro
                         if (applied) {
                             const insertedRange = new vscode.Range(position, positionAfterInsert);
                             editor.setDecorations(suggestedEditDecorationType, [insertedRange]);
-                            const keepItem: vscode.MessageItem = { title: 'Keep' };
-                            const revertItem: vscode.MessageItem = { title: 'Revert' };
-                            vscode.window
-                                .showInformationMessage(
-                                    'Proof edit suggested. Choose Keep to accept or Revert to undo.',
-                                    { modal: false },
-                                    keepItem,
-                                    revertItem
-                                )
-                                .then((choice) => {
-                                    editor.setDecorations(suggestedEditDecorationType, []);
-                                    if (choice?.title === 'Revert') {
-                                        void vscode.commands.executeCommand('undo');
-                                    }
-                                });
+                            options?.onSuggestedEditApplied?.(editor, insertedRange, '');
                             return (
                                 'valid: Proposed addition compiles and brings the proof state to the desired state. ' +
-                                `The edit is shown as a suggestion (highlighted); the user can choose Keep or Revert.\n\n${insertedInfo}\n${whereStr}${newScriptBlock}`
+                                `The edit is applied and highlighted in the editor; use the Keep / Revert buttons in the Proof State panel to accept or undo.\n\n${insertedInfo}\n${whereStr}${newScriptBlock}`
                             );
                         }
                         return `error: Validation passed but failed to apply the edit.\n\n${insertedInfo}\n${whereStr}${newScriptBlock}`;
@@ -522,6 +515,22 @@ Call this with your proposed edit; if you get an error back, try again with a di
                     });
 
                     if (applied) {
+                        // --- UPDATED: Calculate the exact range of the newly inserted text ---
+                        const newLinesArr = newText.split('\n');
+                        const newEndLine = line + newLinesArr.length - 1;
+                        const newEndCharacter = newLinesArr.length === 1
+                            ? character + newText.length
+                            : newLinesArr[newLinesArr.length - 1].length;
+                        
+                        const newRange = new vscode.Range(
+                            new vscode.Position(line, character),
+                            new vscode.Position(newEndLine, newEndCharacter)
+                        );
+
+                        // Apply the green highlight to the NEW text
+                        editor.setDecorations(suggestedEditDecorationType, [newRange]);
+                        // ---------------------------------------------------------------------
+
                         let result = `=== PROOF SCRIPT EDIT APPLIED ===\n\n`;
                         result += `Line ${line + 1}, Column ${character + 1}:\n`;
                         if (oldText) {
@@ -534,6 +543,10 @@ Call this with your proposed edit; if you get an error back, try again with a di
                             result += `Reason: ${args.reason}\n`;
                         }
                         result += `\nThe edit has been applied. You can undo it (Ctrl+Z / Cmd+Z) or keep it.`;
+                        
+                        // Pass the newRange to the callback so the buttons show up exactly on the green text
+                        options?.onSuggestedEditApplied?.(editor, newRange, oldText);
+                        
                         return result + newScriptBlock;
                     } else {
                         return 'error: Failed to apply the edit. The document may have been modified.' + newScriptBlock;
