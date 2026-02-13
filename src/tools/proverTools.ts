@@ -6,6 +6,12 @@ import { AgentTool } from '../llm/chatBridge';
 import { parseCoqFile } from '../parser/parseCoqFile';
 import { hypToString } from '../core/exposedCompletionGeneratorUtils';
 
+/** Decoration used to highlight a suggested proof edit (green) so the user can Keep or Revert. */
+const suggestedEditDecorationType = vscode.window.createTextEditorDecorationType({
+    backgroundColor: 'rgba(46, 160, 67, 0.25)',
+    borderRadius: '2px',
+});
+
 /**
  * Tools for the prover agent that edits the proof script to achieve desired proof states.
  * The agent uses these tools to validate proof state changes and suggest edits to the proof script.
@@ -275,9 +281,26 @@ Args: originalValue (full proof state before the change), desiredValue (full pro
                             editBuilder.replace(editRange, textToInsert);
                         });
                         if (applied) {
+                            const insertedRange = new vscode.Range(position, positionAfterInsert);
+                            editor.setDecorations(suggestedEditDecorationType, [insertedRange]);
+                            const keepItem: vscode.MessageItem = { title: 'Keep' };
+                            const revertItem: vscode.MessageItem = { title: 'Revert' };
+                            vscode.window
+                                .showInformationMessage(
+                                    'Proof edit suggested. Choose Keep to accept or Revert to undo.',
+                                    { modal: false },
+                                    keepItem,
+                                    revertItem
+                                )
+                                .then((choice) => {
+                                    editor.setDecorations(suggestedEditDecorationType, []);
+                                    if (choice?.title === 'Revert') {
+                                        void vscode.commands.executeCommand('undo');
+                                    }
+                                });
                             return (
                                 'valid: Proposed addition compiles and brings the proof state to the desired state. ' +
-                                `The edit has been applied; the user can undo (Ctrl+Z / Cmd+Z) or keep it.\n\n${insertedInfo}\n${whereStr}${newScriptBlock}`
+                                `The edit is shown as a suggestion (highlighted); the user can choose Keep or Revert.\n\n${insertedInfo}\n${whereStr}${newScriptBlock}`
                             );
                         }
                         return `error: Validation passed but failed to apply the edit.\n\n${insertedInfo}\n${whereStr}${newScriptBlock}`;
