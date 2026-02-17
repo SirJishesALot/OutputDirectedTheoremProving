@@ -31340,7 +31340,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         view2.focus();
       });
       const synthesizeButton = document.createElement("button");
-      synthesizeButton.textContent = "Synthesize Equality";
+      synthesizeButton.textContent = "Implement Changes";
       synthesizeButton.classList.add("synthesize-button");
       synthesizeButton.addEventListener("click", () => {
         updateWebviewStatus("Synthesize clicked");

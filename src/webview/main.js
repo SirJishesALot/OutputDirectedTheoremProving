@@ -331,7 +331,7 @@ const suggestChangesViewPlugin = new Plugin({
         });
 
         const synthesizeButton = document.createElement('button');
-        synthesizeButton.textContent = 'Synthesize Equality';
+        synthesizeButton.textContent = 'Implement Changes';
         synthesizeButton.classList.add('synthesize-button');
 
         synthesizeButton.addEventListener('click', () => {
