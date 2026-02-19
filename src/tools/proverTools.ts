@@ -50,12 +50,108 @@ function serializeGoalsToPanelFormat(goals: ProofGoal[]): string {
         .join('\n\n');
 }
 
-/** Normalize whitespace for comparison. */
+/** Normalize whitespace for comparison so Coq output and panel/desired state match regardless of minor spacing. */
 function normalizeProofState(s: string): string {
     return s
         .trim()
         .replace(/\s+/g, ' ')
-        .replace(/\n+/g, '\n');
+        .replace(/\n+/g, '\n')
+        .replace(/\s*:\s*/g, ' : ') // "n: nat" and "n : nat" match
+        .replace(/\s+\(/g, '(')   // "S (n" and "S(n" match (Coq may print space before "(", panel may not)
+        .replace(/\s+\)/g, ')'); // optional: " )" and ")" match
+}
+
+/**
+ * Structured representation of goals in the same shape as the LSP GoalAnswer goals,
+ * but with string types so we can parse the panel format and compare.
+ */
+export interface ParsedHyp {
+    names: string[];
+    ty: string;
+}
+
+export interface ParsedGoal {
+    hyps: ParsedHyp[];
+    ty: string;
+}
+
+/** Parse the panel serialization format (hyp lines "names : type" then goal type) into ParsedGoal[]. */
+function parsePanelFormatToGoals(stateStr: string): ParsedGoal[] | null {
+    const trimmed = stateStr.trim();
+    if (!trimmed) return null;
+    if (trimmed.includes('no remaining goals')) return [];
+    const goalBlocks = trimmed.split(/\n\n+/);
+    const goals: ParsedGoal[] = [];
+    for (const block of goalBlocks) {
+        const lines = block.split('\n').map((l) => l.trim()).filter(Boolean);
+        if (lines.length === 0) continue;
+        const goalTy = lines[lines.length - 1] ?? '';
+        const hypLines = lines.slice(0, -1);
+        const hyps: ParsedHyp[] = [];
+        for (const line of hypLines) {
+            const idx = line.indexOf(' : ');
+            if (idx < 0) return null; // not a valid hyp line
+            const namesStr = line.slice(0, idx).trim();
+            const ty = line.slice(idx + 3).trim();
+            const names = namesStr ? namesStr.split(/\s+/) : [];
+            hyps.push({ names, ty });
+        }
+        goals.push({ hyps, ty: goalTy });
+    }
+    return goals.length ? goals : null;
+}
+
+/** Convert LSP ProofGoal[] to ParsedGoal[] (same structure, strings normalized for comparison). */
+function proofGoalsToParsed(goals: ProofGoal[]): ParsedGoal[] {
+    return goals.map((g) => {
+        const hyps: ParsedHyp[] = g.hyps.map((h) => {
+            const names = (h.names || []).map((n) =>
+                typeof n === 'string' ? n : convertToString(n)
+            );
+            const ty = typeof h.ty === 'string' ? h.ty : convertToString(h.ty);
+            return { names, ty };
+        });
+        const ty = typeof g.ty === 'string' ? g.ty : convertToString(g.ty);
+        return { hyps, ty };
+    });
+}
+
+/**
+ * Compare two parsed goal lists. Only the parts that were edited need to match:
+ * - Goal types always must match (same number of goals, same normalized goal type per goal).
+ * - Hypotheses: when the user edits a hypothesis, only the proposition (type) must appear
+ *   in the result; names/labels are ignored. When the user only changes the goal,
+ *   hypotheses in the result need not match at all.
+ * So we require: (1) same number of goals and matching goal types; (2) for each desired
+ * hypothesis type, the result has some hyp with that type (any name). Names never compared.
+ */
+function parsedGoalsEqual(a: ParsedGoal[], b: ParsedGoal[]): boolean {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+        const ga = a[i]!;
+        const gb = b[i]!;
+        if (normalizeProofState(ga.ty) !== normalizeProofState(gb.ty)) return false;
+        for (const desiredHyp of gb.hyps) {
+            const desiredTy = normalizeProofState(desiredHyp.ty);
+            const hasMatch = ga.hyps.some(
+                (resultHyp) => normalizeProofState(resultHyp.ty) === desiredTy
+            );
+            if (!hasMatch) return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * Goal-only comparison: same number of goals and matching goal types; hypotheses
+ * are ignored. Use when the user is only changing the goal (hypotheses need not remain the same).
+ */
+function parsedGoalsEqualGoalOnly(a: ParsedGoal[], b: ParsedGoal[]): boolean {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+        if (normalizeProofState(a[i]!.ty) !== normalizeProofState(b[i]!.ty)) return false;
+    }
+    return true;
 }
 
 /** Extract the theorem/lemma (or definition) and its proof script from full content, for the proof block containing cursorLine. */
@@ -220,7 +316,8 @@ Args: originalValue (full proof state before the change), desiredValue (full pro
                     const newContent =
                         content.substring(0, offset) + textToInsert + content.substring(offset);
 
-                    const newScriptBlock = `\n--- Theorem and new proof script (proposed) ---\n${extractTheoremAndProofScript(newContent, position.line)}\n--- End ---`;
+                    const fullProofScript = extractTheoremAndProofScript(newContent, position.line);
+                    const newScriptBlock = `\n--- Full proof script being verified (with proposed addition) ---\n${fullProofScript}\n--- End ---`;
 
                     const addLines = textToInsert.split('\n');
                     const endLine =
@@ -261,9 +358,14 @@ Args: originalValue (full proof state before the change), desiredValue (full pro
                             }
                             const goalsWithMessages = goalsResult.val as GoalsWithMessages;
                             const goals = goalsWithMessages.goals;
+                            const stateStr = goals?.length
+                                ? serializeGoalsToPanelFormat(goals)
+                                : '(no remaining goals)';
+                            const parsedDesired = parsePanelFormatToGoals(desiredValue);
                             if (!goals || goals.length === 0) {
-                                const stateStr = '(no remaining goals)';
-                                const match = stateMatchesDesired(stateStr, desiredValue);
+                                const match =
+                                    parsedDesired?.length === 0 ||
+                                    stateMatchesDesired(stateStr, desiredValue);
                                 if (match) return { verified: true, applied: true };
                                 return {
                                     verified: false,
@@ -271,10 +373,15 @@ Args: originalValue (full proof state before the change), desiredValue (full pro
                                     state: stateStr,
                                 };
                             }
-                            const stateStr = serializeGoalsToPanelFormat(goals);
-                            if (stateMatchesDesired(stateStr, desiredValue)) {
-                                return { verified: true, applied: true, state: stateStr };
-                            }
+                            const parsedResult = proofGoalsToParsed(goals);
+                            const desiredHasHyps = parsedDesired?.some((g) => g.hyps.length > 0) ?? false;
+                            const match =
+                                parsedDesired !== null
+                                    ? desiredHasHyps
+                                        ? parsedGoalsEqual(parsedResult, parsedDesired)
+                                        : parsedGoalsEqualGoalOnly(parsedResult, parsedDesired)
+                                    : stateMatchesDesired(stateStr, desiredValue);
+                            if (match) return { verified: true, applied: true, state: stateStr };
                             return {
                                 verified: false,
                                 error: 'Proof state after proposed addition does not match desired state.',
