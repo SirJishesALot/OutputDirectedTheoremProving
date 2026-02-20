@@ -12,6 +12,21 @@ import { hypToString, getTextBeforePosition } from '../core/exposedCompletionGen
  * and edit history, then suggests new edits to help progress the proof.
  */
 
+/** Find a proof block (Proof. ... Qed./Defined./Admitted.) that contains the given 0-based line. */
+function findProofBlockContainingLine(lines: string[], cursorLine: number): { startLine: number; endLine: number } | null {
+    const endMarkers = /\b(Qed|Defined|Admitted)\s*\./;
+    let proofStart: number | null = null;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (/\bProof\s*\./.test(line)) proofStart = i;
+        if (proofStart !== null && endMarkers.test(line ?? '')) {
+            if (cursorLine >= proofStart && cursorLine <= i) return { startLine: proofStart, endLine: i };
+            proofStart = null;
+        }
+    }
+    return null;
+}
+
 export interface ProofStateEdit {
     /** The name of the hypothesis being edited (e.g., "H", "x", "n") */
     hypothesisName: string;
@@ -208,6 +223,7 @@ Use this to understand what tactics have been used, the structure of the current
 
                     let result = '';
 
+                    const textLines = content.split('\n');
                     await client.withTextDocument({ uri: docUri, version, content }, async () => {
                         // Parse the file to find theorems and their proofs (using current buffer)
                         const theorems = await parseCoqFile(
@@ -219,28 +235,31 @@ Use this to understand what tactics have been used, the structure of the current
                             content
                         );
 
-                        // Find the theorem/proof that contains the cursor position
+                        // Find the theorem/proof that contains the cursor (allow proofs with 0 steps, same as prover)
                         let currentProof = null;
                         for (const thm of theorems) {
-                            if (thm.proof && thm.proof.proof_steps.length > 0) {
-                                const firstStep = thm.proof.proof_steps[0];
-                                const proofStart = firstStep.range.start;
-                                const proofEnd = thm.proof.end_pos.end;
-
-                                if (position.line >= proofStart.line && position.line <= proofEnd.line) {
-                                    if (position.line === proofStart.line && position.character < proofStart.character) {
-                                        continue;
-                                    }
-                                    if (position.line === proofEnd.line && position.character > proofEnd.character) {
-                                        continue;
-                                    }
-                                    currentProof = thm;
-                                    break;
-                                }
+                            if (!thm.proof) continue;
+                            const proofStart = thm.proof.proof_steps.length > 0
+                                ? thm.proof.proof_steps[0].range.start
+                                : { line: thm.statement_range.end.line + 1, character: 0 };
+                            const proofEnd = thm.proof.end_pos.end;
+                            if (position.line >= proofStart.line && position.line <= proofEnd.line) {
+                                if (position.line === proofStart.line && position.character < proofStart.character) continue;
+                                if (position.line === proofEnd.line && position.character > proofEnd.character) continue;
+                                currentProof = thm;
+                                break;
                             }
                         }
 
                         if (!currentProof || !currentProof.proof) {
+                            const block = findProofBlockContainingLine(textLines, position.line);
+                            if (block) {
+                                const segment = textLines.slice(block.startLine, block.endLine + 1).join('\n');
+                                result = `=== CURRENT PROOF SCRIPT (from document scan) ===\n\n`;
+                                result += `Cursor is inside a proof block (lines ${block.startLine + 1}--${block.endLine + 1}).\n\n`;
+                                result += `--- Proof block text ---\n${segment}\n\n--- End ---\n`;
+                                return;
+                            }
                             result = 'No proof found at the current cursor position. Make sure you are inside a proof block (between "Proof." and "Qed."/ "Defined."/ "Admitted.").';
                             return;
                         }
@@ -326,10 +345,12 @@ Use this to validate suggested edits before proposing them.`,
         },
         {
             name: 'suggest_proof_state_edit',
-            description: `Suggests a specific edit to the proof state. This is the main tool for proposing changes.
-You MUST call this when the user asks to suggest an edit, advance the proof, or suggest a tactic.
-Takes: hypothesisName (use "Goal" when suggesting a change to the goal type; otherwise the hypothesis name), originalValue (exact current text from the proof state, e.g. the goal type or hypothesis type), suggestedValue (the proposed new text or, for a tactic suggestion, the tactic and expected outcome e.g. "induction n. Then we get two subgoals: ev 0 and ev (S (S (n' + n')))"), reason (optional).
-The suggestion will be presented to the user for acceptance/rejection. Always use this tool when suggesting an edit; do not only describe the edit in text.`,
+            description: `Suggests an edit to the proof state that appears as a replace suggestion in the proof state panel. The user can then click "Implement changes" to run the prover agent, which will try to synthesize tactics to achieve that edit.
+- originalValue: EXACT current text from the proof state (goal type or hypothesis type) as shown in the panel. Must match the display exactly so the UI can find and mark it.
+- suggestedValue: DESIRED proof state text ONLY — the goal or hypothesis type we want to reach, in the same format Coq uses (e.g. "ev (0 + 0)", "ev (S (S (n' + n')))"). Do NOT put tactics, explanations, or prose here; only the target state string. Use the "reason" argument to explain the strategy (e.g. "Base case after induction on n").
+- hypothesisName: "Goal" when editing the goal type; otherwise the hypothesis name.
+- reason (optional): human-readable explanation (e.g. which tactic or step this corresponds to).
+One call = one edit (one replacement). For multiple subgoals, suggest one at a time (e.g. first suggest desired state for the base case).`,
             execute: async (args: {
                 hypothesisName: string;
                 originalValue: string;

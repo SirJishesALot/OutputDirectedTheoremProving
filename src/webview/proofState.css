@@ -48,6 +48,22 @@ del {
     text-decoration: line-through;
     border-radius: 2px;
 }
+/* Agent suggestion: replace-style modification mark (single span, no duplicate text) */
+span[data-type="modification"][data-mod-type="replace"] {
+    background-color: var(--vscode-editor-inactiveSelectionBackground, rgba(100, 100, 100, 0.15));
+    border-radius: 2px;
+    text-decoration: line-through;
+    padding: 0 1px;
+}
+/* Suggested new value shown after the strikethrough (e.g. " → ev (0 + 0)") — blue highlight like a user edit */
+.suggestion-new-value {
+    color: var(--vscode-editor-foreground);
+    background-color: var(--vscode-editor-inactiveSelectionBackground, rgba(0, 120, 212, 0.2));
+    padding: 1px 4px;
+    border-radius: 2px;
+    font-weight: bold;
+    margin-left: 2px;
+}
 /* End of plugin styles */
 
 

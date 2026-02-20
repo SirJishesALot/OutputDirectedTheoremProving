@@ -31,8 +31,20 @@ import {
     applySuggestions,
     revertSuggestions,
     isSuggestChangesEnabled,
+    suggestChangesKey,
 } from '@handlewithcare/prosemirror-suggest-changes';
+import { Transform } from 'prosemirror-transform';
 
+// Avoid "NodeType.create can't construct text nodes" when suggest-changes removes
+// modification marks from text (e.g. goal type "ev (n + n)"): use removeMark for text nodes.
+const originalRemoveNodeMark = Transform.prototype.removeNodeMark;
+Transform.prototype.removeNodeMark = function (pos, mark) {
+    const node = this.doc.nodeAt(pos);
+    if (node && node.isText) {
+        return this.removeMark(pos, pos + node.nodeSize, mark);
+    }
+    return originalRemoveNodeMark.call(this, pos, mark);
+};
 
 const vscode = acquireVsCodeApi();
 
@@ -399,6 +411,36 @@ const readOnlyGoalsPlugin = new Plugin({
     }
 });
 
+// Show suggested value next to replace-style modification marks (e.g. "ev (n + n)" → "ev (0 + 0)")
+function suggestionNewValueDecorations(doc, schema) {
+    const mod = schema.marks.modification;
+    const decos = [];
+    doc.descendants((node, pos) => {
+        if (!node.isText || !node.marks.length) return;
+        const mark = node.marks.find(m => m.type === mod && m.attrs && m.attrs.type === 'replace');
+        if (!mark || mark.attrs.newValue === null || mark.attrs.newValue === undefined) return;
+        const endPos = pos + node.nodeSize;
+        const newVal = String(mark.attrs.newValue);
+        // Decoration.widget(pos, toDOM, spec): toDOM(view, getPos) must return a DOM Node
+        decos.push(Decoration.widget(endPos, () => {
+            const span = document.createElement('span');
+            span.className = 'suggestion-new-value';
+            span.textContent = ' → ' + newVal;
+            return span;
+        }, { side: 1 }));
+    });
+    return DecorationSet.create(doc, decos);
+}
+const suggestionNewValuePlugin = new Plugin({
+    state: {
+        init(_, { doc }) { return suggestionNewValueDecorations(doc, schema); },
+        apply(tr, old, _o, state) { return tr.docChanged ? suggestionNewValueDecorations(state.doc, schema) : old; }
+    },
+    props: {
+        decorations(state) { return this.getState(state); }
+    }
+});
+
 // Plugin to track edits in real-time and update edit history
 const editHistoryTrackingPlugin = new Plugin({
     view(editorView) {
@@ -469,6 +511,7 @@ const plugins = [
     highlightPlugin(), 
     suggestChangesViewPlugin, 
     readOnlyGoalsPlugin,
+    suggestionNewValuePlugin,
     editHistoryTrackingPlugin
 ];
 
@@ -534,7 +577,7 @@ window.addEventListener('message', (event) => {
     view.updateState(newState);
 });
 
-// Handle suggestions from the agent
+// Handle suggestions from the agent: show as a visible edit (strikethrough + suggested value) in the proof state panel.
 function handleSuggestion(suggestion) {
     if (!suggestion || !suggestion.hypothesisName || !suggestion.originalValue || !suggestion.suggestedValue) {
         console.warn('Invalid suggestion received:', suggestion);
@@ -544,8 +587,6 @@ function handleSuggestion(suggestion) {
     let state = view.state;
     const doc = state.doc;
     
-    // Find the text matching originalValue in the document
-    // We'll search through all text nodes to find the originalValue
     let foundPos = -1;
     let foundLength = 0;
     
@@ -565,38 +606,29 @@ function handleSuggestion(suggestion) {
 
     if (foundPos === -1) {
         console.warn(`Could not find original value "${suggestion.originalValue}" in document`);
-        // Still show the suggestion in chat
         appendChatMessage(`Suggestion: Replace "${suggestion.originalValue}" with "${suggestion.suggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`, 'assistant');
         return;
     }
 
-    // Generate a unique ID for this suggestion
     const suggestionId = `suggestion-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    // Enable suggestions if not already enabled
     if (!isSuggestChangesEnabled(state)) {
-        // Enable suggestions mode first
-        toggleSuggestChanges(state, (newTr) => {
-            view.dispatch(newTr);
-        });
-        // Get the updated state after enabling
+        toggleSuggestChanges(state, (newTr) => { view.dispatch(newTr); });
         state = view.state;
     }
 
-    // Create a transaction to add the modification mark
+    // Add the modification mark only (no auto-apply). Panel shows: strikethrough on original + " → suggested" (like a user-made edit).
     const tr = state.tr;
+    tr.setMeta(suggestChangesKey, { skip: true });
     const modificationMark = schema.marks.modification.create({
         id: suggestionId,
         type: 'replace',
         previousValue: suggestion.originalValue,
         newValue: suggestion.suggestedValue
     });
-
-    // Apply the modification mark to the found text
     tr.addMark(foundPos, foundPos + foundLength, modificationMark);
     view.dispatch(tr);
 
-    // Also show the suggestion in chat
     const suggestionMsg = `Suggestion: Replace "${suggestion.originalValue}" with "${suggestion.suggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`;
     appendChatMessage(suggestionMsg, 'assistant');
 }

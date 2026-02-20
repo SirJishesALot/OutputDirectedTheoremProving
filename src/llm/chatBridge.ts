@@ -198,7 +198,11 @@ When you receive a tool result, analyze it and either:
 1. Use another tool if needed (you can make multiple tool calls in sequence), OR
 2. Provide a helpful answer based on the tool results.
 
-When the user asks to "suggest an edit", "advance the proof", or "suggest a tactic": after gathering proof state (and optionally context), you MUST call suggest_proof_state_edit to submit your suggestion. Use hypothesisName "Goal" when the edit targets the goal type; use the current goal type as originalValue and the expected new goal (or a short description of the tactic and new state) as suggestedValue. Then you may add a short explanation in text after the tool result.
+When the user asks to "suggest an edit" or "advance the proof": after gathering proof state (and optionally context), you MUST call suggest_proof_state_edit. This creates a visible edit in the proof state panel (ProseMirror): the user sees the current state with a suggested replacement. If they accept, the prover agent will later synthesize tactics to achieve that change.
+- originalValue: the EXACT current text from the proof state (e.g. the goal type "ev (n + n)" or a hypothesis type). Must match exactly what is displayed in the panel.
+- suggestedValue: the DESIRED proof state text only — the goal or hypothesis type we want to reach (e.g. "ev (0 + 0)" for the base case, or "ev (S (S (n' + n')))" for the inductive step). Do NOT put tactics or explanations here; suggestedValue must be the target state string that Coq would show (same format as originalValue). Use reason to explain the tactic or strategy in prose.
+- hypothesisName: use "Goal" when editing the goal type, otherwise the hypothesis name.
+This way the panel shows a real replace suggestion (current → desired state), and "Implement changes" can call the prover to find tactics.
 
 For questions about tactics or proof state (when edit history is NOT populated), you should start by calling get_current_proof_state to understand what you're working with.
 For questions about the theorem name or proof script, you should use get_current_proof_script.

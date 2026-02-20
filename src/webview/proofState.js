@@ -31077,6 +31077,14 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     }
     return lang;
   });
+  var originalRemoveNodeMark = Transform.prototype.removeNodeMark;
+  Transform.prototype.removeNodeMark = function(pos, mark) {
+    const node = this.doc.nodeAt(pos);
+    if (node && node.isText) {
+      return this.removeMark(pos, pos + node.nodeSize, mark);
+    }
+    return originalRemoveNodeMark.call(this, pos, mark);
+  };
   var vscode = acquireVsCodeApi();
   function updateWebviewStatus(text2) {
     const el = document.getElementById("webviewStatus");
@@ -31399,6 +31407,39 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       return false;
     }
   });
+  function suggestionNewValueDecorations(doc3, schema3) {
+    const mod = schema3.marks.modification;
+    const decos = [];
+    doc3.descendants((node, pos) => {
+      if (!node.isText || !node.marks.length) return;
+      const mark = node.marks.find((m2) => m2.type === mod && m2.attrs && m2.attrs.type === "replace");
+      if (!mark || mark.attrs.newValue === null || mark.attrs.newValue === void 0) return;
+      const endPos = pos + node.nodeSize;
+      const newVal = String(mark.attrs.newValue);
+      decos.push(Decoration.widget(endPos, () => {
+        const span = document.createElement("span");
+        span.className = "suggestion-new-value";
+        span.textContent = " \u2192 " + newVal;
+        return span;
+      }, { side: 1 }));
+    });
+    return DecorationSet.create(doc3, decos);
+  }
+  var suggestionNewValuePlugin = new Plugin({
+    state: {
+      init(_2, { doc: doc3 }) {
+        return suggestionNewValueDecorations(doc3, schema2);
+      },
+      apply(tr, old, _o, state) {
+        return tr.docChanged ? suggestionNewValueDecorations(state.doc, schema2) : old;
+      }
+    },
+    props: {
+      decorations(state) {
+        return this.getState(state);
+      }
+    }
+  });
   var editHistoryTrackingPlugin = new Plugin({
     view(editorView) {
       const sentEdits = /* @__PURE__ */ new Set();
@@ -31453,6 +31494,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     highlightPlugin(),
     suggestChangesViewPlugin,
     readOnlyGoalsPlugin,
+    suggestionNewValuePlugin,
     editHistoryTrackingPlugin
   ];
   var initialState = EditorState.create({
@@ -31542,6 +31584,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       state = view.state;
     }
     const tr = state.tr;
+    tr.setMeta(suggestChangesKey, { skip: true });
     const modificationMark = schema2.marks.modification.create({
       id: suggestionId,
       type: "replace",

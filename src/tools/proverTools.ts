@@ -75,7 +75,7 @@ export interface ParsedGoal {
     ty: string;
 }
 
-/** Parse the panel serialization format (hyp lines "names : type" then goal type) into ParsedGoal[]. */
+/** Parse the panel serialization format (hyp lines "names : type" or "names: type" then goal type) into ParsedGoal[]. */
 function parsePanelFormatToGoals(stateStr: string): ParsedGoal[] | null {
     const trimmed = stateStr.trim();
     if (!trimmed) return null;
@@ -89,10 +89,13 @@ function parsePanelFormatToGoals(stateStr: string): ParsedGoal[] | null {
         const hypLines = lines.slice(0, -1);
         const hyps: ParsedHyp[] = [];
         for (const line of hypLines) {
-            const idx = line.indexOf(' : ');
-            if (idx < 0) return null; // not a valid hyp line
+            // Accept " : " or ":" so "n: nat" and "n : nat" both parse
+            const idx = line.includes(' : ')
+                ? line.indexOf(' : ')
+                : line.indexOf(':');
+            if (idx < 0) return null;
             const namesStr = line.slice(0, idx).trim();
-            const ty = line.slice(idx + 3).trim();
+            const ty = line.slice(idx + (line[idx + 1] === ' ' ? 3 : 1)).trim();
             const names = namesStr ? namesStr.split(/\s+/) : [];
             hyps.push({ names, ty });
         }
@@ -152,6 +155,33 @@ function parsedGoalsEqualGoalOnly(a: ParsedGoal[], b: ParsedGoal[]): boolean {
         if (normalizeProofState(a[i]!.ty) !== normalizeProofState(b[i]!.ty)) return false;
     }
     return true;
+}
+
+/**
+ * True when desired is a single goal and that goal appears among the result goals.
+ * Used for tactics like "induction n." that produce multiple subgoals: we accept if the
+ * desired state is any of the resulting subgoals (not necessarily the first).
+ */
+function desiredGoalInResult(parsedResult: ParsedGoal[], parsedDesired: ParsedGoal[]): boolean {
+    if (parsedDesired.length !== 1 || parsedResult.length < 1) return false;
+    const desired = parsedDesired[0]!;
+    for (const resultGoal of parsedResult) {
+        if (normalizeProofState(resultGoal.ty) !== normalizeProofState(desired.ty)) continue;
+        if (resultGoal.hyps.length === 0) return true;
+        let hypsMatch = true;
+        for (const desiredHyp of desired.hyps) {
+            const desiredTy = normalizeProofState(desiredHyp.ty);
+            const hasMatch = resultGoal.hyps.some(
+                (h) => normalizeProofState(h.ty) === desiredTy
+            );
+            if (!hasMatch) {
+                hypsMatch = false;
+                break;
+            }
+        }
+        if (hypsMatch) return true;
+    }
+    return false;
 }
 
 /** Extract the theorem/lemma (or definition) and its proof script from full content, for the proof block containing cursorLine. */
@@ -375,12 +405,17 @@ Args: originalValue (full proof state before the change), desiredValue (full pro
                             }
                             const parsedResult = proofGoalsToParsed(goals);
                             const desiredHasHyps = parsedDesired?.some((g) => g.hyps.length > 0) ?? false;
-                            const match =
+                            const exactMatch =
                                 parsedDesired !== null
                                     ? desiredHasHyps
                                         ? parsedGoalsEqual(parsedResult, parsedDesired)
                                         : parsedGoalsEqualGoalOnly(parsedResult, parsedDesired)
                                     : stateMatchesDesired(stateStr, desiredValue);
+                            const desiredInResult =
+                                parsedDesired !== null &&
+                                parsedDesired.length === 1 &&
+                                desiredGoalInResult(parsedResult, parsedDesired);
+                            const match = exactMatch || desiredInResult;
                             if (match) return { verified: true, applied: true, state: stateStr };
                             return {
                                 verified: false,
