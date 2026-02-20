@@ -327,9 +327,9 @@ Use this to validate suggested edits before proposing them.`,
         {
             name: 'suggest_proof_state_edit',
             description: `Suggests a specific edit to the proof state. This is the main tool for proposing changes.
-Takes a hypothesis name, original value, and suggested new value.
-The suggestion will be presented to the user for acceptance/rejection.
-Returns a confirmation message with the suggestion details.`,
+You MUST call this when the user asks to suggest an edit, advance the proof, or suggest a tactic.
+Takes: hypothesisName (use "Goal" when suggesting a change to the goal type; otherwise the hypothesis name), originalValue (exact current text from the proof state, e.g. the goal type or hypothesis type), suggestedValue (the proposed new text or, for a tactic suggestion, the tactic and expected outcome e.g. "induction n. Then we get two subgoals: ev 0 and ev (S (S (n' + n')))"), reason (optional).
+The suggestion will be presented to the user for acceptance/rejection. Always use this tool when suggesting an edit; do not only describe the edit in text.`,
             execute: async (args: {
                 hypothesisName: string;
                 originalValue: string;

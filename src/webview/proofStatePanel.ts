@@ -461,16 +461,29 @@ export class ProofStatePanel {
     private async updateProofState() {
         try {
             if (this.panel.active) { return; }
-            const editor = vscode.window.activeTextEditor;
+            let editor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
+            const coqIsActive = editor?.document.languageId === 'coq';
+            if (!coqIsActive) {
+                editor = undefined;
+            }
+            // When user clicks the webview, active editor is no longer the Coq file; use saved document and position
+            if (!editor && this.currentDocumentUri !== undefined && this.savedCursorPosition !== undefined) {
+                editor = vscode.window.visibleTextEditors.find(
+                    (e) => e.document.uri.toString() === this.currentDocumentUri?.toString()
+                );
+            }
             if (!editor || editor.document.languageId !== 'coq') {
                 this.panel.webview.postMessage({ type: 'noDocument' });
                 return;
             }
 
-            this.currentDocumentUri = editor.document.uri; 
+            this.currentDocumentUri = editor.document.uri;
+            // Use current cursor when Coq had focus; use saved position when we fell back to saved document (e.g. user clicked panel)
+            const position = coqIsActive
+                ? editor.selection.active
+                : new vscode.Position(this.savedCursorPosition!.line, this.savedCursorPosition!.character);
             const docUri = Uri.fromPath(editor.document.uri.fsPath);
             const version = editor.document.version;
-            const position = editor.selection.active;
             const content = editor.document.getText();
 
             const client = await this.clientReady;

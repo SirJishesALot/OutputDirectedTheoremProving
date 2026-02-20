@@ -176,7 +176,7 @@ IMPORTANT: When the user asks questions about:
 - The proof script, what tactics have been used, or the theorem name → use get_current_proof_script
 - The name of the theorem being worked on → use get_current_proof_script
 - Questions like "what theorem am I working on?" or "what's the name of the theorem?" → use get_current_proof_script
-- Suggesting edits or transformations → use get_current_proof_state, get_proof_context, and suggest_proof_state_edit
+- Suggesting edits or transformations → you MUST call suggest_proof_state_edit after get_current_proof_state (and get_proof_context if needed). Do not only respond in text; always submit the suggestion via the tool so the user sees it in the UI.
 - Available theorems or context → use get_proof_context
 - Validating terms → use check_term_validity
 - Edit history → use get_edit_history to see what edits have been made
@@ -197,6 +197,8 @@ If you do not need to use a tool, just respond with text.
 When you receive a tool result, analyze it and either:
 1. Use another tool if needed (you can make multiple tool calls in sequence), OR
 2. Provide a helpful answer based on the tool results.
+
+When the user asks to "suggest an edit", "advance the proof", or "suggest a tactic": after gathering proof state (and optionally context), you MUST call suggest_proof_state_edit to submit your suggestion. Use hypothesisName "Goal" when the edit targets the goal type; use the current goal type as originalValue and the expected new goal (or a short description of the tactic and new state) as suggestedValue. Then you may add a short explanation in text after the tool result.
 
 For questions about tactics or proof state (when edit history is NOT populated), you should start by calling get_current_proof_state to understand what you're working with.
 For questions about the theorem name or proof script, you should use get_current_proof_script.
