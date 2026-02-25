@@ -384,6 +384,8 @@ ${proofStateChange.desiredValue}
 
 If you need to make a multi-step edit (e.g. replace existing text rather than only appending at cursor), use suggest_proof_script_edit with line, character, oldText, newText. That tool also verifies with Coq before applying.
 
+When validate_proof_state_change fails with "state does not match", the tactic may still be correct (e.g. destruct produces multiple subgoals and the desired goal is one of them). Try suggest_proof_script_edit to insert the same tactic at the correct line/character, or try a different proposedAddition. Do not stop after one failure—retry with different tactics or positions (cursor may be in a bullet branch; get_current_proof_script shows the exact script and line numbers).
+
 To use a tool, respond with ONLY a JSON block:
 \`\`\`json
 { "tool": "tool_name", "args": { ... } }

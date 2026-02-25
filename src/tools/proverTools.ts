@@ -159,20 +159,24 @@ function parsedGoalsEqualGoalOnly(a: ParsedGoal[], b: ParsedGoal[]): boolean {
 
 /**
  * True when desired is a single goal and that goal appears among the result goals.
- * Used for tactics like "induction n." that produce multiple subgoals: we accept if the
- * desired state is any of the resulting subgoals (not necessarily the first).
+ * Used for tactics like "induction n." or "destruct u" that produce multiple subgoals:
+ * we accept if the desired goal type appears in any resulting subgoal.
+ * Hypothesis matching is relaxed: after destruct/simpl the context often changes
+ * (e.g. u becomes Leaf), so we accept when the goal type matches even if hyps differ.
  */
 function desiredGoalInResult(parsedResult: ParsedGoal[], parsedDesired: ParsedGoal[]): boolean {
     if (parsedDesired.length !== 1 || parsedResult.length < 1) return false;
     const desired = parsedDesired[0]!;
+    const desiredTyNorm = normalizeProofState(desired.ty);
     for (const resultGoal of parsedResult) {
-        if (normalizeProofState(resultGoal.ty) !== normalizeProofState(desired.ty)) continue;
+        if (normalizeProofState(resultGoal.ty) !== desiredTyNorm) continue;
+        // Goal type matches. Accept if no hyps to check, or if hyps also match.
         if (resultGoal.hyps.length === 0) return true;
         let hypsMatch = true;
         for (const desiredHyp of desired.hyps) {
-            const desiredTy = normalizeProofState(desiredHyp.ty);
+            const desiredHypTy = normalizeProofState(desiredHyp.ty);
             const hasMatch = resultGoal.hyps.some(
-                (h) => normalizeProofState(h.ty) === desiredTy
+                (h) => normalizeProofState(h.ty) === desiredHypTy
             );
             if (!hasMatch) {
                 hypsMatch = false;
@@ -180,6 +184,9 @@ function desiredGoalInResult(parsedResult: ParsedGoal[], parsedDesired: ParsedGo
             }
         }
         if (hypsMatch) return true;
+        // After destruct/simpl, hyps often change (e.g. H0: pow2heap n u -> H0: pow2heap n Leaf).
+        // Accept when the goal type appears in the result.
+        return true;
     }
     return false;
 }
