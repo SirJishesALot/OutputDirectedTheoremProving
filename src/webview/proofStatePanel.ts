@@ -17,6 +17,7 @@ type ClientReadyPromise = Promise<CoqLspClient>;
 export class ProofStatePanel {
     public static currentPanel: ProofStatePanel | undefined;
     private readonly panel: vscode.WebviewPanel;
+    private chatPanel: vscode.WebviewPanel | undefined;
     private readonly extensionUri: vscode.Uri;
     private disposables: vscode.Disposable[] = [];
     private clientReady: ClientReadyPromise;
@@ -73,7 +74,7 @@ export class ProofStatePanel {
         void vscode.commands.executeCommand('outputdirectedtheoremproving.getDefaultChatModel'); 
 
         this.panel.webview.onDidReceiveMessage(
-            (message) => this.handleMessage(message),
+            (message) => this.handleMessage(message, this.panel.webview),
             null,
             this.disposables
         );
@@ -96,6 +97,11 @@ export class ProofStatePanel {
         this.updateProofState(); // initial update
     }
 
+    /** Webview that currently shows the chat (chat panel if open, otherwise main panel). */
+    private getChatWebview(): vscode.Webview {
+        return this.chatPanel?.webview ?? this.panel.webview;
+    }
+
     /** Call this to refresh the proof state at the current editor cursor (e.g. from a keybinding or toolbar). */
     public async requestProofStateUpdate(): Promise<void> {
         await this.updateProofState();
@@ -103,6 +109,7 @@ export class ProofStatePanel {
 
     public dispose() {
         ProofStatePanel.currentPanel = undefined;
+        this.closeChatPanel();
         this.panel.dispose();
         while (this.disposables.length) {
             const d = this.disposables.pop();
@@ -110,20 +117,127 @@ export class ProofStatePanel {
         }
     }
 
-    private async handleMessage(message: any) {
+    private openChatPanel(initialChatLogHtml: string) {
+        if (this.chatPanel) {
+            this.chatPanel.reveal();
+            this.chatPanel.webview.postMessage({ type: 'initialChatLogContent', content: initialChatLogHtml });
+            return;
+        }
+        const chatPanel = vscode.window.createWebviewPanel(
+            'coqProofStateChat',
+            'Coq Proof State – Chat',
+            vscode.ViewColumn.Beside,
+            {
+                enableScripts: true,
+                retainContextWhenHidden: true,
+                localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'src', 'webview')],
+            }
+        );
+        this.chatPanel = chatPanel;
+        chatPanel.webview.html = this.getChatOnlyHtml(chatPanel.webview);
+        this.panel.webview.postMessage({ type: 'setChatVisible', visible: false });
+        chatPanel.webview.onDidReceiveMessage(
+            (message) => this.handleMessage(message, chatPanel.webview),
+            null,
+            this.disposables
+        );
+        chatPanel.onDidDispose(() => {
+            this.chatPanel = undefined;
+            this.panel.webview.postMessage({ type: 'setChatVisible', visible: true });
+        }, null, this.disposables);
+        // Send initial content after script is ready (next tick)
+        setTimeout(() => {
+            chatPanel.webview.postMessage({ type: 'initialChatLogContent', content: initialChatLogHtml });
+        }, 0);
+    }
+
+    private closeChatPanel() {
+        const p = this.chatPanel;
+        this.chatPanel = undefined;
+        if (p) p.dispose();
+        this.panel.webview.postMessage({ type: 'setChatVisible', visible: true });
+    }
+
+    private getChatOnlyHtml(webview: vscode.Webview): string {
+        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(
+            this.extensionUri, 'src', 'webview', 'proofStateChat.js'
+        ));
+        const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(
+            this.extensionUri, 'src', 'webview', 'proofState.css'
+        ));
+        const katexCssUri = webview.asWebviewUri(vscode.Uri.joinPath(
+            this.extensionUri, 'node_modules', 'katex', 'dist', 'katex.min.css'
+        ));
+        return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'none';
+    style-src ${webview.cspSource} ${katexCssUri} 'unsafe-inline';
+    script-src ${webview.cspSource};
+  ">
+  <link rel="stylesheet" type="text/css" href="${cssUri}">
+  <link rel="stylesheet" type="text/css" href="${katexCssUri}">
+  <title>Chat</title>
+</head>
+<body>
+  <div class="controls" style="display: flex; flex-direction: column; height: 100%; padding: 12px; box-sizing: border-box;">
+    <div style="flex: 0 0 auto; display: flex; justify-content: flex-end;">
+      <button id="popBackChat">Pop back</button>
+    </div>
+    <div id="synthesizingIndicator" class="synthesizing-indicator" aria-hidden="true">Synthesizing proof...</div>
+    <div id="chatLog" style="flex: 1 1 auto; min-height: 0; overflow: auto;"></div>
+    <div id="chatTypingIndicator" class="chat-typing-indicator" aria-hidden="true">Model is typing...</div>
+    <div style="display: flex; flex-direction: row; align-items: center;">
+      <input id="chatInput" type="text" placeholder="Consult the assistant." />
+      <button id="chatSend">Send</button>
+    </div>
+  </div>
+  <script src="${scriptUri}"></script>
+</body>
+</html>`;
+    }
+
+    private async handleMessage(message: any, fromWebview: vscode.Webview) {
         const cmd = message.command;
-        console.log('[Proof State Panel] handleMessage command:', cmd);
+        const msgType = message.type;
+        const isMain = fromWebview === this.panel.webview;
+
+        if (isMain && msgType === 'chatLogContent') {
+            const content = message.content as string | undefined;
+            this.openChatPanel(content ?? '');
+            return;
+        }
+
+        if (cmd === 'popOutChat') {
+            if (isMain) {
+                this.panel.webview.postMessage({ type: 'getChatLogContent' });
+            }
+            return;
+        }
+
+        if (cmd === 'popBackChat') {
+            this.closeChatPanel();
+            return;
+        }
+
         if (cmd === 'requestUpdate') {
+            if (!isMain) return;
             console.log('proof state update requested');
             await this.updateProofState();
         } else if (cmd === 'applyTactic') {
+            if (!isMain) return;
             const tactic: string = message.tactic;
             await this.applyTactic(tactic);
         } else if (cmd === 'proofSuggestionKeep') {
+            if (!isMain) return;
             const ed = this.pendingSuggestedEditor;
             this.pendingSuggestedEditor = undefined;
             if (ed) clearSuggestedEditDecoration(ed);
         } else if (cmd === 'proofSuggestionRevert') {
+            if (!isMain) return;
             const ed = this.pendingSuggestedEditor;
             this.pendingSuggestedEditor = undefined;
             if (ed) {
@@ -141,8 +255,8 @@ export class ProofStatePanel {
                     const model = await vscode.commands.executeCommand('outputdirectedtheoremproving.getDefaultChatModel', { useCache: true });
                     if (!model) {
                         // No model available -- inform the webview
-                        this.panel.webview.postMessage({ type: 'chatResponsePart', text: 'No chat model available. Open the Chat view to configure a model.' });
-                        this.panel.webview.postMessage({ type: 'chatResponseDone' });
+                        this.getChatWebview().postMessage({ type: 'chatResponsePart', text: 'No chat model available. Open the Chat view to configure a model.' });
+                        this.getChatWebview().postMessage({ type: 'chatResponseDone' });
                         return;
                     }
 
@@ -162,9 +276,9 @@ export class ProofStatePanel {
                     if (!editor) {
                         // Fall back to simple chat if no editor
                         await streamCoqChat(this.clientReady, model, prompt, (chunk: string) => {
-                            this.panel.webview.postMessage({ type: 'chatResponsePart', text: chunk });
+                            this.getChatWebview().postMessage({ type: 'chatResponsePart', text: chunk });
                         }, () => {
-                            this.panel.webview.postMessage({ type: 'chatResponseDone' });
+                            this.getChatWebview().postMessage({ type: 'chatResponseDone' });
                         });
                         return;
                     }
@@ -181,11 +295,13 @@ export class ProofStatePanel {
 
                     // Callback to handle suggestions from the agent
                     const handleSuggestion: SuggestionCallback = (suggestion) => {
-                        // Send suggestion to webview to display in ProseMirror
-                        this.panel.webview.postMessage({
-                            type: 'suggestion',
-                            suggestion: suggestion
-                        });
+                        const msg = { type: 'suggestion' as const, suggestion };
+                        this.getChatWebview().postMessage(msg);
+                        // Refresh main panel proof state then send suggestion so the document matches what the agent saw
+                        void (async () => {
+                            await this.updateProofStateForSuggestion();
+                            this.panel.webview.postMessage(msg);
+                        })();
                     };
 
                     // Callback to update conversation history
@@ -200,10 +316,10 @@ export class ProofStatePanel {
                         enhancedPrompt,
                         tools,
                         (chunk: string) => {
-                            this.panel.webview.postMessage({ type: 'chatResponsePart', text: chunk });
+                            this.getChatWebview().postMessage({ type: 'chatResponsePart', text: chunk });
                         },
                         () => {
-                            this.panel.webview.postMessage({ type: 'chatResponseDone' });
+                            this.getChatWebview().postMessage({ type: 'chatResponseDone' });
                         },
                         undefined, // token
                         handleSuggestion, // onSuggestion callback
@@ -213,13 +329,15 @@ export class ProofStatePanel {
                     );
                 } catch (e) {
                     console.error('Stream chat response failed:', e);
-                    this.panel.webview.postMessage({ type: 'chatResponseDone' });
+                    this.getChatWebview().postMessage({ type: 'chatResponseDone' });
                 }
             })();
         } else if (cmd === 'agentRequest') {
+            if (!isMain) return;
             console.log('[Proof State Panel] agentRequest received, context:', JSON.stringify(message.context));
             await this.handleAgentRequest(message.context);
         } else if (cmd === 'updateEditHistory') {
+            if (!isMain) return;
             // Update edit history when user makes edits in the proof state
             const edit = message.edit;
             if (edit && edit.lhs && edit.rhs) {
@@ -246,23 +364,23 @@ export class ProofStatePanel {
         const fullOriginalState = (context?.fullOriginalState ?? '').trim() || undefined;
         const fullDesiredState = (context?.fullDesiredState ?? '').trim() || undefined;
         console.log('[Proof State Panel] handleAgentRequest started', { lhs, rhs, hasFullState: !!(fullOriginalState && fullDesiredState) });
-        this.panel.webview.postMessage({ type: 'proverAgentStarted' });
+        this.getChatWebview().postMessage({ type: 'proverAgentStarted' });
         try {
         const hasFullState = !!(fullOriginalState && fullDesiredState);
         if (!hasFullState && (!lhs || !rhs)) {
-            this.panel.webview.postMessage({
+            this.getChatWebview().postMessage({
                 type: 'chatResponsePart',
                 text: '_No proof state change selected._ Enable **Suggestions**, then mark a change on a hypothesis or goal (e.g. edit it to show old → new). Click **Synthesize Equality** again.',
             });
-            this.panel.webview.postMessage({ type: 'chatResponseDone' });
+            this.getChatWebview().postMessage({ type: 'chatResponseDone' });
             return;
         }
         // Pass useCache: true to use cached model if available, otherwise show picker
         const model = await vscode.commands.executeCommand('outputdirectedtheoremproving.getDefaultChatModel', { useCache: true });
         if (!model) {
             console.log('[Proof State Panel] No model selected, aborting');
-            this.panel.webview.postMessage({ type: 'chatResponsePart', text: 'Error: No model selected.' });
-            this.panel.webview.postMessage({ type: 'chatResponseDone' });
+            this.getChatWebview().postMessage({ type: 'chatResponsePart', text: 'Error: No model selected.' });
+            this.getChatWebview().postMessage({ type: 'chatResponseDone' });
             return;
         }
         console.log('[Proof State Panel] Model obtained');
@@ -282,8 +400,8 @@ export class ProofStatePanel {
 
         if (!editor) {
             console.error('[Proof State Panel] Could not find the bound Coq editor.');
-            this.panel.webview.postMessage({ type: 'chatResponsePart', text: 'Error: The Coq file for this proof state is no longer visible.' });
-            this.panel.webview.postMessage({ type: 'chatResponseDone' });
+            this.getChatWebview().postMessage({ type: 'chatResponsePart', text: 'Error: The Coq file for this proof state is no longer visible.' });
+            this.getChatWebview().postMessage({ type: 'chatResponseDone' });
             return;
         }
         console.log('[Proof State Panel] Editor found, running prover agent');
@@ -303,8 +421,8 @@ export class ProofStatePanel {
         const originalValue = (fullOriginalState || lhs).trim() || lhs;
         const desiredValue = (fullDesiredState || rhs).trim() || rhs;
         if (!originalValue || !desiredValue) {
-            this.panel.webview.postMessage({ type: 'chatResponsePart', text: 'Error: Proof state text is empty; cannot run the prover agent.' });
-            this.panel.webview.postMessage({ type: 'chatResponseDone' });
+            this.getChatWebview().postMessage({ type: 'chatResponsePart', text: 'Error: Proof state text is empty; cannot run the prover agent.' });
+            this.getChatWebview().postMessage({ type: 'chatResponseDone' });
             return;
         }
 
@@ -328,7 +446,7 @@ export class ProofStatePanel {
         const summary = fullOriginalState && fullDesiredState
             ? 'Full proof state (before) → (after)'
             : `\`${lhs}\` → \`${rhs}\``;
-        this.panel.webview.postMessage({ 
+        this.getChatWebview().postMessage({ 
             type: 'chatResponsePart', 
             text: `_Prover Agent: Attempting to achieve proof state change_\n${summary}\n\n` 
         });
@@ -346,23 +464,23 @@ export class ProofStatePanel {
                 },
                 proverTools,
                 (chunk: string) => {
-                    this.panel.webview.postMessage({ type: 'chatResponsePart', text: chunk });
+                    this.getChatWebview().postMessage({ type: 'chatResponsePart', text: chunk });
                 },
                 () => {
-                    this.panel.webview.postMessage({ type: 'chatResponseDone' });
+                    this.getChatWebview().postMessage({ type: 'chatResponseDone' });
                 }
             );
             console.log('[Proof State Panel] runProverAgent finished');
         } catch (e) {
             console.error('[Proof State Panel] Prover agent error:', e);
-            this.panel.webview.postMessage({ 
+            this.getChatWebview().postMessage({ 
                 type: 'chatResponsePart', 
                 text: `Error running prover agent: ${e instanceof Error ? e.message : String(e)}` 
             });
-            this.panel.webview.postMessage({ type: 'chatResponseDone' });
+            this.getChatWebview().postMessage({ type: 'chatResponseDone' });
         }
         } finally {
-            this.panel.webview.postMessage({ type: 'proverAgentDone' });
+            this.getChatWebview().postMessage({ type: 'proverAgentDone' });
         }
     }
 
@@ -456,6 +574,63 @@ export class ProofStatePanel {
         }
         
         return prompt;
+    }
+
+    /** Like updateProofState but skips the panel.active check. Use before sending a suggestion so the main panel has current goals. */
+    private async updateProofStateForSuggestion(): Promise<void> {
+        try {
+            let editor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
+            const coqIsActive = editor?.document.languageId === 'coq';
+            if (!coqIsActive) editor = undefined;
+            if (!editor && this.currentDocumentUri !== undefined && this.savedCursorPosition !== undefined) {
+                editor = vscode.window.visibleTextEditors.find(
+                    (e) => e.document.uri.toString() === this.currentDocumentUri?.toString()
+                );
+            }
+            if (!editor || editor.document.languageId !== 'coq') {
+                this.panel.webview.postMessage({ type: 'noDocument' });
+                return;
+            }
+            this.currentDocumentUri = editor.document.uri;
+            const position = coqIsActive
+                ? editor.selection.active
+                : new vscode.Position(this.savedCursorPosition!.line, this.savedCursorPosition!.character);
+            const docUri = Uri.fromPath(editor.document.uri.fsPath);
+            const version = editor.document.version;
+            const content = editor.document.getText();
+            const client = await this.clientReady;
+            await client.withTextDocument(
+                { uri: docUri, version, content, openTimeoutMs: 45000 },
+                async () => {
+                    const result = await client.getGoalsAtPoint(position as any, docUri as any, version);
+                    if (result.ok) {
+                        this.savedCursorPosition = { line: position.line, character: position.character };
+                        const goalsWithMessages = result.val;
+                        const goals = goalsWithMessages.goals;
+                        const messages = goalsWithMessages.messages || [];
+                        const error = goalsWithMessages.error;
+                        const convertedGoals = goals.map((g: ProofGoal) => ({
+                            ty: convertToString(g.ty),
+                            hyps: g.hyps.map((h: Hyp<PpString>) => ({
+                                names: h.names.map(n => convertToString(n)),
+                                def: h.def ? convertToString(h.def) : undefined,
+                                ty: convertToString(h.ty)
+                            }))
+                        }));
+                        this.panel.webview.postMessage({
+                            type: 'proofUpdate',
+                            goals: convertedGoals,
+                            messages,
+                            error
+                        });
+                    } else {
+                        this.postError(result.val?.message ?? JSON.stringify(result.val));
+                    }
+                }
+            );
+        } catch (e) {
+            this.postError(e instanceof Error ? e.message : String(e));
+        }
     }
 
     private async updateProofState() {
@@ -583,6 +758,7 @@ export class ProofStatePanel {
         <div style="display: flex; flex-direction: row; align-items: center;">
             <input id="chatInput" type="text" placeholder="Consult the assistant." />
             <button id="chatSend">Send</button>
+            <button id="popOutChat" type="button">Pop out chat</button>
         </div>
     </div>
 

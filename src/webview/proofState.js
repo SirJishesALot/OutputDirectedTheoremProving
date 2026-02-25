@@ -31510,6 +31510,13 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     if (msg && msg.type) updateWebviewStatus("Got: " + msg.type);
     let html;
     switch (msg.type) {
+      case "getChatLogContent":
+        vscode.postMessage({ type: "chatLogContent", content: (document.getElementById("chatLog") || {}).innerHTML || "" });
+        return;
+      case "setChatVisible":
+        const chatEl = document.getElementById("chat");
+        if (chatEl) chatEl.style.display = msg.visible !== false ? "" : "none";
+        return;
       case "noDocument":
         html = "<p><i>No active Coq document or cursor not inside a proof.</i></p>";
         break;
@@ -31693,6 +31700,12 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         ev.preventDefault();
         chatSend?.click();
       }
+    });
+  }
+  var popOutChatBtn = document.getElementById("popOutChat");
+  if (popOutChatBtn) {
+    popOutChatBtn.addEventListener("click", () => {
+      vscode.postMessage({ command: "popOutChat" });
     });
   }
   vscode.postMessage({ command: "requestUpdate" });

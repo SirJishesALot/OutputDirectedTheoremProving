@@ -99,7 +99,9 @@
     "lint": "eslint src",
     "test": "vscode-test",
     "comment-new-scripts": "--- These are the new scripts for the webview ---",
-    "compile-webview": "esbuild ./src/webview/main.js --bundle --outfile=src/webview/proofState.js --platform=browser --external:vscode",
+    "compile-webview": "npm run compile-webview:main && npm run compile-webview-chat",
+    "compile-webview:main": "esbuild ./src/webview/main.js --bundle --outfile=src/webview/proofState.js --platform=browser --external:vscode",
+    "compile-webview-chat": "esbuild ./src/webview/chatPanel.js --bundle --outfile=src/webview/proofStateChat.js --platform=browser --external:vscode",
     "watch-webview": "esbuild ./src/webview/main.js --bundle --outfile=src/webview/proofState.js --platform=browser --external:vscode --watch",
     "compile-webview:production": "esbuild ./src/webview/main.js --bundle --outfile=src/webview/proofState.js --platform=browser --external:vscode --minify"
   },
