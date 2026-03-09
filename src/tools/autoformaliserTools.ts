@@ -107,6 +107,7 @@ Returns a formatted string with:
                         }
 
                         result = '=== CURRENT PROOF STATE ===\n\n';
+                        result += `Number of goals: ${goals.length}\n\n`;
                         goals.forEach((goal: ProofGoal, index: number) => {
                             result += `--- Goal ${index + 1} ---\n`;
                             result += `Goal Type: ${goal.ty}\n\n`;
@@ -345,36 +346,47 @@ Use this to validate suggested edits before proposing them.`,
         },
         {
             name: 'suggest_proof_state_edit',
-            description: `Suggests an edit to the proof state that appears as a replace suggestion in the proof state panel. The user can then click "Implement changes" to run the prover agent, which will try to synthesize tactics to achieve that edit.
-- originalValue: EXACT current text from the proof state (goal type or hypothesis type) as shown in the panel. Must match the display exactly so the UI can find and mark it.
-- suggestedValue: DESIRED proof state text ONLY — the goal or hypothesis type we want to reach, in the same format Coq uses (e.g. "ev (0 + 0)", "ev (S (S (n' + n')))"). Do NOT put tactics, explanations, or prose here; only the target state string. Use the "reason" argument to explain the strategy (e.g. "Base case after induction on n").
-- hypothesisName: "Goal" when editing the goal type; otherwise the hypothesis name.
-- reason (optional): human-readable explanation (e.g. which tactic or step this corresponds to).
-One call = one edit (one replacement). For multiple subgoals, suggest one at a time (e.g. first suggest desired state for the base case).`,
+            description: `Suggests an edit to the proof state that appears in the proof state panel. The user can then click "Implement changes" to run the prover agent to achieve that edit.
+
+Two modes:
+1) REPLACE (existing goal or hypothesis): originalValue = EXACT current text from get_current_proof_state. suggestedValue = DESIRED text. hypothesisName = "Goal" for goal type, or the hypothesis name.
+2) ADD NEW HYPOTHESIS: Use when the proof needs an extra hypothesis that is not currently in the state (e.g. the user must change a tactic to add it). Set originalValue to "" (empty string). suggestedValue = the full new hypothesis line as it would appear in the proof state, e.g. "Heq : (k >? k0) = true". hypothesisName = the new hypothesis name (e.g. "Heq"). Use reason to explain (e.g. "Add eqn:Heq to destruct so this hypothesis is available.").
+
+- originalValue: For replace, EXACT current text from get_current_proof_state. For add, use "".
+- suggestedValue: DESIRED proof state text only (goal/hypothesis type or new hypothesis line). No tactics or prose.
+- hypothesisName: "Goal" when editing the goal type; otherwise the hypothesis name (existing or new).
+- goalIndex (optional): 1-based goal index when multiple goals. Omit for single goal.
+- reason (optional): human-readable explanation.
+One call = one edit.`,
             execute: async (args: {
                 hypothesisName: string;
-                originalValue: string;
+                originalValue?: string;
                 suggestedValue: string;
                 reason?: string;
+                goalIndex?: number;
             }) => {
                 try {
-                    // Validate inputs
-                    if (!args.hypothesisName || !args.originalValue || !args.suggestedValue) {
-                        return 'error: hypothesisName, originalValue, and suggestedValue are required.';
+                    if (!args.hypothesisName || args.suggestedValue === undefined || args.suggestedValue === null) {
+                        return 'error: hypothesisName and suggestedValue are required.';
+                    }
+                    const isAdd = args.originalValue === undefined || args.originalValue === null || String(args.originalValue).trim() === '';
+                    if (!isAdd && !args.originalValue) {
+                        return 'error: originalValue is required for replace (use "" only for add new hypothesis).';
                     }
 
-                    // Format the suggestion
-                    const suggestion: ProofStateEdit = {
+                    // Format the suggestion (goalIndex passed through for UI targeting). For "add", originalValue is "".
+                    const suggestion: ProofStateEdit & { goalIndex?: number } = {
                         hypothesisName: args.hypothesisName,
-                        originalValue: args.originalValue,
+                        originalValue: (args.originalValue !== undefined && args.originalValue !== null) ? args.originalValue : '',
                         suggestedValue: args.suggestedValue,
-                        reason: args.reason
+                        reason: args.reason,
+                        ...(args.goalIndex !== undefined && args.goalIndex !== null && { goalIndex: args.goalIndex }),
                     };
 
                     // Return formatted suggestion
                     let result = `=== SUGGESTED EDIT ===\n\n`;
                     result += `Hypothesis: ${suggestion.hypothesisName}\n`;
-                    result += `Original: ${suggestion.originalValue}\n`;
+                    result += suggestion.originalValue ? `Original: ${suggestion.originalValue}\n` : '(Add new hypothesis)\n';
                     result += `Suggested: ${suggestion.suggestedValue}\n`;
                     if (suggestion.reason) {
                         result += `Reason: ${suggestion.reason}\n`;

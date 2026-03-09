@@ -27,7 +27,9 @@ export class ProofStatePanel {
     private editHistory: EditHistory = { edits: [] };
     private conversationHistory: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [];
     /** When the prover applies a suggested edit, we store the editor so Keep/Revert can clear the decoration and optionally undo. */
-    private pendingSuggestedEditor: vscode.TextEditor | undefined; 
+    private pendingSuggestedEditor: vscode.TextEditor | undefined;
+    /** Cancellation for the current chat/agent run. Cancel when user clicks Stop. */
+    private chatCancelSource: vscode.CancellationTokenSource | undefined;
 
     public static createOrShow(
         context: vscode.ExtensionContext,
@@ -190,9 +192,10 @@ export class ProofStatePanel {
     <div id="synthesizingIndicator" class="synthesizing-indicator" aria-hidden="true">Synthesizing proof...</div>
     <div id="chatLog" style="flex: 1 1 auto; min-height: 0; overflow: auto;"></div>
     <div id="chatTypingIndicator" class="chat-typing-indicator" aria-hidden="true">Model is typing...</div>
-    <div style="display: flex; flex-direction: row; align-items: center;">
+    <div style="display: flex; flex-direction: row; align-items: center; gap: 6px;">
       <input id="chatInput" type="text" placeholder="Consult the assistant." />
       <button id="chatSend">Send</button>
+      <button id="chatStop" type="button">Stop</button>
     </div>
   </div>
   <script src="${scriptUri}"></script>
@@ -223,6 +226,13 @@ export class ProofStatePanel {
             return;
         }
 
+        if (cmd === 'stopGeneration') {
+            if (this.chatCancelSource) {
+                this.chatCancelSource.cancel();
+            }
+            return;
+        }
+
         if (cmd === 'requestUpdate') {
             if (!isMain) return;
             console.log('proof state update requested');
@@ -247,6 +257,9 @@ export class ProofStatePanel {
         } else if (cmd === 'chat') {
             const prompt: string = message.prompt;
             console.log('Chat prompt received from webview:', prompt);
+            this.chatCancelSource?.dispose();
+            this.chatCancelSource = new vscode.CancellationTokenSource();
+            const token = this.chatCancelSource.token;
             // Use agent with tools for chat - allows the agent to decide when to use tools
             (async () => {
                 try {
@@ -279,7 +292,7 @@ export class ProofStatePanel {
                             this.getChatWebview().postMessage({ type: 'chatResponsePart', text: chunk });
                         }, () => {
                             this.getChatWebview().postMessage({ type: 'chatResponseDone' });
-                        });
+                        }, token);
                         return;
                     }
 
@@ -297,9 +310,11 @@ export class ProofStatePanel {
                     const handleSuggestion: SuggestionCallback = (suggestion) => {
                         const msg = { type: 'suggestion' as const, suggestion };
                         this.getChatWebview().postMessage(msg);
-                        // Refresh main panel proof state then send suggestion so the document matches what the agent saw
+                        // Refresh main panel proof state then send suggestion so the document matches what the agent saw.
+                        // Small delay so the panel has time to apply the proofUpdate before we send the suggestion.
                         void (async () => {
                             await this.updateProofStateForSuggestion();
+                            await new Promise((r) => setTimeout(r, 150));
                             this.panel.webview.postMessage(msg);
                         })();
                     };
@@ -321,7 +336,7 @@ export class ProofStatePanel {
                         () => {
                             this.getChatWebview().postMessage({ type: 'chatResponseDone' });
                         },
-                        undefined, // token
+                        token,
                         handleSuggestion, // onSuggestion callback
                         this.conversationHistory, // conversation history
                         handleHistoryUpdate, // onHistoryUpdate callback
@@ -330,6 +345,9 @@ export class ProofStatePanel {
                 } catch (e) {
                     console.error('Stream chat response failed:', e);
                     this.getChatWebview().postMessage({ type: 'chatResponseDone' });
+                } finally {
+                    this.chatCancelSource?.dispose();
+                    this.chatCancelSource = undefined;
                 }
             })();
         } else if (cmd === 'agentRequest') {
@@ -364,6 +382,9 @@ export class ProofStatePanel {
         const fullOriginalState = (context?.fullOriginalState ?? '').trim() || undefined;
         const fullDesiredState = (context?.fullDesiredState ?? '').trim() || undefined;
         console.log('[Proof State Panel] handleAgentRequest started', { lhs, rhs, hasFullState: !!(fullOriginalState && fullDesiredState) });
+        this.chatCancelSource?.dispose();
+        this.chatCancelSource = new vscode.CancellationTokenSource();
+        const token = this.chatCancelSource.token;
         this.getChatWebview().postMessage({ type: 'proverAgentStarted' });
         try {
         const hasFullState = !!(fullOriginalState && fullDesiredState);
@@ -468,18 +489,21 @@ export class ProofStatePanel {
                 },
                 () => {
                     this.getChatWebview().postMessage({ type: 'chatResponseDone' });
-                }
+                },
+                token
             );
             console.log('[Proof State Panel] runProverAgent finished');
         } catch (e) {
             console.error('[Proof State Panel] Prover agent error:', e);
-            this.getChatWebview().postMessage({ 
-                type: 'chatResponsePart', 
-                text: `Error running prover agent: ${e instanceof Error ? e.message : String(e)}` 
+            this.getChatWebview().postMessage({
+                type: 'chatResponsePart',
+                text: `Error running prover agent: ${e instanceof Error ? e.message : String(e)}`
             });
             this.getChatWebview().postMessage({ type: 'chatResponseDone' });
         }
         } finally {
+            this.chatCancelSource?.dispose();
+            this.chatCancelSource = undefined;
             this.getChatWebview().postMessage({ type: 'proverAgentDone' });
         }
     }
@@ -755,9 +779,10 @@ export class ProofStatePanel {
         <div id="synthesizingIndicator" class="synthesizing-indicator" aria-hidden="true">Synthesizing proof...</div>
         <div id="chatLog"></div>
         <div id="chatTypingIndicator" class="chat-typing-indicator" aria-hidden="true">Model is typing...</div>
-        <div style="display: flex; flex-direction: row; align-items: center;">
+        <div style="display: flex; flex-direction: row; align-items: center; gap: 6px;">
             <input id="chatInput" type="text" placeholder="Consult the assistant." />
             <button id="chatSend">Send</button>
+            <button id="chatStop" type="button">Stop</button>
             <button id="popOutChat" type="button">Pop out chat</button>
         </div>
     </div>

@@ -10,6 +10,7 @@ const vscode = typeof acquireVsCodeApi !== 'undefined' ? acquireVsCodeApi() : nu
 const chatLog = document.getElementById('chatLog');
 const chatInput = document.getElementById('chatInput');
 const chatSend = document.getElementById('chatSend');
+const chatStop = document.getElementById('chatStop');
 const chatTypingIndicator = document.getElementById('chatTypingIndicator');
 const synthesizingIndicator = document.getElementById('synthesizingIndicator');
 const popBackBtn = document.getElementById('popBackChat');
@@ -121,6 +122,12 @@ if (chatInput && chatSend) {
 if (popBackBtn && vscode) {
     popBackBtn.addEventListener('click', () => {
         vscode.postMessage({ command: 'popBackChat' });
+    });
+}
+
+if (chatStop && vscode) {
+    chatStop.addEventListener('click', () => {
+        vscode.postMessage({ command: 'stopGeneration' });
     });
 }
 

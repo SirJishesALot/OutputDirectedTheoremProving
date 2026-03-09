@@ -15703,6 +15703,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   var chatLog = document.getElementById("chatLog");
   var chatInput = document.getElementById("chatInput");
   var chatSend = document.getElementById("chatSend");
+  var chatStop = document.getElementById("chatStop");
   var chatTypingIndicator = document.getElementById("chatTypingIndicator");
   var synthesizingIndicator = document.getElementById("synthesizingIndicator");
   var popBackBtn = document.getElementById("popBackChat");
@@ -15803,6 +15804,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   if (popBackBtn && vscode) {
     popBackBtn.addEventListener("click", () => {
       vscode.postMessage({ command: "popBackChat" });
+    });
+  }
+  if (chatStop && vscode) {
+    chatStop.addEventListener("click", () => {
+      vscode.postMessage({ command: "stopGeneration" });
     });
   }
   if (vscode) {

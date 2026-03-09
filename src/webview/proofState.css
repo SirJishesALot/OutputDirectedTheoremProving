@@ -39,12 +39,12 @@ h2 {
 
 /* ProseMirror plugin styles */
 ins {
-    background-color: #d6f5d6;
+    background-color: #089208;
     text-decoration: none;
     border-radius: 2px;
 }
 del {
-    background-color: #f8d7da;
+    background-color: #ef2d3d;
     text-decoration: line-through;
     border-radius: 2px;
 }

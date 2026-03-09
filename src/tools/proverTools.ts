@@ -752,6 +752,7 @@ Use this to understand the current state before planning edits.`,
                         }
 
                         result = '=== CURRENT PROOF STATE ===\n\n';
+                        result += `Number of goals: ${goals.length}\n\n`;
                         const ver = client.getServerVersion?.();
                         if (ver) result += `Coq: ${ver.coq} | coq-lsp: ${ver.coq_lsp}\n\n`;
                         goals.forEach((goal: ProofGoal, index: number) => {

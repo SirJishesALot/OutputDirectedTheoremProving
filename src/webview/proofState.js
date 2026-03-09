@@ -31558,12 +31558,75 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     view.updateState(newState);
   });
   function handleSuggestion(suggestion) {
-    if (!suggestion || !suggestion.hypothesisName || !suggestion.originalValue || !suggestion.suggestedValue) {
+    if (!suggestion || !suggestion.hypothesisName || suggestion.suggestedValue == null || suggestion.suggestedValue === "") {
       console.warn("Invalid suggestion received:", suggestion);
       return;
     }
+    const isAddHypothesis = suggestion.originalValue == null || String(suggestion.originalValue).trim() === "";
     let state = view.state;
-    const doc3 = state.doc;
+    let doc3 = state.doc;
+    if (isAddHypothesis) {
+      const goalIndex = Math.max(1, suggestion.goalIndex || 1);
+      let goalCount = 0;
+      let insertPos = null;
+      let hypsPos = null;
+      let hypsNode = null;
+      doc3.descendants((node, pos) => {
+        if (node.type.name === "goal") {
+          goalCount++;
+          if (goalCount === goalIndex) {
+            node.forEach((child, off) => {
+              if (child.type.name === "hyps") {
+                hypsNode = child;
+                hypsPos = pos + 1 + off;
+                insertPos = hypsPos + 1 + child.content.size;
+                return false;
+              }
+            });
+            if (insertPos == null) {
+              insertPos = pos + 1;
+            }
+            return false;
+          }
+        }
+        return true;
+      });
+      if (insertPos == null) {
+        console.warn("Could not find goal to add hypothesis");
+        appendChatMessage(`Suggestion: Add hypothesis "${suggestion.hypothesisName} : ${suggestion.suggestedValue}"${suggestion.reason ? ` (${suggestion.reason})` : ""}`, "assistant");
+        return;
+      }
+      const suggestionId2 = `suggestion-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      if (!isSuggestChangesEnabled(state)) {
+        toggleSuggestChanges(state, (newTr) => {
+          view.dispatch(newTr);
+        });
+        state = view.state;
+        doc3 = state.doc;
+        if (hypsPos != null) {
+          const node = state.doc.nodeAt(hypsPos);
+          insertPos = node ? hypsPos + 1 + node.content.size : state.doc.resolve(hypsPos).end();
+        }
+      }
+      const insertionMark = schema2.marks.insertion.create({ id: suggestionId2 });
+      const textNode = schema2.text(suggestion.suggestedValue, [insertionMark]);
+      const hypothesisNode = schema2.nodes.hypothesis.create(null, [textNode]);
+      const tr2 = state.tr;
+      tr2.setMeta(suggestChangesKey, { skip: true });
+      try {
+        if (hypsNode != null) {
+          tr2.insert(insertPos, hypothesisNode);
+        } else {
+          const newHypsNode = schema2.nodes.hyps.create(null, [hypothesisNode]);
+          tr2.insert(insertPos, newHypsNode);
+        }
+        view.dispatch(tr2);
+      } catch (err) {
+        console.warn("Failed to insert add-hypothesis suggestion:", err);
+      }
+      appendChatMessage(`Suggestion: Add hypothesis "${suggestion.hypothesisName} : ${suggestion.suggestedValue}"${suggestion.reason ? ` (${suggestion.reason})` : ""}`, "assistant");
+      return;
+    }
     let foundPos = -1;
     let foundLength = 0;
     doc3.descendants((node, pos) => {
@@ -31706,6 +31769,12 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   if (popOutChatBtn) {
     popOutChatBtn.addEventListener("click", () => {
       vscode.postMessage({ command: "popOutChat" });
+    });
+  }
+  var chatStopBtn = document.getElementById("chatStop");
+  if (chatStopBtn) {
+    chatStopBtn.addEventListener("click", () => {
+      vscode.postMessage({ command: "stopGeneration" });
     });
   }
   vscode.postMessage({ command: "requestUpdate" });
