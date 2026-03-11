@@ -6,7 +6,8 @@ import { CoqTools } from '../tools/coqTools';
 import { createAutoformaliserTools, EditHistory } from '../tools/autoformaliserTools';
 import { createProverTools, clearSuggestedEditDecoration } from '../tools/proverTools';
 import { runProverAgent } from '../llm/chatBridge';
-import { convertToString, ProofGoal, Hyp, PpString, GoalsWithMessages } from '../lsp/coqLspTypes'; 
+import { convertToString, ProofGoal, Hyp, PpString, GoalsWithMessages } from '../lsp/coqLspTypes';
+import { isCoqDocumentLanguage } from '../utils/coqUtils'; 
 
 // --- NEW IMPORT FOR INLINE SUGGESTIONS ---
 import { globalSuggestionManager } from '../extension';
@@ -282,8 +283,8 @@ export class ProofStatePanel {
                     }
 
                     if (!editor) editor = vscode.window.activeTextEditor;
-                    if (!editor || editor.document.languageId !== 'coq') {
-                        editor = vscode.window.visibleTextEditors.find((e) => e.document.languageId === 'coq');
+                    if (!editor || !isCoqDocumentLanguage(editor.document.languageId)) {
+                        editor = vscode.window.visibleTextEditors.find((e) => isCoqDocumentLanguage(e.document.languageId));
                     }
 
                     if (!editor) {
@@ -415,8 +416,8 @@ export class ProofStatePanel {
         }
 
         if (!editor) editor = vscode.window.activeTextEditor;
-        if (!editor || editor.document.languageId !== 'coq') {
-            editor = vscode.window.visibleTextEditors.find((e) => e.document.languageId === 'coq');
+        if (!editor || !isCoqDocumentLanguage(editor.document.languageId)) {
+            editor = vscode.window.visibleTextEditors.find((e) => isCoqDocumentLanguage(e.document.languageId));
         }
 
         if (!editor) {
@@ -513,7 +514,7 @@ export class ProofStatePanel {
     private async applyTactic(tactic: string) {
         try {
             const editor = vscode.window.activeTextEditor;
-            if (!editor || editor.document.languageId !== 'coq') {
+            if (!editor || !isCoqDocumentLanguage(editor.document.languageId)) {
                 this.postError('Open a Coq document and place cursor inside a proof');
                 return;
             }
@@ -604,14 +605,14 @@ export class ProofStatePanel {
     private async updateProofStateForSuggestion(): Promise<void> {
         try {
             let editor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
-            const coqIsActive = editor?.document.languageId === 'coq';
+            const coqIsActive = editor !== undefined && isCoqDocumentLanguage(editor.document.languageId);
             if (!coqIsActive) editor = undefined;
             if (!editor && this.currentDocumentUri !== undefined && this.savedCursorPosition !== undefined) {
                 editor = vscode.window.visibleTextEditors.find(
                     (e) => e.document.uri.toString() === this.currentDocumentUri?.toString()
                 );
             }
-            if (!editor || editor.document.languageId !== 'coq') {
+            if (!editor || !isCoqDocumentLanguage(editor.document.languageId)) {
                 this.panel.webview.postMessage({ type: 'noDocument' });
                 return;
             }
@@ -661,7 +662,7 @@ export class ProofStatePanel {
         try {
             if (this.panel.active) { return; }
             let editor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
-            const coqIsActive = editor?.document.languageId === 'coq';
+            const coqIsActive = editor !== undefined && isCoqDocumentLanguage(editor.document.languageId);
             if (!coqIsActive) {
                 editor = undefined;
             }
@@ -671,7 +672,7 @@ export class ProofStatePanel {
                     (e) => e.document.uri.toString() === this.currentDocumentUri?.toString()
                 );
             }
-            if (!editor || editor.document.languageId !== 'coq') {
+            if (!editor || !isCoqDocumentLanguage(editor.document.languageId)) {
                 this.panel.webview.postMessage({ type: 'noDocument' });
                 return;
             }

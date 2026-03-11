@@ -35,6 +35,7 @@ export class CoqLspConnector extends LanguageClient {
         let clientOptions: LanguageClientOptions = {
             documentSelector: [
                 { scheme: "file", language: "coq" },
+                { scheme: "file", language: "rocq" },
                 { scheme: "file", language: "markdown", pattern: "**/*.mv" },
             ],
             outputChannel: logOutputChannel,

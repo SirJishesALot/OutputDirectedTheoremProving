@@ -1,3 +1,8 @@
+/** Language IDs that denote a Coq/Rocq proof script (rocq-lsp uses 'rocq' for .v files). */
+export function isCoqDocumentLanguage(languageId: string): boolean {
+    return languageId === "coq" || languageId === "rocq";
+}
+
 export function normalizeGoals(res: any): any[] | null {
         console.log(res); 
         let data = res?.val !== undefined ? res.val : res;

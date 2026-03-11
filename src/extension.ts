@@ -57,7 +57,7 @@ export function activate(context: vscode.ExtensionContext) {
     // 1. Register the CodeLens Provider for Coq files
     context.subscriptions.push(
         vscode.languages.registerCodeLensProvider(
-            { scheme: 'file', language: 'coq' }, 
+            [{ scheme: 'file', language: 'coq' }, { scheme: 'file', language: 'rocq' }],
             suggestionManager
         )
     );

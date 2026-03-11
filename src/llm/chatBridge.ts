@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { CoqLspClient } from '../lsp/coqLspClient';
 import { Uri } from '../utils/uri';
+import { isCoqDocumentLanguage } from '../utils/coqUtils';
 
 export interface AgentTool {
     name: string;
@@ -73,8 +74,8 @@ export async function streamCoqChat(
         // it may not be the active editor; prefer the active editor but fall back
         // to any visible Coq editor.
         let editor = vscode.window.activeTextEditor;
-        if (!editor || editor.document.languageId !== 'coq') {
-            editor = vscode.window.visibleTextEditors.find((e) => e.document.languageId === 'coq');
+        if (!editor || !isCoqDocumentLanguage(editor.document.languageId)) {
+            editor = vscode.window.visibleTextEditors.find((e) => isCoqDocumentLanguage(e.document.languageId));
         }
         if (!editor) {
             onChunk('Please open a Coq file and place your cursor inside a proof.');
