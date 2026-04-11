@@ -8,6 +8,7 @@
     "type": "git",
     "url": "https://github.com/SirJishesALot/outputdirectedtheoremproving.git"
   },
+  "license": "MIT",
   "extensionDependencies": [
     "rocq-prover.vsrocq"
   ],
