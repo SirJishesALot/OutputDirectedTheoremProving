@@ -3,6 +3,10 @@
   "displayName": "OutputDirectedTheoremProving",
   "description": "Ai Agent that helps with output directed theorem proving in Coq. ",
   "version": "0.0.1",
+  "publisher": "SirJishesALot", 
+  "extensionDependencies": [
+    "rocq-prover.vsrocq"
+  ],
   "engines": {
     "vscode": "^1.104.0"
   },
