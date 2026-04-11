@@ -1,0 +1,16 @@
+{
+    "name": "Rocq 9.0 User Study",
+    "image": "mcr.microsoft.com/devcontainers/base:ubuntu", 
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "rocq-prover.vsrocq" 
+            ],
+            "settings": {
+                "vsrocq.path": "/home/vscode/.opam/rocq-9.0/bin/vsrocqtop"
+            }
+        }
+    },
+    "remoteUser": "vscode",
+    "postCreateCommand": "bash .devcontainer/setup.sh"
+}
