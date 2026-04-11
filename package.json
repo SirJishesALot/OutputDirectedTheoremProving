@@ -4,6 +4,10 @@
   "description": "Ai Agent that helps with output directed theorem proving in Coq. ",
   "version": "0.0.1",
   "publisher": "SirJishesALot", 
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SirJishesALot/outputdirectedtheoremproving.git"
+  },
   "extensionDependencies": [
     "rocq-prover.vsrocq"
   ],
