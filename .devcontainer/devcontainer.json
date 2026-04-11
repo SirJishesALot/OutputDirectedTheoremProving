@@ -1,5 +1,5 @@
 {
-    "name": "Rocq 9.0 User Study",
+    "name": "Theorem Proving User Study",
     "image": "mcr.microsoft.com/devcontainers/base:ubuntu", 
     "customizations": {
         "vscode": {
