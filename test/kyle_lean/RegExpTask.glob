@@ -1,0 +1,332 @@
+DIGEST 54ee2f95671791b73dfe9a30813a444a
+FRegExpTask
+R15:18 Stdlib.Lists.List <> <> lib
+R28:40 Stdlib.Lists.List ListNotations <> mod
+ind 211:214 <> Char
+constr 230:230 <> z
+constr 243:243 <> o
+R234:237 RegExpTask <> Char:1 ind
+R247:250 RegExpTask <> Char:1 ind
+scheme 211:214 <> Char_rect
+scheme 211:214 <> Char_ind
+scheme 211:214 <> Char_rec
+scheme 211:214 <> Char_sind
+def 265:270 <> String
+R275:278 Corelib.Init.Datatypes <> list ind
+R280:283 RegExpTask <> Char ind
+ind 297:302 <> RegExp
+constr 318:320 <> emp
+constr 335:337 <> eps
+constr 352:355 <> char
+constr 378:381 <> star
+constr 406:410 <> union
+constr 445:450 <> concat
+R324:329 RegExpTask <> RegExp:3 ind
+R341:346 RegExpTask <> RegExp:3 ind
+R363:366 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R359:362 RegExpTask <> Char ind
+R367:372 RegExpTask <> RegExp:3 ind
+R391:394 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R385:390 RegExpTask <> RegExp:3 ind
+R395:400 RegExpTask <> RegExp:3 ind
+R420:423 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R414:419 RegExpTask <> RegExp:3 ind
+R430:433 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R424:429 RegExpTask <> RegExp:3 ind
+R434:439 RegExpTask <> RegExp:3 ind
+R460:463 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R454:459 RegExpTask <> RegExp:3 ind
+R470:473 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R464:469 RegExpTask <> RegExp:3 ind
+R474:479 RegExpTask <> RegExp:3 ind
+scheme 297:302 <> RegExp_rect
+scheme 297:302 <> RegExp_ind
+scheme 297:302 <> RegExp_rec
+scheme 297:302 <> RegExp_sind
+R539:569 RegExpTask <> char constr
+R619:621 RegExpTask <> emp constr
+not 610:610 <> ::regexp_scope:'∅'
+R671:673 RegExpTask <> eps constr
+not 661:661 <> ::regexp_scope:'ε'
+R729:733 RegExpTask <> union constr
+not 713:713 <> ::regexp_scope:x_'<|>'_x
+R836:841 RegExpTask <> concat constr
+not 819:819 <> ::regexp_scope:x_'<·>'_x
+R939:942 RegExpTask <> star constr
+not 927:927 <> ::regexp_scope:x_'*'
+ind 1013:1019 <> accepts
+constr 1055:1065 <> accepts_eps
+constr 1087:1098 <> accepts_char
+constr 1146:1162 <> accepts_unionLeft
+constr 1224:1241 <> accepts_unionRight
+constr 1303:1316 <> accepts_concat
+constr 1428:1444 <> accepts_starEmpty
+constr 1478:1497 <> accepts_starNonempty
+R1029:1032 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1023:1028 RegExpTask <> RegExp ind
+R1039:1042 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1033:1038 RegExpTask <> String def
+R1069:1075 RegExpTask <> accepts:5 ind
+R1080:1081 Stdlib.Lists.List ListNotations ::list_scope:'['_']' not
+R1077:1078 RegExpTask <> ::regexp_scope:'ε' not
+R1114:1117 RegExpTask <> Char ind
+binder 1110:1110 <> c:7
+R1121:1127 RegExpTask <> accepts:5 ind
+R1138:1138 Stdlib.Lists.List ListNotations ::list_scope:'['_x_']' not
+R1140:1140 Stdlib.Lists.List ListNotations ::list_scope:'['_x_']' not
+R1139:1139 RegExpTask <> c:7 var
+R1130:1133 RegExpTask <> char constr
+R1135:1135 RegExpTask <> c:7 var
+binder 1173:1174 <> r1:8
+binder 1176:1177 <> r2:9
+binder 1179:1179 <> s:10
+R1194:1197 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1182:1188 RegExpTask <> accepts:5 ind
+R1193:1193 RegExpTask <> s:10 var
+R1190:1191 RegExpTask <> r1:8 var
+R1198:1204 RegExpTask <> accepts:5 ind
+R1218:1218 RegExpTask <> s:10 var
+R1209:1213 RegExpTask <> ::regexp_scope:x_'<|>'_x not
+R1207:1208 RegExpTask <> r1:8 var
+R1214:1215 RegExpTask <> r2:9 var
+binder 1252:1253 <> r1:11
+binder 1255:1256 <> r2:12
+binder 1258:1258 <> s:13
+R1273:1276 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1261:1267 RegExpTask <> accepts:5 ind
+R1272:1272 RegExpTask <> s:13 var
+R1269:1270 RegExpTask <> r2:12 var
+R1277:1283 RegExpTask <> accepts:5 ind
+R1297:1297 RegExpTask <> s:13 var
+R1288:1292 RegExpTask <> ::regexp_scope:x_'<|>'_x not
+R1286:1287 RegExpTask <> r1:11 var
+R1293:1294 RegExpTask <> r2:12 var
+binder 1327:1328 <> r1:14
+binder 1330:1331 <> r2:15
+binder 1333:1334 <> s1:16
+binder 1336:1337 <> s2:17
+R1359:1368 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1346:1352 RegExpTask <> accepts:5 ind
+R1357:1358 RegExpTask <> s1:16 var
+R1354:1355 RegExpTask <> r1:14 var
+R1382:1391 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1369:1375 RegExpTask <> accepts:5 ind
+R1380:1381 RegExpTask <> s2:17 var
+R1377:1378 RegExpTask <> r2:15 var
+R1392:1398 RegExpTask <> accepts:5 ind
+R1416:1419 Corelib.Init.Datatypes <> ::list_scope:x_'++'_x not
+R1414:1415 RegExpTask <> s1:16 var
+R1420:1421 RegExpTask <> s2:17 var
+R1403:1408 RegExpTask <> ::regexp_scope:x_'<·>'_x not
+R1401:1402 RegExpTask <> r1:14 var
+R1409:1410 RegExpTask <> r2:15 var
+binder 1455:1455 <> r:18
+R1458:1464 RegExpTask <> accepts:5 ind
+R1471:1472 Stdlib.Lists.List ListNotations ::list_scope:'['_']' not
+R1468:1468 RegExpTask <> ::regexp_scope:x_'*' not
+R1467:1467 RegExpTask <> r:18 var
+binder 1508:1508 <> r:19
+binder 1510:1511 <> s1:20
+binder 1513:1514 <> s2:21
+R1535:1544 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1523:1529 RegExpTask <> accepts:5 ind
+R1533:1534 RegExpTask <> s1:20 var
+R1531:1531 RegExpTask <> r:19 var
+R1560:1569 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1545:1551 RegExpTask <> accepts:5 ind
+R1558:1559 RegExpTask <> s2:21 var
+R1555:1555 RegExpTask <> ::regexp_scope:x_'*' not
+R1554:1554 RegExpTask <> r:19 var
+R1570:1576 RegExpTask <> accepts:5 ind
+R1586:1589 Corelib.Init.Datatypes <> ::list_scope:x_'++'_x not
+R1584:1585 RegExpTask <> s1:20 var
+R1590:1591 RegExpTask <> s2:21 var
+R1580:1580 RegExpTask <> ::regexp_scope:x_'*' not
+R1579:1579 RegExpTask <> r:19 var
+scheme 1013:1019 <> accepts_ind
+scheme 1013:1019 <> accepts_sind
+def 1777:1784 <> Language
+R1795:1798 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1789:1794 RegExpTask <> String def
+def 1817:1826 <> is_regular
+R1833:1840 RegExpTask <> Language def
+binder 1829:1829 <> l:22
+R1855:1861 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R1863:1864 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 1862:1862 <> r:23
+binder 1872:1872 <> s:24
+R1878:1882 Corelib.Init.Logic <> ::type_scope:x_'<->'_x not
+R1875:1875 RegExpTask <> l:22 var
+R1877:1877 RegExpTask <> s:24 var
+R1883:1889 RegExpTask <> accepts ind
+R1891:1891 RegExpTask <> r:23 var
+R1893:1893 RegExpTask <> s:24 var
+def 1908:1918 <> concat_lang
+R1929:1936 RegExpTask <> Language def
+binder 1921:1922 <> l1:25
+binder 1924:1925 <> l2:26
+R1941:1948 RegExpTask <> Language def
+binder 1959:1959 <> s:27
+R1964:1970 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R1976:1977 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 1971:1972 <> s1:28
+binder 1974:1975 <> s2:29
+R1990:1993 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R1979:1981 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1978:1978 RegExpTask <> s:27 var
+R1984:1987 Corelib.Init.Datatypes <> ::list_scope:x_'++'_x not
+R1982:1983 RegExpTask <> s1:28 var
+R1988:1989 RegExpTask <> s2:29 var
+R1999:2002 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R1994:1995 RegExpTask <> l1:25 var
+R1997:1998 RegExpTask <> s1:28 var
+R2003:2004 RegExpTask <> l2:26 var
+R2006:2007 RegExpTask <> s2:29 var
+def 2022:2033 <> reverse_lang
+R2040:2047 RegExpTask <> Language def
+binder 2036:2036 <> l:30
+R2052:2059 RegExpTask <> Language def
+binder 2070:2070 <> s:31
+R2075:2081 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R2084:2085 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 2082:2083 <> s':32
+R2096:2099 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R2091:2093 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R2086:2088 Stdlib.Lists.List <> rev def
+R2090:2090 RegExpTask <> s:31 var
+R2094:2095 RegExpTask <> s':32 var
+R2100:2100 RegExpTask <> l:30 var
+R2102:2103 RegExpTask <> s':32 var
+prf 2276:2293 <> accepts_concat_thm
+binder 2304:2305 <> r1:33
+binder 2307:2308 <> r2:34
+binder 2310:2311 <> s1:35
+binder 2313:2314 <> s2:36
+R2333:2336 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2320:2326 RegExpTask <> accepts ind
+R2328:2329 RegExpTask <> r1:33 var
+R2331:2332 RegExpTask <> s1:35 var
+R2350:2353 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2337:2343 RegExpTask <> accepts ind
+R2345:2346 RegExpTask <> r2:34 var
+R2348:2349 RegExpTask <> s2:36 var
+R2354:2360 RegExpTask <> accepts ind
+R2365:2370 RegExpTask <> ::regexp_scope:x_'<·>'_x not
+R2363:2364 RegExpTask <> r1:33 var
+R2371:2372 RegExpTask <> r2:34 var
+R2378:2381 Corelib.Init.Datatypes <> ::list_scope:x_'++'_x not
+R2376:2377 RegExpTask <> s1:35 var
+R2382:2383 RegExpTask <> s2:36 var
+prf 2415:2435 <> accepts_unionLeft_thm
+binder 2446:2447 <> r1:37
+binder 2449:2450 <> r2:38
+binder 2452:2452 <> s:39
+R2470:2473 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2458:2464 RegExpTask <> accepts ind
+R2466:2467 RegExpTask <> r1:37 var
+R2469:2469 RegExpTask <> s:39 var
+R2474:2480 RegExpTask <> accepts ind
+R2485:2489 RegExpTask <> ::regexp_scope:x_'<|>'_x not
+R2483:2484 RegExpTask <> r1:37 var
+R2490:2491 RegExpTask <> r2:38 var
+R2494:2494 RegExpTask <> s:39 var
+prf 2525:2546 <> accepts_star_empty_thm
+binder 2557:2557 <> r:40
+R2563:2569 RegExpTask <> accepts ind
+R2573:2573 RegExpTask <> ::regexp_scope:x_'*' not
+R2572:2572 RegExpTask <> r:40 var
+R2576:2577 Stdlib.Lists.List ListNotations ::list_scope:'['_']' not
+prf 2608:2622 <> accepts_not_emp
+binder 2633:2633 <> r:41
+R2639:2639 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2661:2665 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2640:2646 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R2648:2649 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 2647:2647 <> s:42
+R2650:2656 RegExpTask <> accepts ind
+R2658:2658 RegExpTask <> r:41 var
+R2660:2660 RegExpTask <> s:42 var
+R2667:2670 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R2666:2666 RegExpTask <> r:41 var
+R2671:2673 RegExpTask <> ::regexp_scope:'∅' not
+prf 2859:2875 <> cat_char_disjoint
+R2895:2898 RegExpTask <> Char ind
+binder 2887:2888 <> c1:43
+binder 2890:2891 <> c2:44
+binder 2901:2901 <> r:45
+binder 2903:2904 <> s1:46
+binder 2906:2907 <> s2:47
+R2920:2925 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2914:2917 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R2912:2913 RegExpTask <> c1:43 var
+R2918:2919 RegExpTask <> c2:44 var
+R2953:2958 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2926:2932 RegExpTask <> accepts ind
+R2942:2947 RegExpTask <> ::regexp_scope:x_'<·>'_x not
+R2935:2938 RegExpTask <> char constr
+R2940:2941 RegExpTask <> c1:43 var
+R2948:2948 RegExpTask <> r:45 var
+R2951:2952 RegExpTask <> s1:46 var
+R2986:2991 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2959:2965 RegExpTask <> accepts ind
+R2975:2980 RegExpTask <> ::regexp_scope:x_'<·>'_x not
+R2968:2971 RegExpTask <> char constr
+R2973:2974 RegExpTask <> c2:44 var
+R2981:2981 RegExpTask <> r:45 var
+R2984:2985 RegExpTask <> s2:47 var
+R2994:2997 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R2992:2993 RegExpTask <> s1:46 var
+R2998:2999 RegExpTask <> s2:47 var
+def 3186:3192 <> reverse
+R3199:3204 RegExpTask <> RegExp ind
+binder 3195:3195 <> r:48
+R3209:3214 RegExpTask <> RegExp ind
+R3227:3227 RegExpTask <> r:48 var
+R3238:3240 RegExpTask <> emp constr
+R3245:3247 RegExpTask <> emp constr
+R3253:3255 RegExpTask <> eps constr
+R3260:3262 RegExpTask <> eps constr
+R3268:3271 RegExpTask <> char constr
+R3278:3281 RegExpTask <> char constr
+R3289:3292 RegExpTask <> star constr
+R3300:3300 RegExpTask <> ::regexp_scope:x_'*' not
+R3311:3312 RegExpTask <> ::regexp_scope:x_'*' not
+R3301:3307 RegExpTask <> reverse:49 def
+R3318:3322 RegExpTask <> union constr
+R3333:3333 RegExpTask <> ::regexp_scope:x_'<|>'_x not
+R3344:3350 RegExpTask <> ::regexp_scope:x_'<|>'_x not
+R3361:3361 RegExpTask <> ::regexp_scope:x_'<|>'_x not
+R3334:3340 RegExpTask <> reverse:49 def
+R3351:3357 RegExpTask <> reverse:49 def
+R3367:3372 RegExpTask <> concat constr
+R3383:3383 RegExpTask <> ::regexp_scope:x_'<·>'_x not
+R3394:3401 RegExpTask <> ::regexp_scope:x_'<·>'_x not
+R3412:3412 RegExpTask <> ::regexp_scope:x_'<·>'_x not
+R3384:3390 RegExpTask <> reverse:49 def
+R3402:3408 RegExpTask <> reverse:49 def
+prf 3430:3447 <> reverse_correct_mp
+binder 3458:3458 <> r:51
+binder 3460:3460 <> s:52
+R3477:3480 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R3466:3472 RegExpTask <> accepts ind
+R3474:3474 RegExpTask <> r:51 var
+R3476:3476 RegExpTask <> s:52 var
+R3481:3487 RegExpTask <> accepts ind
+R3490:3496 RegExpTask <> reverse def
+R3498:3498 RegExpTask <> r:51 var
+R3502:3504 Stdlib.Lists.List <> rev def
+R3506:3506 RegExpTask <> s:52 var
+prf 3693:3706 <> concat_regular
+R3726:3733 RegExpTask <> Language def
+binder 3718:3719 <> l1:53
+binder 3721:3722 <> l2:54
+R3752:3757 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R3739:3748 RegExpTask <> is_regular def
+R3750:3751 RegExpTask <> l1:53 var
+R3771:3776 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R3758:3767 RegExpTask <> is_regular def
+R3769:3770 RegExpTask <> l2:54 var
+R3777:3786 RegExpTask <> is_regular def
+R3789:3799 RegExpTask <> concat_lang def
+R3801:3802 RegExpTask <> l1:53 var
+R3804:3805 RegExpTask <> l2:54 var
