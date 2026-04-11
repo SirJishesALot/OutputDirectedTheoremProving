@@ -9,10 +9,7 @@ eval $(opam env --switch=rocq-9.0)
 opam repo add rocq-released https://rocq-prover.org/opam/released -y
 opam install vsrocq-language-server -y
 
-# Build Extension
+# Build and Sideload Extension
 npm install
-npm run compile
-npm run compile-webview
-
 npx @vscode/vsce package
 code --install-extension *.vsix
