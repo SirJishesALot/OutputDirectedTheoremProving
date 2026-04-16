@@ -1,6 +1,9 @@
 {
     "name": "Theorem Proving User Study",
     "image": "mcr.microsoft.com/devcontainers/base:ubuntu", 
+    "features": {
+        "ghcr.io/devcontainers/features/google-cloud-cli:1": {}
+    }, 
     "customizations": {
         "vscode": {
             "extensions": [

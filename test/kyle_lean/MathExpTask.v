@@ -39,7 +39,8 @@ Fixpoint sum_range (n : nat) (f : nat -> nat) : nat :=
    In this case the finite set is {0, 1, ..., n} and the function is f(i) = i. *)
 Theorem sum_n : forall n : nat, 
   sum_range (S n) (fun i => i) = (n * (n + 1)) / 2.
-Proof.   
+Proof.  
+  
   Admitted.
 
 (* -----------------------------------------------------------------

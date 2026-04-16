@@ -19,4 +19,4 @@ opam install vsrocq-language-server -y
 # Build and Sideload Extension
 npm install
 npx --yes @vscode/vsce package
-code --install-extension *.vsix
+# code --install-extension *.vsix
