@@ -83,7 +83,7 @@ export async function streamCoqChat(
             return;
         }
 
-        const docUri = Uri.fromPath(editor.document.uri.fsPath);
+        const docUri = Uri.fromVscodeUri(editor.document.uri);
         const version = editor.document.version;
         const position = editor.selection.active;
 

@@ -519,14 +519,23 @@ export class ProofStatePanel {
                 return;
             }
 
-            const docUri = Uri.fromPath(editor.document.uri.fsPath);
+            const docUri = Uri.fromVscodeUri(editor.document.uri);
             const version = editor.document.version;
             const position = editor.selection.active;
 
             const client = await this.clientReady;
+            const content = editor.document.getText();
 
             // withTextDocument ensures the document is opened on the server
-            await client.withTextDocument({ uri: docUri, version }, async () => {
+            await client.withTextDocument(
+                {
+                    uri: docUri,
+                    version,
+                    languageId: editor.document.languageId,
+                    content,
+                    openTimeoutMs: 45000,
+                },
+                async () => {
                 const result = await client.getGoalsAtPoint(position as any, docUri as any, version, tactic);
 
                 if (result.ok) {
@@ -557,7 +566,8 @@ export class ProofStatePanel {
                     const err = result.val;
                     this.postError(err?.message ?? JSON.stringify(err));
                 }
-            });
+            }
+            );
         } catch (e) {
             this.postError(e instanceof Error ? e.message : String(e));
         }
@@ -620,12 +630,18 @@ export class ProofStatePanel {
             const position = coqIsActive
                 ? editor.selection.active
                 : new vscode.Position(this.savedCursorPosition!.line, this.savedCursorPosition!.character);
-            const docUri = Uri.fromPath(editor.document.uri.fsPath);
+            const docUri = Uri.fromVscodeUri(editor.document.uri);
             const version = editor.document.version;
             const content = editor.document.getText();
             const client = await this.clientReady;
             await client.withTextDocument(
-                { uri: docUri, version, content, openTimeoutMs: 45000 },
+                {
+                    uri: docUri,
+                    version,
+                    languageId: editor.document.languageId,
+                    content,
+                    openTimeoutMs: 45000
+                },
                 async () => {
                     const result = await client.getGoalsAtPoint(position as any, docUri as any, version);
                     if (result.ok) {
@@ -682,14 +698,20 @@ export class ProofStatePanel {
             const position = coqIsActive
                 ? editor.selection.active
                 : new vscode.Position(this.savedCursorPosition!.line, this.savedCursorPosition!.character);
-            const docUri = Uri.fromPath(editor.document.uri.fsPath);
+            const docUri = Uri.fromVscodeUri(editor.document.uri);
             const version = editor.document.version;
             const content = editor.document.getText();
 
             const client = await this.clientReady;
 
             await client.withTextDocument(
-                { uri: docUri, version, content, openTimeoutMs: 45000 },
+                {
+                    uri: docUri,
+                    version,
+                    languageId: editor.document.languageId,
+                    content,
+                    openTimeoutMs: 45000
+                },
                 async () => {
                     const result = await client.getGoalsAtPoint(position as any, docUri as any, version);
 

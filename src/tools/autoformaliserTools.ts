@@ -70,7 +70,7 @@ Returns a formatted string with:
             execute: async (args: {}) => {
                 try {
                     const client = await clientReady;
-                    const docUri = Uri.fromPath(editor.document.uri.fsPath);
+                    const docUri = Uri.fromVscodeUri(editor.document.uri);
                     const version = editor.document.version;
                     const position = editor.selection.active;
                     const content = editor.document.getText();
@@ -159,7 +159,7 @@ Returns formatted context information.`,
                     const includeTheorems = args.includeTheorems ?? true;
 
                     const client = await clientReady;
-                    const docUri = Uri.fromPath(editor.document.uri.fsPath);
+                    const docUri = Uri.fromVscodeUri(editor.document.uri);
                     const version = editor.document.version;
                     const position = editor.selection.active;
                     const textLines = editor.document.getText().split('\n');
@@ -217,7 +217,7 @@ Use this to understand what tactics have been used, the structure of the current
             execute: async (args: {}) => {
                 try {
                     const client = await clientReady;
-                    const docUri = Uri.fromPath(editor.document.uri.fsPath);
+                    const docUri = Uri.fromVscodeUri(editor.document.uri);
                     const version = editor.document.version;
                     const position = editor.selection.active;
                     const content = editor.document.getText();
@@ -314,7 +314,7 @@ Use this to validate suggested edits before proposing them.`,
             execute: async (args: { term: string }) => {
                 try {
                     const client = await clientReady;
-                    const docUri = Uri.fromPath(editor.document.uri.fsPath);
+                    const docUri = Uri.fromVscodeUri(editor.document.uri);
                     const version = editor.document.version;
                     const position = editor.selection.active;
                     const command = args.term.trim().endsWith('.') ? args.term : args.term + '.';
@@ -412,7 +412,7 @@ Useful for understanding what needs to be proved and what transformations might 
             execute: async (args: {}) => {
                 try {
                     const client = await clientReady;
-                    const docUri = Uri.fromPath(editor.document.uri.fsPath);
+                    const docUri = Uri.fromVscodeUri(editor.document.uri);
                     const version = editor.document.version;
                     const position = editor.selection.active;
 

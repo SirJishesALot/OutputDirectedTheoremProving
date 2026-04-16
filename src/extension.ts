@@ -98,7 +98,7 @@ export function activate(context: vscode.ExtensionContext) {
     ); 
     context.subscriptions.push(participant);
 
-    coqLspClientReady = createCoqLspClient(process.env.COQ_LSP_PATH || '/home/vscode/.opam/rocq-9.0/bin/coq-lsp')
+    coqLspClientReady = createCoqLspClient(process.env.COQ_LSP_PATH || 'coq-lsp')
         .then((client) => {
             coqLspClient = client;
             return client;

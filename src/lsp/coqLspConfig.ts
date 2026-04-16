@@ -1,6 +1,8 @@
 export interface CoqLspServerConfig {
     client_version: string;
     eager_diagnostics: boolean;
+    /** When true, only check on demand (lazy); false matches continuous checking / reliable goals at point. */
+    check_only_on_request: boolean;
     goal_after_tactic: boolean;
     show_coq_info_messages: boolean;
     show_notices_as_diagnostics: boolean;
@@ -22,6 +24,7 @@ export namespace CoqLspConfig {
         return {
             client_version: "0.2.2",
             eager_diagnostics: true,
+            check_only_on_request: false,
             goal_after_tactic: false,
             show_coq_info_messages: false,
             show_notices_as_diagnostics: false,

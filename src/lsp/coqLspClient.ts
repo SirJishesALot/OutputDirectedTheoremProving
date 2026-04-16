@@ -49,6 +49,8 @@ import {
 export interface DocumentSpec {
     uri: Uri;
     version?: number;
+    /** LSP language id for the opened document (e.g. "coq" or "rocq"). */
+    languageId?: string;
     /** When set, this content is sent to the LSP instead of reading from disk (e.g. current editor buffer). */
     content?: string;
     /** Max ms to wait for coq-lsp to respond after opening (default 300000). Use a shorter value (e.g. 45000) for proof-state updates. */
@@ -97,7 +99,13 @@ export interface CoqLspClient extends Disposable {
         version: number
     ): Promise<PpString[] | Message<PpString>[] | CoqLspError>;
 
-    openTextDocument(uri: Uri, version?: number, content?: string): Promise<DiagnosticMessage>;
+    openTextDocument(
+        uri: Uri,
+        version?: number,
+        content?: string,
+        openTimeoutMs?: number,
+        languageId?: string
+    ): Promise<DiagnosticMessage>;
 
     updateTextDocument(
         oldDocumentText: string[],
@@ -263,11 +271,18 @@ export class CoqLspClientImpl implements CoqLspClient {
         uri: Uri,
         version: number = 1,
         content?: string,
-        openTimeoutMs?: number
+        openTimeoutMs?: number,
+        languageId?: string
     ): Promise<DiagnosticMessage> {
         return await this.mutex.runExclusive(async () => {
             throwOnAbort(this.abortSignal);
-            return this.openTextDocumentUnsafe(uri, version, content, openTimeoutMs);
+            return this.openTextDocumentUnsafe(
+                uri,
+                version,
+                content,
+                openTimeoutMs,
+                languageId
+            );
         });
     }
 
@@ -302,7 +317,8 @@ export class CoqLspClientImpl implements CoqLspClient {
             documentSpec.uri,
             documentSpec.version,
             documentSpec.content,
-            documentSpec.openTimeoutMs
+            documentSpec.openTimeoutMs,
+            documentSpec.languageId
         );
         // TODO: discuss whether coq-lsp is capable of maintaining several docs opened
         // or we need a common lock for open-close here
@@ -410,6 +426,22 @@ export class CoqLspClientImpl implements CoqLspClient {
         }
     }
 
+    /** Normalize `proof/goals` answers across server versions (GoalConfig vs raw goal list). */
+    private extractGoalsFromGoalAnswer(goalAnswer: GoalAnswer<PpString> | any): ProofGoal[] {
+        const raw = goalAnswer?.goals;
+        if (raw == null) {
+            return [];
+        }
+        if (Array.isArray(raw)) {
+            return raw as ProofGoal[];
+        }
+        const inner = raw.goals;
+        if (Array.isArray(inner)) {
+            return inner as ProofGoal[];
+        }
+        return [];
+    }
+
     private async getGoalsAtPointUnsafe(
         position: Position,
         documentUri: Uri,
@@ -432,7 +464,7 @@ export class CoqLspClientImpl implements CoqLspClient {
                 goalRequestParams
             );
     
-            if (!goalAnswer || !goalAnswer.goals) {
+            if (!goalAnswer) {
                 return Ok({
                     goals: [],
                     messages: [],
@@ -440,7 +472,7 @@ export class CoqLspClientImpl implements CoqLspClient {
                 });
             }
     
-            const goals = goalAnswer.goals.goals || [];
+            const goals = this.extractGoalsFromGoalAnswer(goalAnswer);
     
             const messages: string[] = [];
             if (goalAnswer.messages) {
@@ -474,7 +506,10 @@ export class CoqLspClientImpl implements CoqLspClient {
             if (!error) {
                 const fileDiagnostics = this.diagnosticsMap.get(documentUri.uri) || [];
 
-                const editor = vscode.window.activeTextEditor;
+                const editor =
+                    vscode.window.visibleTextEditors.find(
+                        (e) => e.document.uri.toString() === documentUri.uri
+                    ) ?? vscode.window.activeTextEditor;
                 const currentLineText = editor?.document.lineAt(position.line).text.trim();
 
                 if (currentLineText && currentLineText.length > 0) {
@@ -613,7 +648,8 @@ export class CoqLspClientImpl implements CoqLspClient {
         uri: Uri,
         version: number = 1,
         content?: string,
-        openTimeoutMs: number = 300000
+        openTimeoutMs: number = 300000,
+        languageId: string = "coq"
     ): Promise<DiagnosticMessage> {
         const docText =
             content !== undefined
@@ -622,7 +658,7 @@ export class CoqLspClientImpl implements CoqLspClient {
         const params: DidOpenTextDocumentParams = {
             textDocument: {
                 uri: uri.uri,
-                languageId: "coq",
+                languageId,
                 version: version,
                 text: docText,
             },

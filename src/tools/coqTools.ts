@@ -10,7 +10,7 @@ export class CoqTools {
 
     async checkTermValidity(term: string): Promise<string> {
 
-        const uri = Uri.fromPath(this.editor.document.uri.fsPath);
+        const uri = Uri.fromVscodeUri(this.editor.document.uri);
         const version = this.editor.document.version;
         const pos = this.editor.selection.active;
         const command = term.trim().endsWith('.') ? term : term + '.';

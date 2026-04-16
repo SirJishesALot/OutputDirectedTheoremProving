@@ -333,7 +333,7 @@ Args: originalValue (full proof state before the change), desiredValue (full pro
                     }
 
                     const client = await clientReady;
-                    const docUri = Uri.fromPath(editor.document.uri.fsPath);
+                    const docUri = Uri.fromVscodeUri(editor.document.uri);
                     const version = editor.document.version;
                     const cursorPos = getPosition();
                     const content = editor.document.getText();
@@ -475,7 +475,7 @@ Use this to understand what tactics have been used, the structure of the current
             execute: async (args: {}) => {
                 try {
                     const client = await clientReady;
-                    const docUri = Uri.fromPath(editor.document.uri.fsPath);
+                    const docUri = Uri.fromVscodeUri(editor.document.uri);
                     const version = editor.document.version;
                     const position = getPosition();
                     const content = editor.document.getText();
@@ -576,7 +576,7 @@ Call this with your proposed edit; if you get an error back, try again with a di
                     }
 
                     const client = await clientReady;
-                    const docUri = Uri.fromPath(editor.document.uri.fsPath);
+                    const docUri = Uri.fromVscodeUri(editor.document.uri);
                     const version = editor.document.version;
                     const content = editor.document.getText();
                     const lines = content.split('\n');
@@ -716,7 +716,7 @@ Use this to understand the current state before planning edits.`,
             execute: async (args: {}) => {
                 try {
                     const client = await clientReady;
-                    const docUri = Uri.fromPath(editor.document.uri.fsPath);
+                    const docUri = Uri.fromVscodeUri(editor.document.uri);
                     const version = editor.document.version;
                     const position = getPosition();
                     const content = editor.document.getText();
