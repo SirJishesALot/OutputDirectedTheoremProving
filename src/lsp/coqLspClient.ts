@@ -147,6 +147,22 @@ export class CoqLspClientImpl implements CoqLspClient {
     private subscriptions: Disposable[] = [];
     private mutex = new Mutex();
     private diagnosticsMap: Map<string, Diagnostic[]> = new Map();
+    /** >0 while executing the user callback inside `withTextDocument` (mutex already held). */
+    private withTextDocumentDepth = 0;
+
+    /**
+     * One coq-lsp document kept open between `withTextDocument` calls (same URI) to avoid didClose/didOpen
+     * on every cursor move, which can confuse the server. Cleared on URI switch, explicit close, or dispose.
+     */
+    private heldSession:
+        | {
+              uriKey: string;
+              uri: Uri;
+              version: number;
+              content: string;
+              lastDiagnostic: DiagnosticMessage;
+          }
+        | undefined;
 
     constructor(
         coqLspConnector: CoqLspConnector,
@@ -189,6 +205,15 @@ export class CoqLspClientImpl implements CoqLspClient {
         version: number,
         command?: string
     ): Promise<Result<GoalsWithMessages, Error>> {
+        if (this.withTextDocumentDepth > 0) {
+            throwOnAbort(this.abortSignal);
+            return await this.getGoalsAtPointUnsafe(
+                position,
+                documentUri,
+                version,
+                command
+            );
+        }
         return await this.mutex.runExclusive(async () => {
             throwOnAbort(this.abortSignal);
             return this.getGoalsAtPointUnsafe(
@@ -206,7 +231,7 @@ export class CoqLspClientImpl implements CoqLspClient {
         version: number,
         command?: string
     ): Promise<ProofGoal> {
-        return await this.mutex.runExclusive(async () => {
+        const run = async (): Promise<ProofGoal> => {
             throwOnAbort(this.abortSignal);
             const result = await this.getGoalsAtPointUnsafe(
                 position,
@@ -214,20 +239,24 @@ export class CoqLspClientImpl implements CoqLspClient {
                 version,
                 command
             );
-            
+
             if (!result.ok) {
                 const error = result.val;
                 const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : 'Failed to get goals');
                 throw new CoqLspError(errorMessage);
             }
-            
+
             const goals = result.val.goals;
             if (!goals || goals.length === 0) {
                 throw new CoqLspError('No goals at this position');
             }
-            
+
             return goals[0];
-        });
+        };
+        if (this.withTextDocumentDepth > 0) {
+            return await run();
+        }
+        return await this.mutex.runExclusive(() => run());
     }
 
     async getMessageAtPoint(
@@ -235,6 +264,9 @@ export class CoqLspClientImpl implements CoqLspClient {
         documentUri: Uri,
         version: number
     ): Promise<PpString[] | Message<PpString>[] | CoqLspError> {
+        if (this.withTextDocumentDepth > 0) {
+            return await this.getMessageAtPointUnsafe(position, documentUri, version);
+        }
         return await this.mutex.runExclusive(async () => {
             return this.getMessageAtPointUnsafe(position, documentUri, version);
         });
@@ -258,7 +290,6 @@ export class CoqLspClientImpl implements CoqLspClient {
             goalReqType,
             goalRequestParams
         );
-        console.log("goals", goals);
         const messages = goals?.messages ?? undefined;
         if (!messages) {
             return new CoqLspError("No messages at point.");
@@ -305,31 +336,103 @@ export class CoqLspClientImpl implements CoqLspClient {
     async closeTextDocument(uri: Uri): Promise<void> {
         return await this.mutex.runExclusive(async () => {
             throwOnAbort(this.abortSignal);
-            return this.closeTextDocumentUnsafe(uri);
+            await this.closeTextDocumentUnsafe(uri);
+            if (this.heldSession?.uriKey === uri.uri) {
+                this.heldSession = undefined;
+            }
         });
     }
 
+    /**
+     * Keeps the document open on the coq-lsp side between calls (same URI, unchanged buffer): only
+     * `proof/goals` runs again. On edits, sends `didChange` with the full text when the version moves
+     * forward; otherwise closes and reopens. The sequence is serialized on one mutex. Do not call
+     * `withTextDocument` again from inside `block` (deadlock). `getGoalsAtPoint` / `getMessageAtPoint` /
+     * `getFlecheDocument` skip the inner mutex while `block` runs.
+     */
     async withTextDocument<T>(
         documentSpec: DocumentSpec,
         block: (openedDocDiagnostic: DiagnosticMessage) => Promise<T>
     ): Promise<T> {
-        const diagnostic = await this.openTextDocument(
-            documentSpec.uri,
-            documentSpec.version,
-            documentSpec.content,
-            documentSpec.openTimeoutMs,
-            documentSpec.languageId
-        );
-        // TODO: discuss whether coq-lsp is capable of maintaining several docs opened
-        // or we need a common lock for open-close here
-        try {
-            return await block(diagnostic);
-        } finally {
-            await this.closeTextDocument(documentSpec.uri);
-        }
+        return await this.mutex.runExclusive(async () => {
+            throwOnAbort(this.abortSignal);
+            const fullText =
+                documentSpec.content !== undefined
+                    ? documentSpec.content
+                    : readFileSync(documentSpec.uri.fsPath).toString();
+            const uriKey = documentSpec.uri.uri;
+            const version = documentSpec.version ?? 1;
+            const openTimeoutMs = documentSpec.openTimeoutMs ?? 300000;
+            const lang = documentSpec.languageId;
+
+            let diagnostic: DiagnosticMessage;
+
+            if (this.heldSession === undefined || this.heldSession.uriKey !== uriKey) {
+                if (this.heldSession !== undefined) {
+                    await this.closeTextDocumentUnsafe(this.heldSession.uri);
+                    this.heldSession = undefined;
+                }
+                diagnostic = await this.openTextDocumentUnsafe(
+                    documentSpec.uri,
+                    version,
+                    fullText,
+                    openTimeoutMs,
+                    lang
+                );
+                this.heldSession = {
+                    uriKey,
+                    uri: documentSpec.uri,
+                    version,
+                    content: fullText,
+                    lastDiagnostic: diagnostic,
+                };
+            } else if (
+                this.heldSession.version !== version ||
+                this.heldSession.content !== fullText
+            ) {
+                if (version > this.heldSession.version) {
+                    diagnostic = await this.syncFullDocumentUnsafe(
+                        documentSpec.uri,
+                        version,
+                        fullText,
+                        openTimeoutMs
+                    );
+                } else {
+                    await this.closeTextDocumentUnsafe(this.heldSession.uri);
+                    this.heldSession = undefined;
+                    diagnostic = await this.openTextDocumentUnsafe(
+                        documentSpec.uri,
+                        version,
+                        fullText,
+                        openTimeoutMs,
+                        lang
+                    );
+                }
+                this.heldSession = {
+                    uriKey,
+                    uri: documentSpec.uri,
+                    version,
+                    content: fullText,
+                    lastDiagnostic: diagnostic,
+                };
+            } else {
+                diagnostic = this.heldSession.lastDiagnostic;
+            }
+
+            this.withTextDocumentDepth++;
+            try {
+                return await block(diagnostic);
+            } finally {
+                this.withTextDocumentDepth--;
+            }
+        });
     }
 
     async getFlecheDocument(uri: Uri): Promise<FlecheDocument> {
+        if (this.withTextDocumentDepth > 0) {
+            throwOnAbort(this.abortSignal);
+            return await this.getFlecheDocumentUnsafe(uri);
+        }
         return await this.mutex.runExclusive(async () => {
             throwOnAbort(this.abortSignal);
             return this.getFlecheDocumentUnsafe(uri);
@@ -429,7 +532,7 @@ export class CoqLspClientImpl implements CoqLspClient {
     /** Normalize `proof/goals` answers across server versions (GoalConfig vs raw goal list). */
     private extractGoalsFromGoalAnswer(goalAnswer: GoalAnswer<PpString> | any): ProofGoal[] {
         const raw = goalAnswer?.goals;
-        if (raw == null) {
+        if (raw === null || raw === undefined) {
             return [];
         }
         if (Array.isArray(raw)) {
@@ -463,6 +566,21 @@ export class CoqLspClientImpl implements CoqLspClient {
                 goalReqType,
                 goalRequestParams
             );
+
+            // Debug: raw server payload before any client-side normalization
+            if (goalAnswer !== undefined && goalAnswer !== null) {
+                try {
+                    console.log(
+                        "[CoqLspClient] proof/goals raw JSON:\n",
+                        JSON.stringify(goalAnswer, undefined, 2)
+                    );
+                } catch {
+                    console.log(
+                        "[CoqLspClient] proof/goals raw (JSON.stringify failed):",
+                        goalAnswer
+                    );
+                }
+            }
     
             if (!goalAnswer) {
                 return Ok({
@@ -655,10 +773,12 @@ export class CoqLspClientImpl implements CoqLspClient {
             content !== undefined
                 ? content
                 : readFileSync(uri.fsPath).toString();
+        /** Rocq LSP only distinguishes coq vs rocq; other VS Code language ids must not be sent verbatim. */
+        const effectiveLanguageId = languageId === "rocq" ? "rocq" : "coq";
         const params: DidOpenTextDocumentParams = {
             textDocument: {
                 uri: uri.uri,
-                languageId,
+                languageId: effectiveLanguageId,
                 version: version,
                 text: docText,
             },
@@ -669,6 +789,29 @@ export class CoqLspClientImpl implements CoqLspClient {
             params,
             uri,
             undefined,
+            openTimeoutMs
+        );
+    }
+
+    /** Full-buffer `didChange` when the server already has this URI open (version must increase). */
+    private async syncFullDocumentUnsafe(
+        uri: Uri,
+        version: number,
+        fullText: string,
+        openTimeoutMs: number
+    ): Promise<DiagnosticMessage> {
+        const params: DidChangeTextDocumentParams = {
+            textDocument: {
+                uri: uri.uri,
+                version,
+            },
+            contentChanges: [{ text: fullText }],
+        };
+        return await this.waitUntilFileFullyChecked(
+            DidChangeTextDocumentNotification.type,
+            params,
+            uri,
+            Position.create(0, 0),
             openTimeoutMs
         );
     }
@@ -741,6 +884,18 @@ export class CoqLspClientImpl implements CoqLspClient {
      */
     dispose(): void {
         this.subscriptions.forEach((d) => d.dispose());
-        this.client.stop();
+        void (async () => {
+            try {
+                await this.mutex.runExclusive(async () => {
+                    if (this.heldSession !== undefined) {
+                        await this.closeTextDocumentUnsafe(this.heldSession.uri);
+                        this.heldSession = undefined;
+                    }
+                });
+            } catch {
+                /* ignore shutdown races */
+            }
+            await this.client.stop();
+        })();
     }
 }
