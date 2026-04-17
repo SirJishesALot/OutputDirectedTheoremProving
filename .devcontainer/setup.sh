@@ -5,6 +5,10 @@ set -e
 # Added 'm4' which is often required for opam package compilation
 sudo apt-get update && sudo apt-get install -y opam libgmp-dev pkg-config curl m4
 
+# Add Google Cloud public key and repository
+curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+
 # Install Node.js 20.x
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs
@@ -30,8 +34,8 @@ opam install -y -j 1 \
     coq-lsp.0.2.5+9.0
 
 # Build and Sideload Extension (If you are developing the VS Code tool)
+echo 'eval $(opam env --switch=rocq-9.0 --set-switch)' >> ~/.bashrc
 npm install
 npx --yes @vscode/vsce package
 
-echo 'eval $(opam env --switch=rocq-9.0 --set-switch)' >> ~/.bashrc
 echo "Setup complete."
