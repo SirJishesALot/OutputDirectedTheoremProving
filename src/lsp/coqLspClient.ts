@@ -545,42 +545,83 @@ export class CoqLspClientImpl implements CoqLspClient {
         return [];
     }
 
+    private normalizeMessagesFromGoalAnswer(goalAnswer: any): string[] {
+        const messages: string[] = [];
+        if (!goalAnswer?.messages) {
+            return messages;
+        }
+        for (const msg of goalAnswer.messages) {
+            if (typeof msg === "string") {
+                messages.push(msg);
+            } else if (Array.isArray(msg) && msg.length >= 2) {
+                const text = msg[1];
+                const textStr =
+                    typeof text === "string" ? text : convertToString(text);
+                messages.push(textStr);
+            } else if (typeof msg === "object" && "text" in msg) {
+                const text = (msg as any).text;
+                const textStr =
+                    typeof text === "string" ? text : convertToString(text);
+                messages.push(textStr);
+            } else {
+                messages.push(convertToString(msg as PpString));
+            }
+        }
+        return messages;
+    }
+
+    private normalizeErrorFromGoalAnswer(goalAnswer: any): string | undefined {
+        if (!goalAnswer?.error) {
+            return undefined;
+        }
+        if (typeof goalAnswer.error === "string") {
+            return this.removeTraceFromLspError(goalAnswer.error);
+        }
+        const errorStr = convertToString(goalAnswer.error);
+        return this.removeTraceFromLspError(errorStr);
+    }
+
+    private normalizeGoalsWithMessages(
+        goalAnswer: any
+    ): { goals: ProofGoal[]; messages: string[]; error?: string } {
+        return {
+            goals: this.extractGoalsFromGoalAnswer(goalAnswer),
+            messages: this.normalizeMessagesFromGoalAnswer(goalAnswer),
+            error: this.normalizeErrorFromGoalAnswer(goalAnswer),
+        };
+    }
+
+    private isIllegalBeginOfVernacError(error?: string): boolean {
+        if (!error) return false;
+        return /illegal begin of vernac/i.test(error);
+    }
+
     private async getGoalsAtPointUnsafe(
         position: Position,
         documentUri: Uri,
         version: number,
         command?: string
     ): Promise<Result<GoalsWithMessages, Error>> {
-        let goalRequestParams: GoalRequest = {
-            textDocument: VersionedTextDocumentIdentifier.create(
-                documentUri.uri,
-                version
-            ),
-            position,
+        const baseTextDocument = VersionedTextDocumentIdentifier.create(
+            documentUri.uri,
+            version
+        );
+        const makeGoalRequest = (
+            pos: Position,
+            mode?: "Prev" | "After"
+        ): GoalRequest => ({
+            textDocument: baseTextDocument,
+            position: pos,
             pp_format: "Str",
             command: command,
-        };
-    
-        try {
-            const goalAnswer = await this.client.sendRequest(
-                goalReqType,
-                goalRequestParams
-            );
+            mode,
+        });
+        const fetchGoalAnswer = async (req: GoalRequest) =>
+            this.client.sendRequest(goalReqType, req);
 
-            // Debug: raw server payload before any client-side normalization
-            if (goalAnswer !== undefined && goalAnswer !== null) {
-                try {
-                    console.log(
-                        "[CoqLspClient] proof/goals raw JSON:\n",
-                        JSON.stringify(goalAnswer, undefined, 2)
-                    );
-                } catch {
-                    console.log(
-                        "[CoqLspClient] proof/goals raw (JSON.stringify failed):",
-                        goalAnswer
-                    );
-                }
-            }
+        try {
+            const primaryRequest = makeGoalRequest(position);
+            let goalAnswer = await fetchGoalAnswer(primaryRequest);
     
             if (!goalAnswer) {
                 return Ok({
@@ -589,37 +630,63 @@ export class CoqLspClientImpl implements CoqLspClient {
                     error: undefined
                 });
             }
-    
-            const goals = this.extractGoalsFromGoalAnswer(goalAnswer);
-    
-            const messages: string[] = [];
-            if (goalAnswer.messages) {
-                for (const msg of goalAnswer.messages) {
-                    if (typeof msg === 'string') {
-                        messages.push(msg);
-                    } else if (Array.isArray(msg) && msg.length >= 2) {
-                        const text = msg[1];
-                        const textStr = typeof text === 'string' ? text : convertToString(text);
-                        messages.push(textStr);
-                    } else if (typeof msg === 'object' && 'text' in msg) {
-                        const text = (msg as any).text;
-                        const textStr = typeof text === 'string' ? text : convertToString(text);
-                        messages.push(textStr);
-                    } else {
-                        messages.push(convertToString(msg as PpString));
+
+            let normalized = this.normalizeGoalsWithMessages(goalAnswer);
+            if (
+                normalized.goals.length === 0 &&
+                this.isIllegalBeginOfVernacError(normalized.error)
+            ) {
+                const fallbackRequests: GoalRequest[] = [
+                    makeGoalRequest(position, "Prev"),
+                ];
+                if (position.character > 0) {
+                    fallbackRequests.push(
+                        makeGoalRequest(
+                            Position.create(position.line, position.character - 1),
+                            "Prev"
+                        )
+                    );
+                }
+                // Some coq-lsp versions reject mid-sentence points even with mode=Prev.
+                // Probe stable anchors: line start at current line, then a bounded backward scan.
+                fallbackRequests.push(
+                    makeGoalRequest(Position.create(position.line, 0), "Prev")
+                );
+                for (
+                    let line = position.line - 1, hops = 0;
+                    line >= 0 && hops < 30;
+                    line--, hops++
+                ) {
+                    fallbackRequests.push(
+                        makeGoalRequest(Position.create(line, 0), "Prev")
+                    );
+                }
+
+                for (const req of fallbackRequests) {
+                    const fallbackAnswer = await fetchGoalAnswer(req);
+                    if (!fallbackAnswer) {
+                        continue;
+                    }
+                    const fallbackNormalized =
+                        this.normalizeGoalsWithMessages(fallbackAnswer);
+                    const fallbackStillIllegal =
+                        this.isIllegalBeginOfVernacError(
+                            fallbackNormalized.error
+                        );
+                    goalAnswer = fallbackAnswer;
+                    normalized = fallbackNormalized;
+                    if (
+                        fallbackNormalized.goals.length > 0 ||
+                        !fallbackStillIllegal
+                    ) {
+                        break;
                     }
                 }
             }
-    
-            let error: string | undefined = undefined;
-            if (goalAnswer.error) {
-                if (typeof goalAnswer.error === 'string') {
-                    error = this.removeTraceFromLspError(goalAnswer.error);
-                } else {
-                    const errorStr = convertToString(goalAnswer.error);
-                    error = this.removeTraceFromLspError(errorStr);
-                }
-            }
+
+            const goals = normalized.goals;
+            const messages = normalized.messages;
+            let error = normalized.error;
 
             if (!error) {
                 const fileDiagnostics = this.diagnosticsMap.get(documentUri.uri) || [];
@@ -642,7 +709,7 @@ export class CoqLspClientImpl implements CoqLspClient {
                     }
                 }
             }
-    
+
             return Ok({ goals, messages, error });
     
         } catch (e) {
@@ -755,9 +822,10 @@ export class CoqLspClientImpl implements CoqLspClient {
                 `coq-lsp did not respond in time (waited ${sec}s). The file may be large or the server busy. Try moving the cursor again or reloading the window.`
             );
         }
+        const finalDiagnostics: Diagnostic[] = awaitedDiagnostics ?? [];
 
         return this.filterDiagnostics(
-            awaitedDiagnostics,
+            finalDiagnostics,
             lastDocumentEndPosition ?? Position.create(0, 0)
         );
     }

@@ -31524,7 +31524,6 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         html = "<p><i>Error: " + escapeHtml(msg.message) + "</i></p>";
         break;
       case "proofUpdate":
-        console.log("proof update request receieved");
         html = renderGoalsToHtml(msg.goals, msg.messages, msg.error);
         break;
       case "chatResponsePart":

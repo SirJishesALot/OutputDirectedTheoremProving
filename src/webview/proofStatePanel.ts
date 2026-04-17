@@ -85,19 +85,23 @@ export class ProofStatePanel {
         this.panel.webview.html = this.getHtmlForWebview(this.panel.webview);
 
         vscode.window.onDidChangeTextEditorSelection(
-            () => this.updateProofState(),
+            () => {
+                void this.updateProofState();
+            },
             null,
             this.disposables
         );
 
         vscode.window.onDidChangeActiveTextEditor(
-            () => this.updateProofState(),
+            () => {
+                void this.updateProofState();
+            },
             null,
             this.disposables
         );
 
         this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
-        this.updateProofState(); // initial update
+        void this.updateProofState(); // initial update
     }
 
     /** Webview that currently shows the chat (chat panel if open, otherwise main panel). */
@@ -640,7 +644,7 @@ export class ProofStatePanel {
                     version,
                     languageId: editor.document.languageId,
                     content,
-                    openTimeoutMs: 45000
+                    openTimeoutMs: 45000,
                 },
                 async () => {
                     const result = await client.getGoalsAtPoint(position as any, docUri as any, version);
@@ -662,7 +666,7 @@ export class ProofStatePanel {
                             type: 'proofUpdate',
                             goals: convertedGoals,
                             messages,
-                            error
+                            error,
                         });
                     } else {
                         this.postError(result.val?.message ?? JSON.stringify(result.val));
@@ -710,7 +714,7 @@ export class ProofStatePanel {
                     version,
                     languageId: editor.document.languageId,
                     content,
-                    openTimeoutMs: 45000
+                    openTimeoutMs: 45000,
                 },
                 async () => {
                     const result = await client.getGoalsAtPoint(position as any, docUri as any, version);
@@ -721,14 +725,6 @@ export class ProofStatePanel {
                         const goals = goalsWithMessages.goals;
                         const messages = goalsWithMessages.messages || [];
                         const error = goalsWithMessages.error;
-
-                        // Log the retrieved goal state
-                        console.log('Retrieved goal state:', JSON.stringify({
-                            goals: goals,
-                            messages: messages,
-                            error: error,
-                            rawResult: result
-                        }, null, 2));
 
                         // Convert PpString to strings to preserve newlines
                         const convertedGoals = goals.map((g: ProofGoal) => ({
@@ -745,7 +741,7 @@ export class ProofStatePanel {
                             type: 'proofUpdate',
                             goals: convertedGoals,
                             messages: messages,
-                            error: error
+                            error: error,
                         });
                     } else {
                         // If request failed, show error
