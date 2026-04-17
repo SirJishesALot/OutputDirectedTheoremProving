@@ -11,6 +11,7 @@ Open Scope R_scope.
 Theorem expand_thm : forall a b : R,
   (a + b) ^ 2 = a ^ 2 + 2 * a * b + b ^ 2.
 Proof.
+  
   Admitted.
 
 Theorem quadratic_gt_zero : forall a b : R, 
