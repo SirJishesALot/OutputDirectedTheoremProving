@@ -16,6 +16,7 @@ Proof.
 Theorem quadratic_gt_zero : forall a b : R, 
   0 <= a ^ 2 + 2 * a * b + b ^ 2.
 Proof.
+  
   Admitted.
 
 Close Scope R_scope.
@@ -60,4 +61,5 @@ Proof.
 Theorem dvd_k : forall n k : nat, 
   Nat.divide k ((k + 1) ^ n - 1).
 Proof. 
+  
   Admitted.

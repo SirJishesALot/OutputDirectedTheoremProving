@@ -98,7 +98,7 @@ export function activate(context: vscode.ExtensionContext) {
     ); 
     context.subscriptions.push(participant);
 
-    coqLspClientReady = createCoqLspClient(process.env.COQ_LSP_PATH || 'coq-lsp')
+    coqLspClientReady = createCoqLspClient(process.env.COQ_LSP_PATH || '/home/vscode/.opam/rocq-9.0/bin/coq-lsp')
         .then((client) => {
             coqLspClient = client;
             return client;
@@ -227,13 +227,13 @@ export function activate(context: vscode.ExtensionContext) {
 
             const modelOptions = [
                 { label: 'gemini-3-deep-think', description: 'Gemini 3 Deep Think (most powerful)' }, 
-                { label: 'gemini-3-pro-preview', description: 'Gemini 3.0 Pro (recommended' },
+                { label: 'gemini-3.1-pro-preview', description: 'Gemini 3.0 Pro (recommended' },
                 { label: 'gemini-3-flash-preview', description: 'Gemini 3.0 Flash (faster)' },
             ];
             const pickedModel = await vscode.window.showQuickPick(modelOptions, { 
                 placeHolder: 'Select Gemini model to use (requires Vertex AI API enabled)' 
             });
-            const selectedModel = pickedModel?.label ?? 'gemini-3.0-pro-preview';
+            const selectedModel = pickedModel?.label ?? 'gemini-3.1-pro-preview';
 
             try {
                 const { GoogleGenAI } = require('@google/genai');
