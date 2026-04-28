@@ -4,7 +4,14 @@ import { ProofGoal } from './lsp/coqLspTypes';
 import { Uri } from './utils/uri';
 import { createCoqLspClient } from './lsp/coqBuilders';
 import { ProofStatePanel } from './webview/proofStatePanel';
-
+import * as dotenv from 'dotenv';
+import path from 'path';
+const result = dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
+if (result.error) {
+    console.error("Error loading .env file: ", result.error); 
+} else { 
+    console.log("Loaded .env file: ", result.parsed);
+}
 // --- NEW IMPORTS FOR INLINE SUGGESTIONS ---
 // Note: Adjust these import paths based on where you saved suggestionManager.ts 
 // and the file containing your Prover Tools / clearSuggestedEditDecoration function.
