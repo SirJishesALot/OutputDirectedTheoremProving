@@ -14,6 +14,17 @@ import { globalSuggestionManager } from '../extension';
 // -----------------------------------------
 
 type ClientReadyPromise = Promise<CoqLspClient>;
+type ActiveProverKind = 'Coq' | 'Lean';
+type ActiveProverProvider = () => ActiveProverKind;
+type GenericProofState = {
+    goals: Array<{ ty: string; hyps: Array<{ names: string[]; ty: string; def?: string }> }>;
+    messages: string[];
+    error?: string;
+};
+type GenericProofStateProvider = (
+    document: vscode.TextDocument,
+    position: vscode.Position
+) => Promise<GenericProofState>;
 
 export class ProofStatePanel {
     public static currentPanel: ProofStatePanel | undefined;
@@ -22,6 +33,8 @@ export class ProofStatePanel {
     private readonly extensionUri: vscode.Uri;
     private disposables: vscode.Disposable[] = [];
     private clientReady: ClientReadyPromise;
+    private getActiveProver: ActiveProverProvider;
+    private getProofState: GenericProofStateProvider;
     private currentDocumentUri: vscode.Uri | undefined;
     /** Last cursor position when proof state was updated (Coq file had focus). Used by prover tools when panel has focus. */
     private savedCursorPosition: { line: number; character: number } | undefined;
@@ -35,11 +48,15 @@ export class ProofStatePanel {
     public static createOrShow(
         context: vscode.ExtensionContext,
         clientReady: ClientReadyPromise,
-        extensionUri: vscode.Uri
+        extensionUri: vscode.Uri,
+        getActiveProver: ActiveProverProvider,
+        getProofState: GenericProofStateProvider
     ) {
         const column = vscode.ViewColumn.Beside; 
 
         if (ProofStatePanel.currentPanel) {
+            ProofStatePanel.currentPanel.setProviders(clientReady, getActiveProver, getProofState);
+            ProofStatePanel.currentPanel.setActiveProver(getActiveProver());
             ProofStatePanel.currentPanel.panel.reveal(column);
             return ProofStatePanel.currentPanel;
         }
@@ -59,7 +76,9 @@ export class ProofStatePanel {
         ProofStatePanel.currentPanel = new ProofStatePanel(
             panel,
             clientReady,
-            extensionUri
+            extensionUri,
+            getActiveProver,
+            getProofState
         );
 
         return ProofStatePanel.currentPanel;
@@ -68,11 +87,15 @@ export class ProofStatePanel {
     private constructor(
         panel: vscode.WebviewPanel,
         clientReady: ClientReadyPromise,
-        extensionUri: vscode.Uri
+        extensionUri: vscode.Uri,
+        getActiveProver: ActiveProverProvider,
+        getProofState: GenericProofStateProvider
     ) {
         this.panel = panel;
         this.extensionUri = extensionUri;
         this.clientReady = clientReady;
+        this.getActiveProver = getActiveProver;
+        this.getProofState = getProofState;
 
         void vscode.commands.executeCommand('outputdirectedtheoremproving.getDefaultChatModel'); 
 
@@ -83,6 +106,7 @@ export class ProofStatePanel {
         );
 
         this.panel.webview.html = this.getHtmlForWebview(this.panel.webview);
+        this.setActiveProver(this.getActiveProver());
 
         vscode.window.onDidChangeTextEditorSelection(
             () => {
@@ -102,6 +126,29 @@ export class ProofStatePanel {
 
         this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
         void this.updateProofState(); // initial update
+    }
+
+    public setProviders(
+        clientReady: ClientReadyPromise,
+        getActiveProver: ActiveProverProvider,
+        getProofState: GenericProofStateProvider
+    ) {
+        this.clientReady = clientReady;
+        this.getActiveProver = getActiveProver;
+        this.getProofState = getProofState;
+        this.setActiveProver(this.getActiveProver());
+    }
+
+    public setActiveProver(kind: ActiveProverKind) {
+        this.panel.webview.postMessage({ type: 'activeProverChanged', prover: kind });
+    }
+
+    private isEditorForActiveProver(editor: vscode.TextEditor, activeProver: ActiveProverKind): boolean {
+        if (activeProver === 'Coq') {
+            return isCoqDocumentLanguage(editor.document.languageId);
+        }
+        const lang = editor.document.languageId.toLowerCase();
+        return lang.includes('lean') || editor.document.uri.fsPath.endsWith('.lean');
     }
 
     /** Webview that currently shows the chat (chat panel if open, otherwise main panel). */
@@ -242,6 +289,8 @@ export class ProofStatePanel {
             if (!isMain) return;
             console.log('proof state update requested');
             await this.updateProofState();
+        } else if (cmd === 'toggleActiveProver') {
+            await vscode.commands.executeCommand('outputdirectedtheoremproving.toggleActiveProver');
         } else if (cmd === 'applyTactic') {
             if (!isMain) return;
             const tactic: string = message.tactic;
@@ -618,61 +667,40 @@ export class ProofStatePanel {
     /** Like updateProofState but skips the panel.active check. Use before sending a suggestion so the main panel has current goals. */
     private async updateProofStateForSuggestion(): Promise<void> {
         try {
+            const activeProver = this.getActiveProver();
             let editor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
-            const coqIsActive = editor !== undefined && isCoqDocumentLanguage(editor.document.languageId);
-            if (!coqIsActive) editor = undefined;
+            const currentMatches = editor !== undefined && this.isEditorForActiveProver(editor, activeProver);
+            if (!currentMatches) editor = undefined;
             if (!editor && this.currentDocumentUri !== undefined && this.savedCursorPosition !== undefined) {
                 editor = vscode.window.visibleTextEditors.find(
-                    (e) => e.document.uri.toString() === this.currentDocumentUri?.toString()
+                    (e) =>
+                        e.document.uri.toString() === this.currentDocumentUri?.toString() &&
+                        this.isEditorForActiveProver(e, activeProver)
                 );
             }
-            if (!editor || !isCoqDocumentLanguage(editor.document.languageId)) {
+            if (!editor) {
+                editor = vscode.window.visibleTextEditors.find((e) =>
+                    this.isEditorForActiveProver(e, activeProver)
+                );
+            }
+            if (!editor) {
                 this.panel.webview.postMessage({ type: 'noDocument' });
                 return;
             }
             this.currentDocumentUri = editor.document.uri;
-            const position = coqIsActive
+            const position = currentMatches
                 ? editor.selection.active
-                : new vscode.Position(this.savedCursorPosition!.line, this.savedCursorPosition!.character);
-            const docUri = Uri.fromVscodeUri(editor.document.uri);
-            const version = editor.document.version;
-            const content = editor.document.getText();
-            const client = await this.clientReady;
-            await client.withTextDocument(
-                {
-                    uri: docUri,
-                    version,
-                    languageId: editor.document.languageId,
-                    content,
-                    openTimeoutMs: 45000,
-                },
-                async () => {
-                    const result = await client.getGoalsAtPoint(position as any, docUri as any, version);
-                    if (result.ok) {
-                        this.savedCursorPosition = { line: position.line, character: position.character };
-                        const goalsWithMessages = result.val;
-                        const goals = goalsWithMessages.goals;
-                        const messages = goalsWithMessages.messages || [];
-                        const error = goalsWithMessages.error;
-                        const convertedGoals = goals.map((g: ProofGoal) => ({
-                            ty: convertToString(g.ty),
-                            hyps: g.hyps.map((h: Hyp<PpString>) => ({
-                                names: h.names.map(n => convertToString(n)),
-                                def: h.def ? convertToString(h.def) : undefined,
-                                ty: convertToString(h.ty)
-                            }))
-                        }));
-                        this.panel.webview.postMessage({
-                            type: 'proofUpdate',
-                            goals: convertedGoals,
-                            messages,
-                            error,
-                        });
-                    } else {
-                        this.postError(result.val?.message ?? JSON.stringify(result.val));
-                    }
-                }
-            );
+                : this.savedCursorPosition
+                    ? new vscode.Position(this.savedCursorPosition.line, this.savedCursorPosition.character)
+                    : editor.selection.active;
+            this.savedCursorPosition = { line: position.line, character: position.character };
+            const state = await this.getProofState(editor.document, position);
+            this.panel.webview.postMessage({
+                type: 'proofUpdate',
+                goals: state.goals,
+                messages: state.messages ?? [],
+                error: state.error,
+            });
         } catch (e) {
             this.postError(e instanceof Error ? e.message : String(e));
         }
@@ -681,75 +709,45 @@ export class ProofStatePanel {
     private async updateProofState() {
         try {
             if (this.panel.active) { return; }
+            const activeProver = this.getActiveProver();
             let editor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
-            const coqIsActive = editor !== undefined && isCoqDocumentLanguage(editor.document.languageId);
-            if (!coqIsActive) {
+            const currentMatches = editor !== undefined && this.isEditorForActiveProver(editor, activeProver);
+            if (!currentMatches) {
                 editor = undefined;
             }
             // When user clicks the webview, active editor is no longer the Coq file; use saved document and position
             if (!editor && this.currentDocumentUri !== undefined && this.savedCursorPosition !== undefined) {
                 editor = vscode.window.visibleTextEditors.find(
-                    (e) => e.document.uri.toString() === this.currentDocumentUri?.toString()
+                    (e) =>
+                        e.document.uri.toString() === this.currentDocumentUri?.toString() &&
+                        this.isEditorForActiveProver(e, activeProver)
                 );
             }
-            if (!editor || !isCoqDocumentLanguage(editor.document.languageId)) {
+            if (!editor) {
+                editor = vscode.window.visibleTextEditors.find((e) =>
+                    this.isEditorForActiveProver(e, activeProver)
+                );
+            }
+            if (!editor) {
                 this.panel.webview.postMessage({ type: 'noDocument' });
                 return;
             }
 
             this.currentDocumentUri = editor.document.uri;
             // Use current cursor when Coq had focus; use saved position when we fell back to saved document (e.g. user clicked panel)
-            const position = coqIsActive
+            const position = currentMatches
                 ? editor.selection.active
-                : new vscode.Position(this.savedCursorPosition!.line, this.savedCursorPosition!.character);
-            const docUri = Uri.fromVscodeUri(editor.document.uri);
-            const version = editor.document.version;
-            const content = editor.document.getText();
-
-            const client = await this.clientReady;
-
-            await client.withTextDocument(
-                {
-                    uri: docUri,
-                    version,
-                    languageId: editor.document.languageId,
-                    content,
-                    openTimeoutMs: 45000,
-                },
-                async () => {
-                    const result = await client.getGoalsAtPoint(position as any, docUri as any, version);
-
-                    if (result.ok) {
-                        this.savedCursorPosition = { line: position.line, character: position.character };
-                        const goalsWithMessages = result.val;
-                        const goals = goalsWithMessages.goals;
-                        const messages = goalsWithMessages.messages || [];
-                        const error = goalsWithMessages.error;
-
-                        // Convert PpString to strings to preserve newlines
-                        const convertedGoals = goals.map((g: ProofGoal) => ({
-                            ty: convertToString(g.ty),
-                            hyps: g.hyps.map((h: Hyp<PpString>) => ({
-                                names: h.names.map(n => convertToString(n)),
-                                def: h.def ? convertToString(h.def) : undefined,
-                                ty: convertToString(h.ty)
-                            }))
-                        }));
-
-                        // Send goals and messages to webview
-                        this.panel.webview.postMessage({
-                            type: 'proofUpdate',
-                            goals: convertedGoals,
-                            messages: messages,
-                            error: error,
-                        });
-                    } else {
-                        // If request failed, show error
-                        const err = result.val;
-                        this.postError(err?.message ?? JSON.stringify(err));
-                    }
-                }
-            );
+                : this.savedCursorPosition
+                    ? new vscode.Position(this.savedCursorPosition.line, this.savedCursorPosition.character)
+                    : editor.selection.active;
+            this.savedCursorPosition = { line: position.line, character: position.character };
+            const state = await this.getProofState(editor.document, position);
+            this.panel.webview.postMessage({
+                type: 'proofUpdate',
+                goals: state.goals,
+                messages: state.messages ?? [],
+                error: state.error,
+            });
         } catch (e) {
             this.postError(e instanceof Error ? e.message : String(e));
         }
@@ -790,7 +788,10 @@ export class ProofStatePanel {
 <title>Coq Proof State</title>
 </head>
 <body>
-  <h2>Output Directed Theorem Prover</h2>
+  <div style="display: flex; align-items: center; justify-content: space-between;">
+    <h2>Output Directed Theorem Prover</h2>
+    <button id="toggleProverButton" type="button">Toggle Prover</button>
+  </div>
   <div id="webviewStatus" class="webview-status" aria-live="polite"></div>
   <div id="editor"></div>
 

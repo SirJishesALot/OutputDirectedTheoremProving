@@ -1,11 +1,14 @@
 import * as vscode from 'vscode';
-import { CoqLspClient, CoqLspClientImpl } from './lsp/coqLspClient';
-import { ProofGoal } from './lsp/coqLspTypes';
-import { Uri } from './utils/uri';
-import { createCoqLspClient } from './lsp/coqBuilders';
+import { CoqLspClient } from './lsp/coqLspClient';
 import { ProofStatePanel } from './webview/proofStatePanel';
 import * as dotenv from 'dotenv';
 import path from 'path';
+import {
+    getConfiguredProverKind,
+    ProverKind,
+    ProverManager,
+} from './prover/ProverManager';
+import { NormalizedGoal } from './prover/ProverClient';
 const result = dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 if (result.error) {
     console.error("Error loading .env file: ", result.error); 
@@ -19,8 +22,9 @@ import { SuggestionManager } from './suggestionManager';
 import { clearSuggestedEditDecoration } from './tools/proverTools'; 
 // ------------------------------------------
 
-let coqLspClient: CoqLspClient | undefined = undefined;
 let coqLspClientReady: Promise<CoqLspClient> | undefined = undefined;
+let proverManager: ProverManager | undefined = undefined;
+let applyConfiguredProverPromise: Promise<void> | undefined = undefined;
 let extensionContext: vscode.ExtensionContext | undefined;
 const OPENAI_SECRET_KEY = 'outputdirectedtheoremproving.openaiApiKey';
 const GEMINI_PROJECT_ID_KEY = 'outputdirectedtheoremproving.geminiProjectId';
@@ -36,6 +40,10 @@ const coqChatHandler: vscode.ChatRequestHandler = async (
     stream: vscode.ChatResponseStream,
     token: vscode.CancellationToken
 ): Promise<any> => {
+    if (!coqLspClientReady) {
+        stream.markdown('Coq backend is not active. Switch active prover to Coq to use this chat participant.');
+        return {};
+    }
     let model = request.model as any | undefined;
     if (!model && defaultChatAdapter) {
         model = defaultChatAdapter;
@@ -105,24 +113,155 @@ export function activate(context: vscode.ExtensionContext) {
     ); 
     context.subscriptions.push(participant);
 
-    coqLspClientReady = createCoqLspClient(process.env.COQ_LSP_PATH || '/home/vscode/.opam/rocq-9.0/bin/coq-lsp')
-        .then((client) => {
-            coqLspClient = client;
-            return client;
+    const coqLspPath = process.env.COQ_LSP_PATH || '/home/vscode/.opam/rocq-9.0/bin/coq-lsp';
+    proverManager = new ProverManager(coqLspPath);
+    context.subscriptions.push(proverManager);
+
+    const applyConfiguredProver = async () => {
+        if (!proverManager) {
+            return;
+        }
+        const configured = getConfiguredProverKind();
+        try {
+            await proverManager.switchTo(configured);
+            coqLspClientReady = proverManager.getActiveCoqLspClientReady();
+            if (ProofStatePanel.currentPanel) {
+                const panelClientReady =
+                    coqLspClientReady ?? Promise.resolve({} as CoqLspClient);
+                ProofStatePanel.currentPanel.setProviders(
+                    panelClientReady,
+                    () => (proverManager?.getActiveKind() ?? getConfiguredProverKind()),
+                    async (document, position) => {
+                        const activeClient = proverManager?.getActiveClient();
+                        if (!activeClient) {
+                            throw new Error('No active prover client.');
+                        }
+                        const state = await activeClient.getGoalState(document, position);
+                        const goals = state.goals.map((g: NormalizedGoal) => ({
+                            ty: g.type,
+                            hyps: (g.hypotheses ?? []).map((h) => ({
+                                names: h.name ? [h.name] : [],
+                                ty: h.type,
+                                def: h.value,
+                            })),
+                        }));
+                        return {
+                            goals,
+                            messages: state.messages ?? [],
+                            error: state.error,
+                        };
+                    }
+                );
+                ProofStatePanel.currentPanel.setActiveProver(
+                    proverManager.getActiveKind()
+                );
+                void ProofStatePanel.currentPanel.requestProofStateUpdate();
+            }
+        } catch (e) {
+            console.error(`Failed to initialize ${configured} prover`, e);
+            vscode.window.showErrorMessage(
+                `Failed to initialize ${configured} prover: ${e instanceof Error ? e.message : String(e)}`
+            );
+            if (configured !== 'Coq') {
+                await vscode.workspace
+                    .getConfiguration()
+                    .update('myExtension.activeProver', 'Coq', vscode.ConfigurationTarget.Global);
+            }
+        }
+    };
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('outputdirectedtheoremproving.toggleActiveProver', async () => {
+            const current = getConfiguredProverKind();
+            const next: ProverKind = current === 'Coq' ? 'Lean' : 'Coq';
+            await vscode.workspace
+                .getConfiguration()
+                .update('myExtension.activeProver', next, vscode.ConfigurationTarget.Global);
         })
-        .catch((e) => {
-            console.error('Failed to start coq-lsp client', e);
-            throw e;
-        });
+    );
+
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeConfiguration(async (event) => {
+            if (!event.affectsConfiguration('myExtension.activeProver')) {
+                return;
+            }
+            applyConfiguredProverPromise = applyConfiguredProver();
+            await applyConfiguredProverPromise;
+        })
+    );
+
+    applyConfiguredProverPromise = applyConfiguredProver();
 
     const openProofStateDisposable = vscode.commands.registerCommand(
         'outputdirectedtheoremproving.openProofState',
-        () => {
+        async () => {
+            if (applyConfiguredProverPromise) {
+                await applyConfiguredProverPromise;
+            }
             if (!coqLspClientReady) {
+                const activeKind = proverManager?.getActiveKind() ?? getConfiguredProverKind();
+                if (activeKind === 'Lean') {
+                    const activeClient = proverManager?.getActiveClient();
+                    if (!activeClient) {
+                        vscode.window.showErrorMessage('Lean prover is not initialized yet.');
+                        return;
+                    }
+                    const fallbackPromise = Promise.resolve({} as CoqLspClient);
+                    ProofStatePanel.createOrShow(
+                        context,
+                        fallbackPromise,
+                        context.extensionUri,
+                        () => (proverManager?.getActiveKind() ?? getConfiguredProverKind()),
+                        async (document, position) => {
+                            const client = proverManager?.getActiveClient();
+                            if (!client) {
+                                throw new Error('No active prover client.');
+                            }
+                            const state = await client.getGoalState(document, position);
+                            return {
+                                goals: state.goals.map((g: NormalizedGoal) => ({
+                                    ty: g.type,
+                                    hyps: (g.hypotheses ?? []).map((h) => ({
+                                        names: h.name ? [h.name] : [],
+                                        ty: h.type,
+                                        def: h.value,
+                                    })),
+                                })),
+                                messages: state.messages ?? [],
+                                error: state.error,
+                            };
+                        }
+                    );
+                    return;
+                }
                 vscode.window.showErrorMessage('Coq LSP is not ready yet.');
                 return;
             }
-            ProofStatePanel.createOrShow(context, coqLspClientReady, context.extensionUri);
+            ProofStatePanel.createOrShow(
+                context,
+                coqLspClientReady,
+                context.extensionUri,
+                () => (proverManager?.getActiveKind() ?? getConfiguredProverKind()),
+                async (document, position) => {
+                    const client = proverManager?.getActiveClient();
+                    if (!client) {
+                        throw new Error('No active prover client.');
+                    }
+                    const state = await client.getGoalState(document, position);
+                    return {
+                        goals: state.goals.map((g: NormalizedGoal) => ({
+                            ty: g.type,
+                            hyps: (g.hypotheses ?? []).map((h) => ({
+                                names: h.name ? [h.name] : [],
+                                ty: h.type,
+                                def: h.value,
+                            })),
+                        })),
+                        messages: state.messages ?? [],
+                        error: state.error,
+                    };
+                }
+            );
         }
     );
     context.subscriptions.push(openProofStateDisposable);
@@ -402,4 +541,6 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(disposable);
 }
 
-export function deactivate() {}
+export function deactivate() {
+    proverManager?.dispose();
+}

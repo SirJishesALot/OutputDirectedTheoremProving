@@ -23,6 +23,7 @@
     "onCommand:outputdirectedtheoremproving.setOpenAiApiKey",
     "onCommand:outputdirectedtheoremproving.getDefaultChatModel",
     "onCommand:outputdirectedtheoremproving.changeLLMModel",
+    "onCommand:outputdirectedtheoremproving.toggleActiveProver",
     "onCommand:outputdirectedtheoremproving.updateProofState",
     "onLanguage:coq"
   ],
@@ -60,8 +61,26 @@
       {
         "command": "outputdirectedtheoremproving.rejectSuggestion",
         "title": "Reject Proof Suggestion"
+      },
+      {
+        "command": "outputdirectedtheoremproving.toggleActiveProver",
+        "title": "Toggle Active Prover (Coq/Lean)"
       }
     ],
+    "configuration": {
+      "title": "Output Directed Theorem Proving",
+      "properties": {
+        "myExtension.activeProver": {
+          "type": "string",
+          "enum": [
+            "Coq",
+            "Lean"
+          ],
+          "default": "Coq",
+          "description": "Select the active prover backend used by the extension."
+        }
+      }
+    },
     "keybindings": [
       {
         "command": "outputdirectedtheoremproving.updateProofState",

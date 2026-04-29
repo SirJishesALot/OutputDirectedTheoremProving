@@ -31086,9 +31086,15 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     return originalRemoveNodeMark.call(this, pos, mark);
   };
   var vscode = acquireVsCodeApi();
+  var activeProverLabel = "Coq";
   function updateWebviewStatus(text2) {
     const el = document.getElementById("webviewStatus");
     if (el) el.textContent = text2;
+  }
+  function updateProverToggleButton() {
+    const btn = document.getElementById("toggleProverButton");
+    if (!btn) return;
+    btn.textContent = `Prover: ${activeProverLabel} (toggle)`;
   }
   var nodes2 = {
     doc: {
@@ -31517,8 +31523,12 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         const chatEl = document.getElementById("chat");
         if (chatEl) chatEl.style.display = msg.visible !== false ? "" : "none";
         return;
+      case "activeProverChanged":
+        activeProverLabel = msg.prover || "Coq";
+        updateProverToggleButton();
+        return;
       case "noDocument":
-        html = "<p><i>No active Coq document or cursor not inside a proof.</i></p>";
+        html = "<p><i>No active prover document or cursor not at a goal position.</i></p>";
         break;
       case "error":
         html = "<p><i>Error: " + escapeHtml(msg.message) + "</i></p>";
@@ -31775,6 +31785,13 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     chatStopBtn.addEventListener("click", () => {
       vscode.postMessage({ command: "stopGeneration" });
     });
+  }
+  var toggleProverBtn = document.getElementById("toggleProverButton");
+  if (toggleProverBtn) {
+    toggleProverBtn.addEventListener("click", () => {
+      vscode.postMessage({ command: "toggleActiveProver" });
+    });
+    updateProverToggleButton();
   }
   vscode.postMessage({ command: "requestUpdate" });
 })();

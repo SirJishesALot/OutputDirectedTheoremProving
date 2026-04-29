@@ -47,10 +47,17 @@ Transform.prototype.removeNodeMark = function (pos, mark) {
 };
 
 const vscode = acquireVsCodeApi();
+let activeProverLabel = 'Coq';
 
 function updateWebviewStatus(text) {
     const el = document.getElementById('webviewStatus');
     if (el) el.textContent = text;
+}
+
+function updateProverToggleButton() {
+    const btn = document.getElementById('toggleProverButton');
+    if (!btn) return;
+    btn.textContent = `Prover: ${activeProverLabel} (toggle)`;
 }
 const nodes = {
     doc: { 
@@ -540,8 +547,12 @@ window.addEventListener('message', (event) => {
             const chatEl = document.getElementById('chat');
             if (chatEl) chatEl.style.display = msg.visible !== false ? '' : 'none';
             return;
+        case 'activeProverChanged':
+            activeProverLabel = msg.prover || 'Coq';
+            updateProverToggleButton();
+            return;
         case 'noDocument':
-            html = '<p><i>No active Coq document or cursor not inside a proof.</i></p>';
+            html = '<p><i>No active prover document or cursor not at a goal position.</i></p>';
             break;
         case 'error':
             html = '<p><i>Error: ' + escapeHtml(msg.message) + '</i></p>';
@@ -829,6 +840,14 @@ if (chatStopBtn) {
     chatStopBtn.addEventListener('click', () => {
         vscode.postMessage({ command: 'stopGeneration' });
     });
+}
+
+const toggleProverBtn = document.getElementById('toggleProverButton');
+if (toggleProverBtn) {
+    toggleProverBtn.addEventListener('click', () => {
+        vscode.postMessage({ command: 'toggleActiveProver' });
+    });
+    updateProverToggleButton();
 }
 
 vscode.postMessage({ command: 'requestUpdate' });
