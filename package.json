@@ -78,6 +78,11 @@
           ],
           "default": "Coq",
           "description": "Select the active prover backend used by the extension."
+        },
+        "myExtension.autoSwitchProver": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically switch active prover based on focused editor language (Coq or Lean)."
         }
       }
     },

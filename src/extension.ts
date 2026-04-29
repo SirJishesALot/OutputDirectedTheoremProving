@@ -61,6 +61,21 @@ const coqChatHandler: vscode.ChatRequestHandler = async (
     return {};
 };
 
+function detectProverFromEditor(editor: vscode.TextEditor | undefined): ProverKind | undefined {
+    if (!editor) {
+        return undefined;
+    }
+    const langId = editor.document.languageId.toLowerCase();
+    const filePath = editor.document.uri.fsPath.toLowerCase();
+    if (langId === 'coq' || langId === 'rocq' || filePath.endsWith('.v')) {
+        return 'Coq';
+    }
+    if (langId.includes('lean') || filePath.endsWith('.lean')) {
+        return 'Lean';
+    }
+    return undefined;
+}
+
 export function activate(context: vscode.ExtensionContext) {
     console.log('Congratulations, your extension "outputdirectedtheoremproving" is now active!');
     extensionContext = context;
@@ -187,6 +202,28 @@ export function activate(context: vscode.ExtensionContext) {
             }
             applyConfiguredProverPromise = applyConfiguredProver();
             await applyConfiguredProverPromise;
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.window.onDidChangeActiveTextEditor(async (editor) => {
+            const autoSwitchEnabled = vscode.workspace
+                .getConfiguration()
+                .get<boolean>('myExtension.autoSwitchProver', true);
+            if (!autoSwitchEnabled) {
+                return;
+            }
+            const desired = detectProverFromEditor(editor);
+            if (!desired) {
+                return;
+            }
+            const current = getConfiguredProverKind();
+            if (desired === current) {
+                return;
+            }
+            await vscode.workspace
+                .getConfiguration()
+                .update('myExtension.activeProver', desired, vscode.ConfigurationTarget.Global);
         })
     );
 
