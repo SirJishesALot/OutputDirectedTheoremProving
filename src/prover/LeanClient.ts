@@ -114,8 +114,13 @@ export class LeanClient implements ProverClient {
             };
 
             const clientOptions: LanguageClientOptions = {
-                documentSelector: [{ scheme: 'file', language: 'lean4' }],
+                documentSelector: [
+                    { scheme: 'file', language: 'lean4' }, 
+                    { scheme: 'file', pattern: '**/*.lean' }
+                ],
                 outputChannel: this.outputChannel,
+                // traceOutputChannel: this.outputChannel, 
+                // trace: Trace.Verbose,  
                 errorHandler: {
                     error: () => ({ action: ErrorAction.Shutdown }),
                     closed: () => ({ action: CloseAction.DoNotRestart })
@@ -141,12 +146,32 @@ export class LeanClient implements ProverClient {
         if (!this.client || this.client.state !== State.Running) {
             throw new Error("Lean client not running.");
         }
+        if (!this.client.protocol2CodeConverter.asUri(document.uri.toString())) {
+            this.outputChannel.appendLine(`Force-syncing document: ${document.uri.toString()}`);
+        }
         const params = {
-            textDocument: { uri: document.uri.toString() },
-            position: { line: position.line, character: position.character },
+            textDocument: { uri: this.client.code2ProtocolConverter.asUri(document.uri)},
+            position: this.client.code2ProtocolConverter.asPosition(position),
         };
-        const rawResponse = await this.client.sendRequest("$/lean/plainGoal", params);
-        return normalizeLeanGoalState(rawResponse);
+
+        let retries = 3;
+        while (retries > 0) {
+            try {
+                const rawResponse = await this.client.sendRequest("$/lean/plainGoal", params);
+                return normalizeLeanGoalState(rawResponse);
+            } catch (error: any) {
+                // If the server says the file is closed, wait 200ms and try again.
+                // This gives the LSP client time to finish the didOpen handshake.
+                if (error.message?.includes("closed file") && retries > 1) {
+                    this.outputChannel.appendLine(`File not yet synced, retrying... (${retries} left)`);
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    retries--;
+                    continue;
+                }
+                throw error;
+            }
+        }
+        throw new Error("Failed to get goal state after retries.");
     }
 
     async dispose(): Promise<void> {
