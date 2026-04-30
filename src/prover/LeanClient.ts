@@ -1,12 +1,25 @@
 import * as vscode from "vscode";
 import {
+    LanguageClient,
+    LanguageClientOptions,
+    TransportKind,
+    Executable,
+    State,
+    ErrorAction,
+    CloseAction
+} from "vscode-languageclient/node";
+import * as path from "path";
+import * as fs from "fs";
+import * as os from "os";
+import * as cp from "child_process"; // Added for pre-flight check
+import {
     NormalizedGoal,
     NormalizedGoalHypothesis,
     NormalizedGoalState,
     ProverClient,
 } from "./ProverClient";
 
-// --- Helpers ---
+// --- Helpers (Same as before) ---
 function asString(value: unknown): string {
     if (typeof value === "string") return value;
     if (value === null || value === undefined) return "";
@@ -35,105 +48,112 @@ function toGoal(value: any): NormalizedGoal {
 }
 
 function normalizeLeanGoalState(raw: any): NormalizedGoalState {
-    if (typeof raw === "string") {
-        return { goals: raw.trim() ? [{ type: raw, hypotheses: [] }] : [], messages: [] };
-    }
-    if (raw?.rendered && typeof raw.rendered === "string") {
-        return { goals: raw.rendered.trim() ? [{ type: raw.rendered, hypotheses: [] }] : [], messages: [], error: raw?.error ? asString(raw.error) : undefined };
-    }
-    
+    if (typeof raw === "string") return { goals: raw.trim() ? [{ type: raw, hypotheses: [] }] : [], messages: [] };
     const goalsRaw = raw?.goals ?? raw?.result ?? [];
     const messagesRaw = raw?.messages ?? [];
-    const errorRaw = raw?.error;
-
-    const goals: NormalizedGoal[] = Array.isArray(goalsRaw) ? goalsRaw.map((g: any) => toGoal(g)) : [];
-    const messages: string[] = Array.isArray(messagesRaw) ? messagesRaw.map((m: any) => asString(m?.text ?? m)) : [];
-    const error = errorRaw !== undefined ? asString(errorRaw) : undefined;
-
-    return { goals, messages, error };
+    return { 
+        goals: Array.isArray(goalsRaw) ? goalsRaw.map((g: any) => toGoal(g)) : [], 
+        messages: Array.isArray(messagesRaw) ? messagesRaw.map((m: any) => asString(m?.text ?? m)) : [], 
+        error: raw?.error ? asString(raw.error) : undefined 
+    };
 }
-// --- End helpers ---
+
+// --- Environment Management ---
+function getElanBinPath(): string {
+    return path.join(os.homedir(), ".elan", "bin");
+}
+
+function getLeanEnv(): NodeJS.ProcessEnv {
+    const elanBin = getElanBinPath();
+    const env = { ...process.env };
+    env.PATH = `${elanBin}${path.delimiter}${env.PATH || ""}`;
+    env.ELAN_HOME = path.join(os.homedir(), ".elan");
+    // Ensure elan doesn't try to be interactive or noisy
+    env.ELAN_TELEMETRY_OPTOUT = "1"; 
+    return env;
+}
 
 export class LeanClient implements ProverClient {
+    private client: LanguageClient | undefined;
+    private isInitializing: boolean = false;
+    private outputChannel: vscode.OutputChannel;
+
+    constructor() {
+        this.outputChannel = vscode.window.createOutputChannel("AI Lean LSP");
+    }
+
     async initialize(): Promise<void> {
-        const ext = vscode.extensions.getExtension("leanprover.lean4");
-        if (!ext) {
-            vscode.window.showErrorMessage("Lean support requires the official Lean 4 extension.");
-            throw new Error("Lean 4 extension is not installed.");
-        }
-        if (!ext.isActive) {
-            await ext.activate();
+        if (this.client || this.isInitializing) return;
+        this.isInitializing = true;
+
+        try {
+            let cwd: string | undefined = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            const elanBin = getElanBinPath();
+            const leanPath = path.join(elanBin, process.platform === "win32" ? "lean.exe" : "lean");
+            const leanEnv = getLeanEnv();
+
+            this.outputChannel.appendLine(`[Init] Checking Lean at: ${leanPath}`);
+
+            // 1. PRE-FLIGHT CHECK: Can we even run 'lean --version'?
+            // This captures errors that usually crash the LSP silently.
+            try {
+                const version = cp.execSync(`"${leanPath}" --version`, { env: leanEnv, cwd }).toString();
+                this.outputChannel.appendLine(`[Init] Lean version check: ${version.trim()}`);
+            } catch (e: any) {
+                this.outputChannel.appendLine(`[ERROR] Pre-flight check failed. Lean is not runnable: ${e.message}`);
+                this.isInitializing = false;
+                return;
+            }
+
+            // 2. Setup LSP Client
+            const serverOptions: Executable = {
+                command: leanPath,
+                args: ["--server"],
+                // transport: TransportKind.stdio,
+                options: { cwd, env: leanEnv }
+            };
+
+            const clientOptions: LanguageClientOptions = {
+                documentSelector: [{ scheme: 'file', language: 'lean4' }],
+                outputChannel: this.outputChannel,
+                errorHandler: {
+                    error: () => ({ action: ErrorAction.Shutdown }),
+                    closed: () => ({ action: CloseAction.DoNotRestart })
+                }
+            };
+
+            const client = new LanguageClient('aiLeanProver', 'AI Lean Prover', serverOptions, clientOptions);
+
+            this.outputChannel.appendLine("[Init] Starting Language Client...");
+            await client.start();
+            
+            this.client = client;
+            this.outputChannel.appendLine("[Init] Success.");
+        } catch (err) {
+            this.outputChannel.appendLine(`[FATAL] Start failed: ${err}`);
+            this.client = undefined;
+        } finally {
+            this.isInitializing = false;
         }
     }
 
     async getGoalState(document: vscode.TextDocument, position: vscode.Position): Promise<NormalizedGoalState> {
-        const hovers = await vscode.commands.executeCommand<vscode.Hover[]>(
-            "vscode.executeHoverProvider",
-            document.uri,
-            position
-        );
-
-        if (!hovers || hovers.length === 0) {
-            throw new Error("No hover data available. The Lean language server might still be compiling this file, or the cursor is not on an elaborated tactic.");
+        if (!this.client || this.client.state !== State.Running) {
+            throw new Error("Lean client not running.");
         }
-
-        let extractedState = "";
-        let allHoverText = "";
-
-        for (const hover of hovers) {
-            for (const content of hover.contents) {
-                const markdown = typeof content === "string" ? content : content.value;
-                if (!markdown) continue;
-
-                allHoverText += markdown + "\n\n---\n\n";
-                
-                // Lean 4 tactic states contain the turnstile "⊢" OR the word "goal" (e.g., "No goals")
-                if (markdown.includes("⊢") || /\bgoal(?:s)?\b/i.test(markdown)) {
-                    // Build backticks dynamically to prevent markdown parser breaks
-                    const ticks = String.fromCharCode(96, 96, 96);
-                    
-                    // Robust regex handling \r\n, \n, and optional language identifiers (lean/lean4)
-                    const codeBlockRegex = new RegExp(ticks + "[a-zA-Z0-9]*\\r?\\n([\\s\\S]*?)\\r?\\n" + ticks, "g");
-                    
-                    let match;
-                    let foundBlock = false;
-                    
-                    // Iterate through all code blocks in the hover to find the target state
-                    while ((match = codeBlockRegex.exec(markdown)) !== null) {
-                        if (match[1] && (match[1].includes("⊢") || /\bgoal(?:s)?\b/i.test(match[1]))) {
-                            extractedState = match[1].trim();
-                            foundBlock = true;
-                            break;
-                        }
-                    }
-                    
-                    // If no code block matched, fallback to stripping formatting manually
-                    if (!foundBlock) {
-                        const singleTick = new RegExp(String.fromCharCode(96), "g");
-                        extractedState = markdown
-                            .replace(singleTick, "")
-                            .replace(/\*\*Tactic state\*\*/gi, "")
-                            .replace(/\*\*State:\*\*/gi, "")
-                            .trim();
-                    }
-                    break;
-                }
-            }
-            if (extractedState) break;
-        }
-
-        if (!extractedState) {
-            // Throwing a detailed error so we can see exactly what the hover provided if it fails again
-            throw new Error(
-                "Could not parse the goal state from the hover. Try placing your cursor at the *end* of the tactic or on a blank line.\n\n" +
-                `Raw hover data seen:\n${allHoverText.substring(0, 300)}${allHoverText.length > 300 ? "..." : ""}`
-            );
-        }
-
-        return normalizeLeanGoalState(extractedState);
+        const params = {
+            textDocument: { uri: document.uri.toString() },
+            position: { line: position.line, character: position.character },
+        };
+        const rawResponse = await this.client.sendRequest("$/lean/plainGoal", params);
+        return normalizeLeanGoalState(rawResponse);
     }
 
-    dispose(): void {
-        // We have no background servers to clean up since we piggyback on the Hover API.
+    async dispose(): Promise<void> {
+        const client = this.client;
+        this.client = undefined;
+        if (client && client.state === State.Running) {
+            await client.stop();
+        }
     }
 }
