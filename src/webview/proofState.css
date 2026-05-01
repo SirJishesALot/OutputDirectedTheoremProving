@@ -32,7 +32,7 @@ h2 {
 
 .ProseMirror {
     outline: none;
-    font-family: monospace;
+    font-family: "JuliaMono", monospace;
     white-space: pre-wrap;
     padding: 4px;
 }
@@ -79,7 +79,7 @@ span[data-type="modification"][data-mod-type="replace"] {
     margin: 2px 0;
     border-radius: 2px;
     white-space: pre-wrap;
-    font-family: monospace;
+    font-family: "JuliaMono", monospace;
     margin: 0;
     word-wrap: break-word;
     overflow-wrap: break-word;
@@ -94,7 +94,7 @@ span[data-type="modification"][data-mod-type="replace"] {
     margin-top: 6px;
     color: black;
     white-space: pre-wrap;
-    font-family: monospace;
+    font-family: "JuliaMono", monospace;
     margin: 0;
     word-wrap: break-word;
     overflow-wrap: break-word;

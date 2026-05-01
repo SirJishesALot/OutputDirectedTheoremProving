@@ -20,40 +20,147 @@ import {
 } from "./ProverClient";
 
 // --- Helpers (Same as before) ---
+// function asString(value: unknown): string {
+//     if (typeof value === "string") return value;
+//     if (value === null || value === undefined) return "";
+//     if (typeof value === "object") {
+//         try { return JSON.stringify(value); } catch { return String(value); }
+//     }
+//     return String(value);
+// }
+
+// function toHypothesis(value: any): NormalizedGoalHypothesis {
+//     const name = value?.userName ?? value?.name ?? value?.fvarId?.name ?? (Array.isArray(value?.names) ? value.names.join(" ") : undefined);
+//     const type = asString(value?.type ?? value?.goalType ?? value?.prettyType ?? "");
+//     const val = value?.value ?? value?.val ?? value?.expr;
+//     return {
+//         name: name ? String(name) : undefined,
+//         type,
+//         value: val !== undefined ? asString(val) : undefined,
+//     };
+// }
+
+// function toGoal(value: any): NormalizedGoal {
+//     const type = asString(value?.type ?? value?.goalType ?? value?.target ?? value?.goal ?? value?.pretty ?? "");
+//     const hypothesesSource = value?.hyps ?? value?.mvars ?? value?.hypotheses ?? value?.localContext ?? [];
+//     const hypotheses = Array.isArray(hypothesesSource) ? hypothesesSource.map((h: any) => toHypothesis(h)) : [];
+//     return { type, hypotheses };
+// }
+
+// function normalizeLeanGoalState(raw: any): NormalizedGoalState {
+//     if (typeof raw === "string") return { goals: raw.trim() ? [{ type: raw, hypotheses: [] }] : [], messages: [] };
+//     const goalsRaw = raw?.goals ?? raw?.result ?? [];
+//     const messagesRaw = raw?.messages ?? [];
+//     return { 
+//         goals: Array.isArray(goalsRaw) ? goalsRaw.map((g: any) => toGoal(g)) : [], 
+//         messages: Array.isArray(messagesRaw) ? messagesRaw.map((m: any) => asString(m?.text ?? m)) : [], 
+//         error: raw?.error ? asString(raw.error) : undefined 
+//     };
+// }
+
+/**
+ * Recursively flattens Lean 4 TaggedText into a plain string.
+ * This handles {text: ""}, {append: []}, and {tag: [attr, content]} structures.
+ */
 function asString(value: unknown): string {
     if (typeof value === "string") return value;
     if (value === null || value === undefined) return "";
+    
     if (typeof value === "object") {
-        try { return JSON.stringify(value); } catch { return String(value); }
+        const val = value as any;
+        
+        // 1. Lean 4 'text' variant
+        if (typeof val.text === "string") return val.text;
+        
+        // 2. Lean 4 'append' variant (recursive)
+        if (Array.isArray(val.append)) {
+            return val.append.map((item: any) => asString(item)).join("");
+        }
+        
+        // 3. Lean 4 'tag' variant (extracts text from the 'content' field)
+        if (val.content !== undefined) {
+            return asString(val.content);
+        }
+
+        // 4. Handle raw arrays (sometimes the list of TaggedText is sent directly)
+        if (Array.isArray(val)) {
+            return val.map((item: any) => asString(item)).join("");
+        }
+        
+        // Fallback for unexpected structured data
+        try { 
+            const str = JSON.stringify(value);
+            return str === "{}" ? "" : str;
+        } catch { 
+            return String(value); 
+        }
     }
     return String(value);
 }
 
 function toHypothesis(value: any): NormalizedGoalHypothesis {
-    const name = value?.userName ?? value?.name ?? value?.fvarId?.name ?? (Array.isArray(value?.names) ? value.names.join(" ") : undefined);
-    const type = asString(value?.type ?? value?.goalType ?? value?.prettyType ?? "");
-    const val = value?.value ?? value?.val ?? value?.expr;
+    // Lean 4 uses 'names' (Array of strings) and 'type' (TaggedText)
+    const name = Array.isArray(value?.names) 
+        ? value.names.join(", ") 
+        : (value?.userName ?? value?.name);
+    
+    const type = asString(value?.type);
+    const val = value?.val ? asString(value.val) : undefined;
+    
     return {
         name: name ? String(name) : undefined,
-        type,
-        value: val !== undefined ? asString(val) : undefined,
+        type: type,
+        value: val,
     };
 }
 
 function toGoal(value: any): NormalizedGoal {
-    const type = asString(value?.type ?? value?.goalType ?? value?.target ?? value?.goal ?? value?.pretty ?? "");
-    const hypothesesSource = value?.hyps ?? value?.mvars ?? value?.hypotheses ?? value?.localContext ?? [];
-    const hypotheses = Array.isArray(hypothesesSource) ? hypothesesSource.map((h: any) => toHypothesis(h)) : [];
+    // Lean 4 goals usually separate the prefix (⊢) from the goal type
+    const prefix = value?.goalPrefix ? asString(value.goalPrefix) : "⊢ ";
+    const type = prefix + asString(value?.type);
+    
+    const hypothesesSource = value?.hyps ?? [];
+    const hypotheses = Array.isArray(hypothesesSource) 
+        ? hypothesesSource.map((h: any) => toHypothesis(h)) 
+        : [];
+        
     return { type, hypotheses };
 }
 
-function normalizeLeanGoalState(raw: any): NormalizedGoalState {
-    if (typeof raw === "string") return { goals: raw.trim() ? [{ type: raw, hypotheses: [] }] : [], messages: [] };
-    const goalsRaw = raw?.goals ?? raw?.result ?? [];
+export function normalizeLeanGoalState(raw: any): NormalizedGoalState {
     const messagesRaw = raw?.messages ?? [];
+    const messages = Array.isArray(messagesRaw) 
+        ? messagesRaw.map((m: any) => asString(m?.text ?? m)) 
+        : [];
+    
+    // 1. Process structured goals if available
+    const goalsRaw = raw?.goals ?? raw?.result ?? [];
+    let goals: NormalizedGoal[] = [];
+
+    if (Array.isArray(goalsRaw) && goalsRaw.length > 0) {
+        goals = goalsRaw.map((g: any) => toGoal(g));
+    }
+
+    // 2. Validation: If structured goals exist but resulted in empty strings,
+    // something went wrong with the parse. Fall back to the 'rendered' field.
+    const hasContent = goals.some(g => g.type.trim().length > 2); // >2 to ignore just "⊢ "
+    
+    if (!hasContent && raw?.rendered && typeof raw.rendered === "string") {
+        // Strip markdown blocks: ```lean ... ```
+        const cleanGoal = raw.rendered
+            .replace(/^```lean\s*/, "")
+            .replace(/```$/, "")
+            .trim();
+            
+        return {
+            goals: [{ type: cleanGoal, hypotheses: [] }],
+            messages,
+        };
+    }
+
     return { 
-        goals: Array.isArray(goalsRaw) ? goalsRaw.map((g: any) => toGoal(g)) : [], 
-        messages: Array.isArray(messagesRaw) ? messagesRaw.map((m: any) => asString(m?.text ?? m)) : [], 
+        goals, 
+        messages, 
         error: raw?.error ? asString(raw.error) : undefined 
     };
 }
@@ -158,7 +265,10 @@ export class LeanClient implements ProverClient {
         while (retries > 0) {
             try {
                 const rawResponse = await this.client.sendRequest("$/lean/plainGoal", params);
-                return normalizeLeanGoalState(rawResponse);
+                console.log("rawResponse: ", rawResponse);
+                const normalized = normalizeLeanGoalState(rawResponse);
+                console.log("normalized: ", normalized);
+                return normalized;
             } catch (error: any) {
                 // If the server says the file is closed, wait 200ms and try again.
                 // This gives the LSP client time to finish the didOpen handshake.
