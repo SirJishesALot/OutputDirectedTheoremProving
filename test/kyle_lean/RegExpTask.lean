@@ -89,7 +89,8 @@ def reverse_lang (l : Language) : Language :=
 -- Warmup Theorems
 --------------------
 theorem accepts_concat : ∀ r₁ r₂ s₁ s₂, accepts r₁ s₁ → accepts r₂ s₂ → accepts (r₁ <·> r₂) (s₁ ++ s₂) := by
-  sorry
+  intro r₁ r₂ s₁ s₂ h1 h2 
+sorry
 
 theorem accepts_unionLeft : ∀ r₁ r₂ s, accepts r₁ s → accepts (r₁ <|> r₂) s := by
   sorry

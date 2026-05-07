@@ -165,7 +165,8 @@ export function activate(context: vscode.ExtensionContext) {
                             messages: state.messages ?? [],
                             error: state.error,
                         };
-                    }
+                    },
+                    () => proverManager?.getActiveClient()
                 );
                 ProofStatePanel.currentPanel.setActiveProver(
                     proverManager.getActiveKind()
@@ -267,7 +268,8 @@ export function activate(context: vscode.ExtensionContext) {
                                 messages: state.messages ?? [],
                                 error: state.error,
                             };
-                        }
+                        },
+                        () => proverManager?.getActiveClient()
                     );
                     return;
                 }
@@ -297,7 +299,8 @@ export function activate(context: vscode.ExtensionContext) {
                         messages: state.messages ?? [],
                         error: state.error,
                     };
-                }
+                },
+                () => proverManager?.getActiveClient()
             );
         }
     );

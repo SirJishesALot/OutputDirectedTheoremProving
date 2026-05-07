@@ -6,8 +6,10 @@ import { CoqTools } from '../tools/coqTools';
 import { createAutoformaliserTools, EditHistory } from '../tools/autoformaliserTools';
 import { createProverTools, clearSuggestedEditDecoration } from '../tools/proverTools';
 import { runProverAgent } from '../llm/chatBridge';
+import { createLeanAutoformaliserTools, createLeanProverTools } from '../tools/leanAgentTools';
 import { convertToString, ProofGoal, Hyp, PpString, GoalsWithMessages } from '../lsp/coqLspTypes';
 import { isCoqDocumentLanguage } from '../utils/coqUtils'; 
+import { ProverClient } from '../prover/ProverClient';
 
 // --- NEW IMPORT FOR INLINE SUGGESTIONS ---
 import { globalSuggestionManager } from '../extension';
@@ -25,6 +27,7 @@ type GenericProofStateProvider = (
     document: vscode.TextDocument,
     position: vscode.Position
 ) => Promise<GenericProofState>;
+type ActiveClientProvider = () => ProverClient | undefined;
 
 export class ProofStatePanel {
     public static currentPanel: ProofStatePanel | undefined;
@@ -35,6 +38,7 @@ export class ProofStatePanel {
     private clientReady: ClientReadyPromise;
     private getActiveProver: ActiveProverProvider;
     private getProofState: GenericProofStateProvider;
+    private getActiveClient: ActiveClientProvider;
     private currentDocumentUri: vscode.Uri | undefined;
     /** Last cursor position when proof state was updated (Coq file had focus). Used by prover tools when panel has focus. */
     private savedCursorPosition: { line: number; character: number } | undefined;
@@ -50,12 +54,13 @@ export class ProofStatePanel {
         clientReady: ClientReadyPromise,
         extensionUri: vscode.Uri,
         getActiveProver: ActiveProverProvider,
-        getProofState: GenericProofStateProvider
+        getProofState: GenericProofStateProvider,
+        getActiveClient: ActiveClientProvider
     ) {
         const column = vscode.ViewColumn.Beside; 
 
         if (ProofStatePanel.currentPanel) {
-            ProofStatePanel.currentPanel.setProviders(clientReady, getActiveProver, getProofState);
+            ProofStatePanel.currentPanel.setProviders(clientReady, getActiveProver, getProofState, getActiveClient);
             ProofStatePanel.currentPanel.setActiveProver(getActiveProver());
             ProofStatePanel.currentPanel.panel.reveal(column);
             return ProofStatePanel.currentPanel;
@@ -78,7 +83,8 @@ export class ProofStatePanel {
             clientReady,
             extensionUri,
             getActiveProver,
-            getProofState
+            getProofState,
+            getActiveClient
         );
 
         return ProofStatePanel.currentPanel;
@@ -89,13 +95,15 @@ export class ProofStatePanel {
         clientReady: ClientReadyPromise,
         extensionUri: vscode.Uri,
         getActiveProver: ActiveProverProvider,
-        getProofState: GenericProofStateProvider
+        getProofState: GenericProofStateProvider,
+        getActiveClient: ActiveClientProvider
     ) {
         this.panel = panel;
         this.extensionUri = extensionUri;
         this.clientReady = clientReady;
         this.getActiveProver = getActiveProver;
         this.getProofState = getProofState;
+        this.getActiveClient = getActiveClient;
 
         void vscode.commands.executeCommand('outputdirectedtheoremproving.getDefaultChatModel'); 
 
@@ -131,11 +139,13 @@ export class ProofStatePanel {
     public setProviders(
         clientReady: ClientReadyPromise,
         getActiveProver: ActiveProverProvider,
-        getProofState: GenericProofStateProvider
+        getProofState: GenericProofStateProvider,
+        getActiveClient: ActiveClientProvider
     ) {
         this.clientReady = clientReady;
         this.getActiveProver = getActiveProver;
         this.getProofState = getProofState;
+        this.getActiveClient = getActiveClient;
         this.setActiveProver(this.getActiveProver());
     }
 
@@ -336,8 +346,11 @@ export class ProofStatePanel {
                     }
 
                     if (!editor) editor = vscode.window.activeTextEditor;
-                    if (!editor || !isCoqDocumentLanguage(editor.document.languageId)) {
-                        editor = vscode.window.visibleTextEditors.find((e) => isCoqDocumentLanguage(e.document.languageId));
+                    const activeProver = this.getActiveProver();
+                    if (!editor || !this.isEditorForActiveProver(editor, activeProver)) {
+                        editor = vscode.window.visibleTextEditors.find((e) =>
+                            this.isEditorForActiveProver(e, activeProver)
+                        );
                     }
 
                     if (!editor) {
@@ -351,11 +364,9 @@ export class ProofStatePanel {
                     }
 
                     // Create autoformaliser tools with edit history
-                    const tools = createAutoformaliserTools(
-                        this.clientReady,
-                        editor,
-                        this.editHistory
-                    );
+                    const tools = activeProver === 'Lean'
+                        ? createLeanAutoformaliserTools(() => this.getActiveClient(), editor, this.editHistory)
+                        : createAutoformaliserTools(this.clientReady, editor, this.editHistory);
 
                     // Enhance the prompt to encourage tool use for proof-related questions
                     const enhancedPrompt = this.enhancePromptForTools(prompt);
@@ -469,8 +480,9 @@ export class ProofStatePanel {
         }
 
         if (!editor) editor = vscode.window.activeTextEditor;
-        if (!editor || !isCoqDocumentLanguage(editor.document.languageId)) {
-            editor = vscode.window.visibleTextEditors.find((e) => isCoqDocumentLanguage(e.document.languageId));
+        const activeProver = this.getActiveProver();
+        if (!editor || !this.isEditorForActiveProver(editor, activeProver)) {
+            editor = vscode.window.visibleTextEditors.find((e) => this.isEditorForActiveProver(e, activeProver));
         }
 
         if (!editor) {
@@ -502,20 +514,21 @@ export class ProofStatePanel {
         }
 
         // Create prover tools with session state and saved cursor (so tools use proof position when panel has focus)
-        const proverTools = createProverTools(this.clientReady, editor, {
-            sessionOriginalValue: originalValue,
-            sessionDesiredValue: desiredValue,
-            cursorPositionOverride: this.savedCursorPosition,
-            // --- UPDATED: Connect the suggestion event to the global manager ---
-            onSuggestedEditApplied: (ed, range, oldText) => {
-                this.pendingSuggestedEditor = ed;
-                if (globalSuggestionManager) {
-                    globalSuggestionManager.setSuggestion(ed.document.uri, range, oldText);
-                }
-                this.panel.webview.postMessage({ type: 'proofSuggestionApplied' });
-            },
-            // -------------------------------------------------------------------
-        });
+        const onSuggestedEditApplied = (ed: vscode.TextEditor, range: vscode.Range, oldText: string) => {
+            this.pendingSuggestedEditor = ed;
+            if (globalSuggestionManager) {
+                globalSuggestionManager.setSuggestion(ed.document.uri, range, oldText);
+            }
+            this.panel.webview.postMessage({ type: 'proofSuggestionApplied' });
+        };
+        const proverTools = activeProver === 'Lean'
+            ? createLeanProverTools(() => this.getActiveClient(), editor, onSuggestedEditApplied)
+            : createProverTools(this.clientReady, editor, {
+                sessionOriginalValue: originalValue,
+                sessionDesiredValue: desiredValue,
+                cursorPositionOverride: this.savedCursorPosition,
+                onSuggestedEditApplied,
+            });
 
         // Show initial message (show full-state summary when available)
         const summary = fullOriginalState && fullDesiredState
@@ -567,8 +580,9 @@ export class ProofStatePanel {
     private async applyTactic(tactic: string) {
         try {
             const editor = vscode.window.activeTextEditor;
-            if (!editor || !isCoqDocumentLanguage(editor.document.languageId)) {
-                this.postError('Open a Coq document and place cursor inside a proof');
+            const activeProver = this.getActiveProver();
+            if (!editor || !this.isEditorForActiveProver(editor, activeProver)) {
+                this.postError(`Open a ${activeProver} document and place cursor inside a proof`);
                 return;
             }
 
