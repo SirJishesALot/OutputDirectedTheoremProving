@@ -773,61 +773,68 @@ export class CoqLspClientImpl implements CoqLspClient {
         let pendingDiagnostic = true;
         let awaitedDiagnostics: Diagnostic[] | undefined = undefined;
         const expectedUriNormalized = this.normalizeFileUriForCompare(uri.uri);
-
-        // Register handlers BEFORE sending the notification so we do not miss the response
-        this.subscriptions.push(
-            this.client.onNotification(LogTraceNotification.type, (notifParams) => {
-                if (notifParams.message.includes("document fully checked")) {
-                    pendingProgress = false;
-                }
-            })
-        );
-
         const expectedPath = this.fileUriToPath(uri.uri);
-        this.subscriptions.push(
-            this.client.onNotification(
-                PublishDiagnosticsNotification.type,
-                (diagParams: PublishDiagnosticsParams) => {
-                    const receivedUri = diagParams.uri?.toString?.() ?? String(diagParams.uri);
-                    const receivedNormalized = this.normalizeFileUriForCompare(receivedUri);
-                    const receivedPath = this.fileUriToPath(receivedUri);
-                    const uriMatches =
-                        receivedNormalized === expectedUriNormalized ||
-                        receivedPath === expectedPath;
-                    if (uriMatches) {
-                        pendingDiagnostic = false;
-                        awaitedDiagnostics = diagParams.diagnostics;
+
+        // Per-wait handlers only — pushing onto this.subscriptions leaked listeners on every
+        // open/sync and slowed or broke later waits.
+        const waitDisposables: Disposable[] = [];
+        try {
+            waitDisposables.push(
+                this.client.onNotification(LogTraceNotification.type, (notifParams) => {
+                    if (notifParams.message.includes("document fully checked")) {
                         pendingProgress = false;
                     }
-                }
-            )
-        );
-
-        await this.client.sendNotification(requestType, params);
-
-        const timeoutMs = timeout;
-        while (timeout > 0 && (pendingProgress || pendingDiagnostic)) {
-            await this.sleep(100);
-            timeout -= 100;
-        }
-
-        if (
-            timeout <= 0 ||
-            pendingProgress ||
-            pendingDiagnostic ||
-            awaitedDiagnostics === undefined
-        ) {
-            const sec = Math.round(timeoutMs / 1000);
-            throw new CoqLspError(
-                `coq-lsp did not respond in time (waited ${sec}s). The file may be large or the server busy. Try moving the cursor again or reloading the window.`
+                })
             );
-        }
-        const finalDiagnostics: Diagnostic[] = awaitedDiagnostics ?? [];
+            waitDisposables.push(
+                this.client.onNotification(
+                    PublishDiagnosticsNotification.type,
+                    (diagParams: PublishDiagnosticsParams) => {
+                        const receivedUri =
+                            diagParams.uri?.toString?.() ?? String(diagParams.uri);
+                        const receivedNormalized =
+                            this.normalizeFileUriForCompare(receivedUri);
+                        const receivedPath = this.fileUriToPath(receivedUri);
+                        const uriMatches =
+                            receivedNormalized === expectedUriNormalized ||
+                            receivedPath === expectedPath;
+                        if (uriMatches) {
+                            pendingDiagnostic = false;
+                            awaitedDiagnostics = diagParams.diagnostics;
+                            pendingProgress = false;
+                        }
+                    }
+                )
+            );
 
-        return this.filterDiagnostics(
-            finalDiagnostics,
-            lastDocumentEndPosition ?? Position.create(0, 0)
-        );
+            await this.client.sendNotification(requestType, params);
+
+            const timeoutMs = timeout;
+            while (timeout > 0 && (pendingProgress || pendingDiagnostic)) {
+                await this.sleep(100);
+                timeout -= 100;
+            }
+
+            if (
+                timeout <= 0 ||
+                pendingProgress ||
+                pendingDiagnostic ||
+                awaitedDiagnostics === undefined
+            ) {
+                const sec = Math.round(timeoutMs / 1000);
+                throw new CoqLspError(
+                    `coq-lsp did not respond in time (waited ${sec}s). The file may be large or the server busy. Try moving the cursor again or reloading the window.`
+                );
+            }
+            const finalDiagnostics: Diagnostic[] = awaitedDiagnostics ?? [];
+
+            return this.filterDiagnostics(
+                finalDiagnostics,
+                lastDocumentEndPosition ?? Position.create(0, 0)
+            );
+        } finally {
+            waitDisposables.forEach((d) => d.dispose());
+        }
     }
 
     private async openTextDocumentUnsafe(

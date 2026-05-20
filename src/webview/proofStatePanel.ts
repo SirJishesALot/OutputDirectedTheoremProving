@@ -10,6 +10,7 @@ import { createLeanAutoformaliserTools, createLeanProverTools } from '../tools/l
 import { convertToString, ProofGoal, Hyp, PpString, GoalsWithMessages } from '../lsp/coqLspTypes';
 import { isCoqDocumentLanguage } from '../utils/coqUtils'; 
 import { ProverClient } from '../prover/ProverClient';
+import { CoqClient } from '../prover/CoqClient';
 
 // --- NEW IMPORT FOR INLINE SUGGESTIONS ---
 import { globalSuggestionManager } from '../extension';
@@ -48,6 +49,10 @@ export class ProofStatePanel {
     private pendingSuggestedEditor: vscode.TextEditor | undefined;
     /** Cancellation for the current chat/agent run. Cancel when user clicks Stop. */
     private chatCancelSource: vscode.CancellationTokenSource | undefined;
+    /** Bumped on each proof-state refresh; stale async results are dropped. */
+    private proofStateUpdateGeneration = 0;
+    private selectionDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+    private static readonly PROOF_STATE_DEBOUNCE_MS = 200;
 
     public static createOrShow(
         context: vscode.ExtensionContext,
@@ -118,7 +123,7 @@ export class ProofStatePanel {
 
         vscode.window.onDidChangeTextEditorSelection(
             () => {
-                void this.updateProofState();
+                this.scheduleProofStateUpdate();
             },
             null,
             this.disposables
@@ -126,7 +131,7 @@ export class ProofStatePanel {
 
         vscode.window.onDidChangeActiveTextEditor(
             () => {
-                void this.updateProofState();
+                this.scheduleProofStateUpdate();
             },
             null,
             this.disposables
@@ -150,7 +155,41 @@ export class ProofStatePanel {
     }
 
     public setActiveProver(kind: ActiveProverKind) {
+        this.proofStateUpdateGeneration++;
         this.panel.webview.postMessage({ type: 'activeProverChanged', prover: kind });
+    }
+
+    private scheduleProofStateUpdate(): void {
+        if (this.selectionDebounceTimer !== undefined) {
+            clearTimeout(this.selectionDebounceTimer);
+        }
+        this.selectionDebounceTimer = setTimeout(() => {
+            this.selectionDebounceTimer = undefined;
+            void this.updateProofState();
+        }, ProofStatePanel.PROOF_STATE_DEBOUNCE_MS);
+    }
+
+    private isCoqBackendErrorMessage(msg: string): boolean {
+        return (
+            /coq-lsp/i.test(msg) ||
+            /CoqLSP/i.test(msg) ||
+            /Coq client is not initialized/i.test(msg)
+        );
+    }
+
+    private isLeanBackendErrorMessage(msg: string): boolean {
+        return /Lean client not running/i.test(msg);
+    }
+
+    private shouldShowErrorForActiveProver(msg: string): boolean {
+        const prover = this.getActiveProver();
+        if (prover === 'Lean' && this.isCoqBackendErrorMessage(msg)) {
+            return false;
+        }
+        if (prover === 'Coq' && this.isLeanBackendErrorMessage(msg)) {
+            return false;
+        }
+        return true;
     }
 
     private isEditorForActiveProver(editor: vscode.TextEditor, activeProver: ActiveProverKind): boolean {
@@ -172,6 +211,10 @@ export class ProofStatePanel {
     }
 
     public dispose() {
+        if (this.selectionDebounceTimer !== undefined) {
+            clearTimeout(this.selectionDebounceTimer);
+            this.selectionDebounceTimer = undefined;
+        }
         ProofStatePanel.currentPanel = undefined;
         this.closeChatPanel();
         this.panel.dispose();
@@ -354,6 +397,14 @@ export class ProofStatePanel {
                     }
 
                     if (!editor) {
+                        if (activeProver !== 'Coq') {
+                            this.getChatWebview().postMessage({
+                                type: 'chatResponsePart',
+                                text: 'Open a Lean file to use chat with proof context.',
+                            });
+                            this.getChatWebview().postMessage({ type: 'chatResponseDone' });
+                            return;
+                        }
                         // Fall back to simple chat if no editor
                         await streamCoqChat(this.clientReady, model, prompt, (chunk: string) => {
                             this.getChatWebview().postMessage({ type: 'chatResponsePart', text: chunk });
@@ -579,8 +630,24 @@ export class ProofStatePanel {
 
     private async applyTactic(tactic: string) {
         try {
-            const editor = vscode.window.activeTextEditor;
             const activeProver = this.getActiveProver();
+            if (activeProver !== 'Coq') {
+                this.postError('Tactic preview is only available when the active prover is Coq.');
+                return;
+            }
+
+            const coqClient = this.getActiveClient();
+            if (!(coqClient instanceof CoqClient)) {
+                this.postError('Coq LSP is not ready.');
+                return;
+            }
+            const lspReady = coqClient.getLspClientReady();
+            if (!lspReady) {
+                this.postError('Coq LSP is not ready.');
+                return;
+            }
+
+            const editor = vscode.window.activeTextEditor;
             if (!editor || !this.isEditorForActiveProver(editor, activeProver)) {
                 this.postError(`Open a ${activeProver} document and place cursor inside a proof`);
                 return;
@@ -590,7 +657,7 @@ export class ProofStatePanel {
             const version = editor.document.version;
             const position = editor.selection.active;
 
-            const client = await this.clientReady;
+            const client = await lspReady;
             const content = editor.document.getText();
 
             // withTextDocument ensures the document is opened on the server
@@ -641,6 +708,9 @@ export class ProofStatePanel {
     }
 
     private postError(msg: string) {
+        if (!this.shouldShowErrorForActiveProver(msg)) {
+            return;
+        }
         this.panel.webview.postMessage({ type: 'error', message: msg });
     }
 
@@ -680,6 +750,7 @@ export class ProofStatePanel {
 
     /** Like updateProofState but skips the panel.active check. Use before sending a suggestion so the main panel has current goals. */
     private async updateProofStateForSuggestion(): Promise<void> {
+        const generation = ++this.proofStateUpdateGeneration;
         try {
             const activeProver = this.getActiveProver();
             let editor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
@@ -709,6 +780,9 @@ export class ProofStatePanel {
                     : editor.selection.active;
             this.savedCursorPosition = { line: position.line, character: position.character };
             const state = await this.getProofState(editor.document, position);
+            if (generation !== this.proofStateUpdateGeneration) {
+                return;
+            }
             this.panel.webview.postMessage({
                 type: 'proofUpdate',
                 goals: state.goals,
@@ -716,11 +790,15 @@ export class ProofStatePanel {
                 error: state.error,
             });
         } catch (e) {
+            if (generation !== this.proofStateUpdateGeneration) {
+                return;
+            }
             this.postError(e instanceof Error ? e.message : String(e));
         }
     }
 
     private async updateProofState() {
+        const generation = ++this.proofStateUpdateGeneration;
         try {
             if (this.panel.active) { return; }
             const activeProver = this.getActiveProver();
@@ -756,6 +834,9 @@ export class ProofStatePanel {
                     : editor.selection.active;
             this.savedCursorPosition = { line: position.line, character: position.character };
             const state = await this.getProofState(editor.document, position);
+            if (generation !== this.proofStateUpdateGeneration) {
+                return;
+            }
             this.panel.webview.postMessage({
                 type: 'proofUpdate',
                 goals: state.goals,
@@ -763,6 +844,9 @@ export class ProofStatePanel {
                 error: state.error,
             });
         } catch (e) {
+            if (generation !== this.proofStateUpdateGeneration) {
+                return;
+            }
             this.postError(e instanceof Error ? e.message : String(e));
         }
     }

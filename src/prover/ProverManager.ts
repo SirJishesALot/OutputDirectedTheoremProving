@@ -36,8 +36,11 @@ export class ProverManager implements vscode.Disposable {
             return;
         }
 
-        this.activeClient?.dispose();
+        const previousClient = this.activeClient;
         this.activeClient = undefined;
+        if (previousClient) {
+            await Promise.resolve(previousClient.dispose());
+        }
 
         const nextClient: ProverClient =
             kind === "Lean" ? new LeanClient() : new CoqClient(this.coqLspPath);
