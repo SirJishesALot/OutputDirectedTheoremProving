@@ -83,6 +83,11 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically switch active prover based on focused editor language (Coq or Lean)."
+        },
+        "myExtension.defaultGeminiModel": {
+          "type": "string",
+          "default": "gemini-3.1-pro-preview",
+          "description": "Gemini model id used by default when Gemini (Vertex AI) is selected (e.g. gemini-3.1-pro-preview)."
         }
       }
     },

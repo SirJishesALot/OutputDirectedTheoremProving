@@ -110,7 +110,9 @@ export class ProofStatePanel {
         this.getProofState = getProofState;
         this.getActiveClient = getActiveClient;
 
-        void vscode.commands.executeCommand('outputdirectedtheoremproving.getDefaultChatModel'); 
+        void vscode.commands.executeCommand('outputdirectedtheoremproving.getDefaultChatModel', {
+            useCache: true,
+        }); 
 
         this.panel.webview.onDidReceiveMessage(
             (message) => this.handleMessage(message, this.panel.webview),
