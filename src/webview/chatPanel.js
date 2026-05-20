@@ -84,15 +84,20 @@ if (vscode) {
             case 'chatResponseDone':
                 finalizeChatStream();
                 break;
-            case 'suggestion':
-                if (msg.suggestion && msg.suggestion.originalValue && msg.suggestion.suggestedValue) {
-                    const s = msg.suggestion;
-                    appendChatMessage(
-                        `Suggestion: Replace "${s.originalValue}" with "${s.suggestedValue}" in hypothesis "${s.hypothesisName || 'Goal'}"${s.reason ? ` (${s.reason})` : ''}`,
-                        'assistant'
-                    );
+            case 'suggestionNotice':
+            case 'suggestion': {
+                const s = msg.suggestion;
+                if (!s || s.suggestedValue == null || s.suggestedValue === '') {
+                    break;
                 }
+                const isAdd =
+                    s.originalValue == null || String(s.originalValue).trim() === '';
+                const text = isAdd
+                    ? `Suggestion: Add hypothesis "${s.hypothesisName} : ${s.suggestedValue}"${s.reason ? ` (${s.reason})` : ''}`
+                    : `Suggestion: Replace "${s.originalValue}" with "${s.suggestedValue}" in hypothesis "${s.hypothesisName || 'Goal'}"${s.reason ? ` (${s.reason})` : ''}`;
+                appendChatMessage(text, 'assistant');
                 break;
+            }
             case 'proverAgentStarted':
                 setSynthesizingIndicator(true);
                 break;

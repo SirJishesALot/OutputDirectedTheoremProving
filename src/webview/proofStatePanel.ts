@@ -427,13 +427,18 @@ export class ProofStatePanel {
                     // Callback to handle suggestions from the agent
                     const handleSuggestion: SuggestionCallback = (suggestion) => {
                         const msg = { type: 'suggestion' as const, suggestion };
-                        this.getChatWebview().postMessage(msg);
-                        // Refresh main panel proof state then send suggestion so the document matches what the agent saw.
-                        // Small delay so the panel has time to apply the proofUpdate before we send the suggestion.
+                        // Refresh proof state, then apply the suggestion once on the main panel
+                        // (do not also post to getChatWebview() — when chat is inline that is the same webview).
                         void (async () => {
                             await this.updateProofStateForSuggestion();
                             await new Promise((r) => setTimeout(r, 150));
                             this.panel.webview.postMessage(msg);
+                            if (this.chatPanel) {
+                                this.chatPanel.webview.postMessage({
+                                    type: 'suggestionNotice',
+                                    suggestion,
+                                });
+                            }
                         })();
                     };
 
