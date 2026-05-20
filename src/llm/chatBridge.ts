@@ -10,6 +10,29 @@ export interface AgentTool {
     execute: (args: any) => Promise<string>;
 }
 
+export type AgentToolActivityKind = 'call' | 'executing' | 'result' | 'error' | 'status';
+
+export interface AgentToolActivity {
+    kind: AgentToolActivityKind;
+    toolName?: string;
+    detail: string;
+}
+
+function truncateToolDetail(detail: string, maxLen = 4000): string {
+    if (detail.length <= maxLen) {
+        return detail;
+    }
+    return detail.slice(0, maxLen) + '\n… (truncated)';
+}
+
+function formatToolCallDetail(toolName: string, args: unknown): string {
+    try {
+        return `${toolName}(${JSON.stringify(args, null, 2)})`;
+    } catch {
+        return `${toolName}(…)`;
+    }
+}
+
 /**
  * Extracts a tool-call JSON string from model output. Accepts:
  * 1. A ```json ... ``` or ``` ... ``` code block.
@@ -180,6 +203,7 @@ export async function runCoqAgent(
     userRequest: string,
     tools: AgentTool[],
     onUpdate: (text: string) => void,
+    onToolActivity?: (activity: AgentToolActivity) => void,
     onDone?: () => void,
     token?: vscode.CancellationToken,
     onSuggestion?: SuggestionCallback,
@@ -187,6 +211,12 @@ export async function runCoqAgent(
     onHistoryUpdate?: ConversationHistoryCallback,
     editHistory?: { edits: Array<{ lhs: string; rhs: string; timestamp?: number }> }
 ) {
+    const emitTool = (activity: AgentToolActivity) => {
+        onToolActivity?.({
+            ...activity,
+            detail: truncateToolDetail(activity.detail),
+        });
+    };
     if (!clientReady || !model) {
         onUpdate("Error: Client or Model not ready.");
         onDone?.();
@@ -298,7 +328,6 @@ For questions about the theorem name or proof script, you should use get_current
             
             for await (const chunk of responseStream.text) {
                 fullResponseText += chunk;
-                onUpdate(chunk); // Echo to UI
             }
 
             // Append model's response to history
@@ -306,6 +335,20 @@ For questions about the theorem name or proof script, you should use get_current
 
             // --- B. Parse for Tool Calls ---
             const toolCallJson = extractToolCallJson(fullResponseText);
+            if (toolCallJson) {
+                try {
+                    const command = JSON.parse(toolCallJson);
+                    emitTool({
+                        kind: 'call',
+                        toolName: command.tool,
+                        detail: formatToolCallDetail(command.tool, command.args),
+                    });
+                } catch {
+                    emitTool({ kind: 'call', detail: toolCallJson });
+                }
+            } else if (fullResponseText.trim()) {
+                onUpdate(fullResponseText);
+            }
             const anyToolExecuted = messages.some((m: any) => m.role === 'user' && typeof m.content === 'string' && m.content.startsWith('TOOL RESULT ('));
 
             if (!toolCallJson) {
@@ -317,7 +360,10 @@ For questions about the theorem name or proof script, you should use get_current
                         role: 'user',
                         content: 'You did not respond with a tool call or sufficient text. You must call at least one tool. If edit history exists, call get_edit_history first; otherwise call get_current_proof_state to see the proof state. Reply with ONLY a JSON block, e.g. {"tool": "get_edit_history", "args": {}} or {"tool": "get_current_proof_state", "args": {}}.',
                     });
-                    onUpdate('\n\n_The model returned no (or almost no) response. Asking it to call a tool and try again._\n\n');
+                    emitTool({
+                        kind: 'status',
+                        detail: 'The model returned no (or almost no) response. Asking it to call a tool and try again.',
+                    });
                     continue;
                 }
 
@@ -328,7 +374,10 @@ For questions about the theorem name or proof script, you should use get_current
                         role: 'user',
                         content: 'You must call at least one tool. If edit history exists, call get_edit_history first; otherwise call get_current_proof_state to see the proof state. Reply with ONLY a JSON block (e.g. {"tool": "get_edit_history", "args": {}} or {"tool": "get_current_proof_state", "args": {}}).',
                     });
-                    onUpdate('\n\n_No tool was called. Asking the agent to call get_edit_history or get_current_proof_state first._\n\n');
+                    emitTool({
+                        kind: 'status',
+                        detail: 'No tool was called. Asking the agent to call get_edit_history or get_current_proof_state first.',
+                    });
                     continue;
                 }
 
@@ -343,18 +392,24 @@ For questions about the theorem name or proof script, you should use get_current
                         role: 'user',
                         content: 'You must call suggest_proof_state_edit now. Do NOT call get_edit_history, get_proof_context, or get_current_proof_script again. Use originalValue = the exact Goal Type for one goal from the get_current_proof_state output above (e.g. "k >= k0" or "pow2heap\' n k0 u1 /\\ pow2heap\' n k t1"), suggestedValue = the desired goal type, hypothesisName = "Goal", and goalIndex = 1 or 2 if there are 2 goals. Reply with ONLY a JSON block for suggest_proof_state_edit.',
                     });
-                    onUpdate('\n\n**Why no edit was suggested:** The agent returned a response without calling suggest_proof_state_edit (it may have only called get_current_proof_state / get_proof_context and then stopped with no tool call, or returned plain text). Asking it to call suggest_proof_state_edit now.\n\n');
+                    emitTool({
+                        kind: 'status',
+                        detail:
+                            'The agent returned a response without calling suggest_proof_state_edit. Asking it to call suggest_proof_state_edit now.',
+                    });
                     continue; // One more turn
                 }
 
                 // Agent is done (text-only response or gave up).
                 console.log("Agent finished without tool call - responding with text only");
                 if (fullResponseText.trim().length < 20) {
-                    onUpdate('\n\nThe agent returned no (or almost no) response. This can happen if the model hit a token limit, the connection failed, or the model produced no output. Try again or rephrase your question.\n\n');
+                    onUpdate(
+                        'The agent returned no (or almost no) response. This can happen if the model hit a token limit, the connection failed, or the model produced no output. Try again or rephrase your question.'
+                    );
                 } else if (onSuggestion && userAskedForSuggestion && !suggestionMade) {
-                    onUpdate('\n\n_No suggestion was made—the agent did not call suggest_proof_state_edit. Try again or say e.g. "suggest an edit for Goal 1"._\n\n');
-                } else {
-                    onUpdate('\n\n_Agent finished._\n\n');
+                    onUpdate(
+                        'No suggestion was made—the agent did not call suggest_proof_state_edit. Try again or say e.g. "suggest an edit for Goal 1".'
+                    );
                 }
                 break;
             }
@@ -370,8 +425,12 @@ For questions about the theorem name or proof script, you should use get_current
                     throw new Error(`Unknown tool: ${toolName}`);
                 }
 
-                onUpdate(`\n\n_Executing tool: ${toolName}..._\n`);
-                
+                emitTool({
+                    kind: 'executing',
+                    toolName,
+                    detail: `Executing ${toolName}…`,
+                });
+
                 // Execute logic
                 const result = await targetTool.execute(toolArgs);
 
@@ -399,16 +458,23 @@ For questions about the theorem name or proof script, you should use get_current
                     content: `TOOL RESULT (${toolName}): ${result}` 
                 });
 
-                onUpdate(`\n_Result: ${result}_\n\n`);
+                emitTool({
+                    kind: 'result',
+                    toolName,
+                    detail: result,
+                });
 
             } catch (e) {
-                onUpdate(`\n_Tool Execution Error: ${e}_\n`);
+                emitTool({
+                    kind: 'error',
+                    detail: `Tool execution error: ${e}`,
+                });
                 messages.push({ role: 'user', content: `TOOL ERROR: ${e}` });
             }
             // Loop continues -> sends history + tool result back to LLM
         }
     } catch (e) {
-        onUpdate(`\nAgent Error: ${e}`);
+        onUpdate(`Agent error: ${e}`);
     } finally {
         // Update conversation history before finishing
         if (onHistoryUpdate) {
@@ -437,9 +503,17 @@ export async function runProverAgent(
     proofStateChange: ProverProofStateChange,
     tools: AgentTool[],
     onUpdate: (text: string) => void,
+    onToolActivity?: (activity: AgentToolActivity) => void,
     onDone?: () => void,
     token?: vscode.CancellationToken
 ) {
+    const emitTool = (activity: AgentToolActivity) => {
+        onToolActivity?.({
+            ...activity,
+            detail: truncateToolDetail(activity.detail),
+        });
+    };
+
     if (!clientReady || !model) {
         onUpdate("Error: Client or Model not ready.");
         onDone?.();
@@ -517,13 +591,26 @@ Then: if the current state matches the Original state, call validate_proof_state
             
             for await (const chunk of responseStream.text) {
                 fullResponseText += chunk;
-                onUpdate(chunk);
             }
 
             messages.push({ role: 'assistant', content: fullResponseText });
 
             // Parse for Tool Calls
             const toolCallJson = extractToolCallJson(fullResponseText);
+            if (toolCallJson) {
+                try {
+                    const command = JSON.parse(toolCallJson);
+                    emitTool({
+                        kind: 'call',
+                        toolName: command.tool,
+                        detail: formatToolCallDetail(command.tool, command.args),
+                    });
+                } catch {
+                    emitTool({ kind: 'call', detail: toolCallJson });
+                }
+            } else if (fullResponseText.trim()) {
+                onUpdate(fullResponseText);
+            }
 
             if (!toolCallJson) {
                 // No tool call found. If we've never run a tool, nudge once so the agent at least calls get_current_proof_script / get_current_proof_state.
@@ -533,7 +620,10 @@ Then: if the current state matches the Original state, call validate_proof_state
                         role: 'user',
                         content: 'You must call at least one tool. Start with get_current_proof_script and get_current_proof_state to see the current state, then call validate_proof_state_change with originalValue and desiredValue from the system prompt. Reply with ONLY a JSON block (e.g. {"tool": "get_current_proof_script", "args": {}}).',
                     });
-                    onUpdate('\n\n_No tool was called. Asking the prover to call get_current_proof_script and get_current_proof_state first._\n\n');
+                    emitTool({
+                        kind: 'status',
+                        detail: 'No tool was called. Asking the prover to call get_current_proof_script and get_current_proof_state first.',
+                    });
                     continue;
                 }
 
@@ -541,9 +631,10 @@ Then: if the current state matches the Original state, call validate_proof_state
                 const hasExplanation = fullResponseText.trim().length >= 80 &&
                     /\b(state|goal|match|cannot|because|original|desired|mismatch|tactic|insert|cursor)\b/i.test(fullResponseText);
                 if (!hasExplanation) {
-                    onUpdate('\n\n**Why no tactic was proposed:** The desired state from the panel (e.g. replacing a goal with `True`) usually cannot be reached by only *inserting* tactics at the cursor. The prover tries to add tactics at the current position; if the panel’s “Original” state had one goal and the cursor now has two (e.g. after `constructor`), the states don’t match and the tool won’t apply. To proceed, either refresh the panel so Original/Desired match the current state, or use a different approach (e.g. edit the script manually with `destruct (k >? k0) eqn:H` then prove the subgoals).\n\n');
+                    onUpdate(
+                        'The desired state from the panel (e.g. replacing a goal with `True`) usually cannot be reached by only inserting tactics at the cursor. The prover tries to add tactics at the current position; if the panel’s “Original” state had one goal and the cursor now has two (e.g. after `constructor`), the states don’t match and the tool won’t apply. To proceed, either refresh the panel so Original/Desired match the current state, or use a different approach (e.g. edit the script manually with `destruct (k >? k0) eqn:H` then prove the subgoals).'
+                    );
                 }
-                onUpdate('\n_Stopping._ ');
                 break;
             }
 
@@ -558,8 +649,12 @@ Then: if the current state matches the Original state, call validate_proof_state
                     throw new Error(`Unknown tool: ${toolName}`);
                 }
 
-                onUpdate(`\n\n_Executing tool: ${toolName}..._\n`);
-                
+                emitTool({
+                    kind: 'executing',
+                    toolName,
+                    detail: `Executing ${toolName}…`,
+                });
+
                 const result = await targetTool.execute(toolArgs);
                 anyToolExecuted = true;
 
@@ -568,17 +663,23 @@ Then: if the current state matches the Original state, call validate_proof_state
                     content: `TOOL RESULT (${toolName}): ${result}` 
                 });
 
-                onUpdate(`\n_Result: ${result}_\n\n`);
+                emitTool({
+                    kind: 'result',
+                    toolName,
+                    detail: result,
+                });
 
             } catch (e) {
-                onUpdate(`\n_Tool Execution Error: ${e}_\n`);
+                emitTool({
+                    kind: 'error',
+                    detail: `Tool execution error: ${e}`,
+                });
                 messages.push({ role: 'user', content: `TOOL ERROR: ${e}` });
             }
         }
     } catch (e) {
-        onUpdate(`\nProver Agent Error: ${e}`);
+        onUpdate(`Prover agent error: ${e}`);
     } finally {
-        onUpdate('\n\n_Prover agent finished._');
         onDone?.();
     }
 }

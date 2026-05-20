@@ -451,6 +451,9 @@ export class ProofStatePanel {
                         (chunk: string) => {
                             this.getChatWebview().postMessage({ type: 'chatResponsePart', text: chunk });
                         },
+                        (activity) => {
+                            this.getChatWebview().postMessage({ type: 'chatToolActivity', activity });
+                        },
                         () => {
                             this.getChatWebview().postMessage({ type: 'chatResponseDone' });
                         },
@@ -606,6 +609,9 @@ export class ProofStatePanel {
                 proverTools,
                 (chunk: string) => {
                     this.getChatWebview().postMessage({ type: 'chatResponsePart', text: chunk });
+                },
+                (activity) => {
+                    this.getChatWebview().postMessage({ type: 'chatToolActivity', activity });
                 },
                 () => {
                     this.getChatWebview().postMessage({ type: 'chatResponseDone' });

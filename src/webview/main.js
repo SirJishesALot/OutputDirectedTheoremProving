@@ -5,10 +5,15 @@ import { schema as basicSchema, marks as basicMarks } from 'prosemirror-schema-b
 import { history, undo, redo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import { baseKeymap } from 'prosemirror-commands';
-import { marked } from 'marked';
-import katex from 'katex';
-
-import hljs from 'highlight.js/lib/core'; 
+import hljs from 'highlight.js/lib/core';
+import {
+    initChatStreamUi,
+    appendChatMessage,
+    appendChatStreamPart,
+    appendToolActivity,
+    finalizeChatStream,
+    resetChatStream,
+} from './chatStreamUi.js'; 
 import coq from 'highlight.js/lib/languages/coq'; 
 
 hljs.registerLanguage('coq', (hljs) => {
@@ -561,8 +566,10 @@ window.addEventListener('message', (event) => {
             html = renderGoalsToHtml(msg.goals, msg.messages, msg.error); 
             break;
         case 'chatResponsePart':
-            // Append or update the last partial chat message
             appendChatStreamPart(msg.text);
+            return;
+        case 'chatToolActivity':
+            appendToolActivity(msg.activity);
             return;
         case 'chatResponseDone':
             finalizeChatStream();
@@ -711,20 +718,13 @@ function handleSuggestion(suggestion) {
     appendChatMessage(suggestionMsg, 'assistant');
 }
 
-// Chat UI helpers
-const chatLog = document.getElementById('chatLog');
+// Chat UI
 const chatInput = document.getElementById('chatInput');
 const chatSend = document.getElementById('chatSend');
-const chatTypingIndicator = document.getElementById('chatTypingIndicator');
-let currentPartialElem = null;
-let streamBuffer = ""; 
-
-function setTypingIndicator(visible) {
-    if (chatTypingIndicator) {
-        chatTypingIndicator.classList.toggle('visible', !!visible);
-        chatTypingIndicator.setAttribute('aria-hidden', !visible);
-    }
-}
+initChatStreamUi({
+    chatLog: document.getElementById('chatLog'),
+    chatTypingIndicator: document.getElementById('chatTypingIndicator'),
+});
 
 const synthesizingIndicator = document.getElementById('synthesizingIndicator');
 function setSynthesizingIndicator(visible) {
@@ -734,75 +734,6 @@ function setSynthesizingIndicator(visible) {
     }
 }
 
-/**
- * Renders markdown with LaTeX math: $...$ (inline) and $$...$$ (block).
- * Placeholders use {{...}} so they are safe in HTML (no < or >) and Markdown does not alter them.
- */
-function renderMarkdownWithMath(text) {
-    const blockPlaceholders = [];
-    const inlinePlaceholders = [];
-    let s = text
-        .replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
-            const i = blockPlaceholders.length;
-            blockPlaceholders.push(math.trim());
-            return `{{MATHB_${i}}}`;
-        })
-        .replace(/\$([^$\n]+)\$/g, (_, math) => {
-            const i = inlinePlaceholders.length;
-            inlinePlaceholders.push(math.trim());
-            return `{{MATHI_${i}}}`;
-        });
-    let html = marked.parse(s);
-    const katexOpts = { throwOnError: false, output: 'html' };
-    blockPlaceholders.forEach((math, i) => {
-        try {
-            html = html.replace(`{{MATHB_${i}}}`, katex.renderToString(math, { ...katexOpts, displayMode: true }));
-        } catch (_) {
-            html = html.replace(`{{MATHB_${i}}}`, `<span class="katex-error">$$${math}$$</span>`);
-        }
-    });
-    inlinePlaceholders.forEach((math, i) => {
-        try {
-            html = html.replace(`{{MATHI_${i}}}`, katex.renderToString(math, { ...katexOpts, displayMode: false }));
-        } catch (_) {
-            html = html.replace(`{{MATHI_${i}}}`, `<span class="katex-error">$${math}$</span>`);
-        }
-    });
-    return html;
-}
-
-function appendChatMessage(text, cls = 'assistant') {
-    if (!chatLog) return; 
-    const el = document.createElement('div');
-    el.className = 'chatMessage ' + cls;
-    el.innerHTML = renderMarkdownWithMath(text); 
-    chatLog.appendChild(el);
-    chatLog.scrollTop = chatLog.scrollHeight;
-    return el;
-}
-
-function appendChatStreamPart(text) {
-    if (!chatLog) return;
-    if (!currentPartialElem) {
-        setTypingIndicator(true);
-        currentPartialElem = document.createElement('div'); 
-        currentPartialElem.className = 'chatMessage assistant streaming';
-        chatLog.appendChild(currentPartialElem);
-        streamBuffer = ""; 
-    } 
-    streamBuffer += text; 
-    currentPartialElem.innerHTML = renderMarkdownWithMath(streamBuffer); 
-    chatLog.scrollTop = chatLog.scrollHeight;
-}
-
-function finalizeChatStream() {
-    setTypingIndicator(false);
-    if (currentPartialElem) { 
-        currentPartialElem.classList.remove('streaming'); 
-    }
-    currentPartialElem = null; 
-    streamBuffer = ""; 
-}
 
 if (chatSend) {
     chatSend.addEventListener('click', () => {
@@ -813,8 +744,7 @@ if (chatSend) {
         appendChatMessage(prompt, 'user');
         chatInput.value = '';
 
-        currentPartialElem = null;
-        setTypingIndicator(true);
+        resetChatStream();
         vscode.postMessage({ command: 'chat', prompt });
     });
 }

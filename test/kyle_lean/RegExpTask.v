@@ -81,6 +81,7 @@ Proof.
 Theorem accepts_star_empty_thm : forall r, 
   accepts (r*) [].
 Proof.
+  
   Admitted.
 
 Theorem accepts_not_emp : forall r, 

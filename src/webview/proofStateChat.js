@@ -15698,31 +15698,30 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     __domTree
   };
 
-  // src/webview/chatPanel.js
-  var vscode = typeof acquireVsCodeApi !== "undefined" ? acquireVsCodeApi() : null;
-  var chatLog = document.getElementById("chatLog");
-  var chatInput = document.getElementById("chatInput");
-  var chatSend = document.getElementById("chatSend");
-  var chatStop = document.getElementById("chatStop");
-  var chatTypingIndicator = document.getElementById("chatTypingIndicator");
-  var synthesizingIndicator = document.getElementById("synthesizingIndicator");
-  var popBackBtn = document.getElementById("popBackChat");
-  var currentPartialElem = null;
+  // src/webview/chatStreamUi.js
+  var chatLog = null;
+  var chatTypingIndicator = null;
+  var currentTurnElem = null;
+  var mainResponseElem = null;
+  var toolDetailsElem = null;
+  var toolSummaryElem = null;
+  var toolLogElem = null;
   var streamBuffer = "";
+  var toolEntryCount = 0;
+  function initChatStreamUi(options = {}) {
+    chatLog = options.chatLog ?? document.getElementById("chatLog");
+    chatTypingIndicator = options.chatTypingIndicator ?? document.getElementById("chatTypingIndicator");
+  }
   function setTypingIndicator(visible) {
     if (chatTypingIndicator) {
       chatTypingIndicator.classList.toggle("visible", !!visible);
       chatTypingIndicator.setAttribute("aria-hidden", !visible);
     }
   }
-  function setSynthesizingIndicator(visible) {
-    if (synthesizingIndicator) {
-      synthesizingIndicator.classList.toggle("visible", !!visible);
-      synthesizingIndicator.setAttribute("aria-hidden", !visible);
-    }
-  }
   function renderMarkdownWithMath(text2) {
-    if (!text2) return "";
+    if (!text2) {
+      return "";
+    }
     const blockPlaceholders = [];
     const inlinePlaceholders = [];
     const s = String(text2).replace(/\$\$([\s\S]*?)\$\$/g, (_2, math2) => {
@@ -15738,49 +15737,165 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     const katexOpts = { throwOnError: false, output: "html" };
     blockPlaceholders.forEach((math2, i) => {
       try {
-        html = html.replace(`{{MATHB_${i}}}`, katex.renderToString(math2, { ...katexOpts, displayMode: true }));
+        html = html.replace(
+          `{{MATHB_${i}}}`,
+          katex.renderToString(math2, { ...katexOpts, displayMode: true })
+        );
       } catch (_2) {
         html = html.replace(`{{MATHB_${i}}}`, `<span class="katex-error">$$${math2}$$</span>`);
       }
     });
     inlinePlaceholders.forEach((math2, i) => {
       try {
-        html = html.replace(`{{MATHI_${i}}}`, katex.renderToString(math2, { ...katexOpts, displayMode: false }));
+        html = html.replace(
+          `{{MATHI_${i}}}`,
+          katex.renderToString(math2, { ...katexOpts, displayMode: false })
+        );
       } catch (_2) {
         html = html.replace(`{{MATHI_${i}}}`, `<span class="katex-error">$${math2}$</span>`);
       }
     });
     return html;
   }
+  function scrollChatToBottom() {
+    if (chatLog) {
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+  }
+  function updateToolSummary() {
+    if (!toolSummaryElem) {
+      return;
+    }
+    const n = toolEntryCount;
+    toolSummaryElem.textContent = n === 0 ? "Tool activity" : n === 1 ? "1 tool call" : `${n} tool calls`;
+  }
+  function ensureAssistantTurn() {
+    if (!chatLog) {
+      return;
+    }
+    if (!currentTurnElem) {
+      setTypingIndicator(true);
+      currentTurnElem = document.createElement("div");
+      currentTurnElem.className = "chatMessage assistant streaming";
+      mainResponseElem = document.createElement("div");
+      mainResponseElem.className = "chat-response-main";
+      toolDetailsElem = document.createElement("details");
+      toolDetailsElem.className = "chat-tool-activity";
+      toolSummaryElem = document.createElement("summary");
+      toolSummaryElem.className = "chat-tool-activity-summary";
+      toolLogElem = document.createElement("div");
+      toolLogElem.className = "chat-tool-activity-log";
+      toolDetailsElem.appendChild(toolSummaryElem);
+      toolDetailsElem.appendChild(toolLogElem);
+      currentTurnElem.appendChild(mainResponseElem);
+      currentTurnElem.appendChild(toolDetailsElem);
+      chatLog.appendChild(currentTurnElem);
+      streamBuffer = "";
+      toolEntryCount = 0;
+      updateToolSummary();
+    }
+  }
+  function formatToolActivityLabel(activity) {
+    const name = activity.toolName ? activity.toolName : "agent";
+    switch (activity.kind) {
+      case "call":
+        return `Model requested: ${name}`;
+      case "executing":
+        return `Running: ${name}`;
+      case "result":
+        return `Result: ${name}`;
+      case "error":
+        return `Error: ${name}`;
+      default:
+        return activity.toolName ? `Status: ${name}` : "Status";
+    }
+  }
   function appendChatMessage(text2, cls = "assistant") {
-    if (!chatLog) return;
+    if (!chatLog) {
+      return null;
+    }
     const el = document.createElement("div");
     el.className = "chatMessage " + cls;
     el.innerHTML = renderMarkdownWithMath(text2);
     chatLog.appendChild(el);
-    chatLog.scrollTop = chatLog.scrollHeight;
+    scrollChatToBottom();
     return el;
   }
   function appendChatStreamPart(text2) {
-    if (!chatLog) return;
-    if (!currentPartialElem) {
-      setTypingIndicator(true);
-      currentPartialElem = document.createElement("div");
-      currentPartialElem.className = "chatMessage assistant streaming";
-      chatLog.appendChild(currentPartialElem);
-      streamBuffer = "";
+    if (!text2 || !chatLog) {
+      return;
     }
+    ensureAssistantTurn();
     streamBuffer += text2;
-    currentPartialElem.innerHTML = renderMarkdownWithMath(streamBuffer);
-    chatLog.scrollTop = chatLog.scrollHeight;
+    if (mainResponseElem) {
+      mainResponseElem.innerHTML = renderMarkdownWithMath(streamBuffer);
+    }
+    scrollChatToBottom();
+  }
+  function appendToolActivity(activity) {
+    if (!activity?.detail || !chatLog) {
+      return;
+    }
+    ensureAssistantTurn();
+    toolEntryCount += 1;
+    if (toolDetailsElem) {
+      toolDetailsElem.hidden = false;
+    }
+    updateToolSummary();
+    const entry = document.createElement("div");
+    entry.className = "chat-tool-activity-entry chat-tool-activity-" + (activity.kind || "status");
+    const label = document.createElement("div");
+    label.className = "chat-tool-activity-entry-label";
+    label.textContent = formatToolActivityLabel(activity);
+    const body = document.createElement("pre");
+    body.className = "chat-tool-activity-entry-body";
+    body.textContent = activity.detail;
+    entry.appendChild(label);
+    entry.appendChild(body);
+    if (toolLogElem) {
+      toolLogElem.appendChild(entry);
+    }
+    scrollChatToBottom();
   }
   function finalizeChatStream() {
     setTypingIndicator(false);
-    if (currentPartialElem) {
-      currentPartialElem.classList.remove("streaming");
+    if (currentTurnElem) {
+      currentTurnElem.classList.remove("streaming");
+      if (toolDetailsElem && toolEntryCount === 0) {
+        toolDetailsElem.remove();
+      }
+      if (mainResponseElem && !streamBuffer.trim()) {
+        mainResponseElem.remove();
+      }
     }
-    currentPartialElem = null;
+    currentTurnElem = null;
+    mainResponseElem = null;
+    toolDetailsElem = null;
+    toolSummaryElem = null;
+    toolLogElem = null;
     streamBuffer = "";
+    toolEntryCount = 0;
+  }
+  function resetChatStream() {
+    finalizeChatStream();
+  }
+
+  // src/webview/chatPanel.js
+  var vscode = typeof acquireVsCodeApi !== "undefined" ? acquireVsCodeApi() : null;
+  var chatInput = document.getElementById("chatInput");
+  var chatSend = document.getElementById("chatSend");
+  var chatStop = document.getElementById("chatStop");
+  var synthesizingIndicator = document.getElementById("synthesizingIndicator");
+  var popBackBtn = document.getElementById("popBackChat");
+  initChatStreamUi({
+    chatLog: document.getElementById("chatLog"),
+    chatTypingIndicator: document.getElementById("chatTypingIndicator")
+  });
+  function setSynthesizingIndicator(visible) {
+    if (synthesizingIndicator) {
+      synthesizingIndicator.classList.toggle("visible", !!visible);
+      synthesizingIndicator.setAttribute("aria-hidden", !visible);
+    }
   }
   if (chatSend && chatInput && vscode) {
     chatSend.addEventListener("click", () => {
@@ -15788,8 +15903,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       if (!prompt) return;
       appendChatMessage(prompt, "user");
       chatInput.value = "";
-      currentPartialElem = null;
-      setTypingIndicator(true);
+      resetChatStream();
       vscode.postMessage({ command: "chat", prompt });
     });
   }
@@ -15816,14 +15930,19 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       const msg = event.data;
       if (!msg || !msg.type) return;
       switch (msg.type) {
-        case "initialChatLogContent":
-          if (chatLog && msg.content != null) {
-            chatLog.innerHTML = msg.content;
-            chatLog.scrollTop = chatLog.scrollHeight;
+        case "initialChatLogContent": {
+          const chatLog2 = document.getElementById("chatLog");
+          if (chatLog2 && msg.content != null) {
+            chatLog2.innerHTML = msg.content;
+            chatLog2.scrollTop = chatLog2.scrollHeight;
           }
           break;
+        }
         case "chatResponsePart":
           appendChatStreamPart(msg.text);
+          break;
+        case "chatToolActivity":
+          appendToolActivity(msg.activity);
           break;
         case "chatResponseDone":
           finalizeChatStream();

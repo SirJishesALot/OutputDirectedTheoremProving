@@ -14039,6 +14039,10 @@
   var mac4 = typeof navigator != "undefined" ? /Mac|iP(hone|[oa]d)/.test(navigator.platform) : typeof os != "undefined" && os.platform ? os.platform() == "darwin" : false;
   var baseKeymap = mac4 ? macBaseKeymap : pcBaseKeymap;
 
+  // node_modules/highlight.js/es/core.js
+  var import_core = __toESM(require_core(), 1);
+  var core_default = import_core.default;
+
   // node_modules/marked/lib/marked.esm.js
   function L() {
     return { async: false, breaks: false, extensions: null, gfm: true, hooks: null, pedantic: false, renderer: null, silent: false, tokenizer: null, walkTokens: null };
@@ -29737,9 +29741,187 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     __domTree
   };
 
-  // node_modules/highlight.js/es/core.js
-  var import_core = __toESM(require_core(), 1);
-  var core_default = import_core.default;
+  // src/webview/chatStreamUi.js
+  var chatLog = null;
+  var chatTypingIndicator = null;
+  var currentTurnElem = null;
+  var mainResponseElem = null;
+  var toolDetailsElem = null;
+  var toolSummaryElem = null;
+  var toolLogElem = null;
+  var streamBuffer = "";
+  var toolEntryCount = 0;
+  function initChatStreamUi(options = {}) {
+    chatLog = options.chatLog ?? document.getElementById("chatLog");
+    chatTypingIndicator = options.chatTypingIndicator ?? document.getElementById("chatTypingIndicator");
+  }
+  function setTypingIndicator(visible) {
+    if (chatTypingIndicator) {
+      chatTypingIndicator.classList.toggle("visible", !!visible);
+      chatTypingIndicator.setAttribute("aria-hidden", !visible);
+    }
+  }
+  function renderMarkdownWithMath(text2) {
+    if (!text2) {
+      return "";
+    }
+    const blockPlaceholders = [];
+    const inlinePlaceholders = [];
+    const s = String(text2).replace(/\$\$([\s\S]*?)\$\$/g, (_2, math2) => {
+      const i = blockPlaceholders.length;
+      blockPlaceholders.push(math2.trim());
+      return `{{MATHB_${i}}}`;
+    }).replace(/\$([^$\n]+)\$/g, (_2, math2) => {
+      const i = inlinePlaceholders.length;
+      inlinePlaceholders.push(math2.trim());
+      return `{{MATHI_${i}}}`;
+    });
+    let html = d.parse(s);
+    const katexOpts = { throwOnError: false, output: "html" };
+    blockPlaceholders.forEach((math2, i) => {
+      try {
+        html = html.replace(
+          `{{MATHB_${i}}}`,
+          katex.renderToString(math2, { ...katexOpts, displayMode: true })
+        );
+      } catch (_2) {
+        html = html.replace(`{{MATHB_${i}}}`, `<span class="katex-error">$$${math2}$$</span>`);
+      }
+    });
+    inlinePlaceholders.forEach((math2, i) => {
+      try {
+        html = html.replace(
+          `{{MATHI_${i}}}`,
+          katex.renderToString(math2, { ...katexOpts, displayMode: false })
+        );
+      } catch (_2) {
+        html = html.replace(`{{MATHI_${i}}}`, `<span class="katex-error">$${math2}$</span>`);
+      }
+    });
+    return html;
+  }
+  function scrollChatToBottom() {
+    if (chatLog) {
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+  }
+  function updateToolSummary() {
+    if (!toolSummaryElem) {
+      return;
+    }
+    const n = toolEntryCount;
+    toolSummaryElem.textContent = n === 0 ? "Tool activity" : n === 1 ? "1 tool call" : `${n} tool calls`;
+  }
+  function ensureAssistantTurn() {
+    if (!chatLog) {
+      return;
+    }
+    if (!currentTurnElem) {
+      setTypingIndicator(true);
+      currentTurnElem = document.createElement("div");
+      currentTurnElem.className = "chatMessage assistant streaming";
+      mainResponseElem = document.createElement("div");
+      mainResponseElem.className = "chat-response-main";
+      toolDetailsElem = document.createElement("details");
+      toolDetailsElem.className = "chat-tool-activity";
+      toolSummaryElem = document.createElement("summary");
+      toolSummaryElem.className = "chat-tool-activity-summary";
+      toolLogElem = document.createElement("div");
+      toolLogElem.className = "chat-tool-activity-log";
+      toolDetailsElem.appendChild(toolSummaryElem);
+      toolDetailsElem.appendChild(toolLogElem);
+      currentTurnElem.appendChild(mainResponseElem);
+      currentTurnElem.appendChild(toolDetailsElem);
+      chatLog.appendChild(currentTurnElem);
+      streamBuffer = "";
+      toolEntryCount = 0;
+      updateToolSummary();
+    }
+  }
+  function formatToolActivityLabel(activity) {
+    const name = activity.toolName ? activity.toolName : "agent";
+    switch (activity.kind) {
+      case "call":
+        return `Model requested: ${name}`;
+      case "executing":
+        return `Running: ${name}`;
+      case "result":
+        return `Result: ${name}`;
+      case "error":
+        return `Error: ${name}`;
+      default:
+        return activity.toolName ? `Status: ${name}` : "Status";
+    }
+  }
+  function appendChatMessage(text2, cls = "assistant") {
+    if (!chatLog) {
+      return null;
+    }
+    const el = document.createElement("div");
+    el.className = "chatMessage " + cls;
+    el.innerHTML = renderMarkdownWithMath(text2);
+    chatLog.appendChild(el);
+    scrollChatToBottom();
+    return el;
+  }
+  function appendChatStreamPart(text2) {
+    if (!text2 || !chatLog) {
+      return;
+    }
+    ensureAssistantTurn();
+    streamBuffer += text2;
+    if (mainResponseElem) {
+      mainResponseElem.innerHTML = renderMarkdownWithMath(streamBuffer);
+    }
+    scrollChatToBottom();
+  }
+  function appendToolActivity(activity) {
+    if (!activity?.detail || !chatLog) {
+      return;
+    }
+    ensureAssistantTurn();
+    toolEntryCount += 1;
+    if (toolDetailsElem) {
+      toolDetailsElem.hidden = false;
+    }
+    updateToolSummary();
+    const entry = document.createElement("div");
+    entry.className = "chat-tool-activity-entry chat-tool-activity-" + (activity.kind || "status");
+    const label = document.createElement("div");
+    label.className = "chat-tool-activity-entry-label";
+    label.textContent = formatToolActivityLabel(activity);
+    const body = document.createElement("pre");
+    body.className = "chat-tool-activity-entry-body";
+    body.textContent = activity.detail;
+    entry.appendChild(label);
+    entry.appendChild(body);
+    if (toolLogElem) {
+      toolLogElem.appendChild(entry);
+    }
+    scrollChatToBottom();
+  }
+  function finalizeChatStream() {
+    setTypingIndicator(false);
+    if (currentTurnElem) {
+      currentTurnElem.classList.remove("streaming");
+      if (toolDetailsElem && toolEntryCount === 0) {
+        toolDetailsElem.remove();
+      }
+      if (mainResponseElem && !streamBuffer.trim()) {
+        mainResponseElem.remove();
+      }
+    }
+    currentTurnElem = null;
+    mainResponseElem = null;
+    toolDetailsElem = null;
+    toolSummaryElem = null;
+    toolLogElem = null;
+    streamBuffer = "";
+    toolEntryCount = 0;
+  }
+  function resetChatStream() {
+    finalizeChatStream();
+  }
 
   // node_modules/highlight.js/es/languages/coq.js
   function coq(hljs) {
@@ -31539,6 +31721,9 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       case "chatResponsePart":
         appendChatStreamPart(msg.text);
         return;
+      case "chatToolActivity":
+        appendToolActivity(msg.activity);
+        return;
       case "chatResponseDone":
         finalizeChatStream();
         return;
@@ -31675,84 +31860,18 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     const suggestionMsg = `Suggestion: Replace "${suggestion.originalValue}" with "${suggestion.suggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ""}`;
     appendChatMessage(suggestionMsg, "assistant");
   }
-  var chatLog = document.getElementById("chatLog");
   var chatInput = document.getElementById("chatInput");
   var chatSend = document.getElementById("chatSend");
-  var chatTypingIndicator = document.getElementById("chatTypingIndicator");
-  var currentPartialElem = null;
-  var streamBuffer = "";
-  function setTypingIndicator(visible) {
-    if (chatTypingIndicator) {
-      chatTypingIndicator.classList.toggle("visible", !!visible);
-      chatTypingIndicator.setAttribute("aria-hidden", !visible);
-    }
-  }
+  initChatStreamUi({
+    chatLog: document.getElementById("chatLog"),
+    chatTypingIndicator: document.getElementById("chatTypingIndicator")
+  });
   var synthesizingIndicator = document.getElementById("synthesizingIndicator");
   function setSynthesizingIndicator(visible) {
     if (synthesizingIndicator) {
       synthesizingIndicator.classList.toggle("visible", !!visible);
       synthesizingIndicator.setAttribute("aria-hidden", !visible);
     }
-  }
-  function renderMarkdownWithMath(text2) {
-    const blockPlaceholders = [];
-    const inlinePlaceholders = [];
-    let s = text2.replace(/\$\$([\s\S]*?)\$\$/g, (_2, math2) => {
-      const i = blockPlaceholders.length;
-      blockPlaceholders.push(math2.trim());
-      return `{{MATHB_${i}}}`;
-    }).replace(/\$([^$\n]+)\$/g, (_2, math2) => {
-      const i = inlinePlaceholders.length;
-      inlinePlaceholders.push(math2.trim());
-      return `{{MATHI_${i}}}`;
-    });
-    let html = d.parse(s);
-    const katexOpts = { throwOnError: false, output: "html" };
-    blockPlaceholders.forEach((math2, i) => {
-      try {
-        html = html.replace(`{{MATHB_${i}}}`, katex.renderToString(math2, { ...katexOpts, displayMode: true }));
-      } catch (_2) {
-        html = html.replace(`{{MATHB_${i}}}`, `<span class="katex-error">$$${math2}$$</span>`);
-      }
-    });
-    inlinePlaceholders.forEach((math2, i) => {
-      try {
-        html = html.replace(`{{MATHI_${i}}}`, katex.renderToString(math2, { ...katexOpts, displayMode: false }));
-      } catch (_2) {
-        html = html.replace(`{{MATHI_${i}}}`, `<span class="katex-error">$${math2}$</span>`);
-      }
-    });
-    return html;
-  }
-  function appendChatMessage(text2, cls = "assistant") {
-    if (!chatLog) return;
-    const el = document.createElement("div");
-    el.className = "chatMessage " + cls;
-    el.innerHTML = renderMarkdownWithMath(text2);
-    chatLog.appendChild(el);
-    chatLog.scrollTop = chatLog.scrollHeight;
-    return el;
-  }
-  function appendChatStreamPart(text2) {
-    if (!chatLog) return;
-    if (!currentPartialElem) {
-      setTypingIndicator(true);
-      currentPartialElem = document.createElement("div");
-      currentPartialElem.className = "chatMessage assistant streaming";
-      chatLog.appendChild(currentPartialElem);
-      streamBuffer = "";
-    }
-    streamBuffer += text2;
-    currentPartialElem.innerHTML = renderMarkdownWithMath(streamBuffer);
-    chatLog.scrollTop = chatLog.scrollHeight;
-  }
-  function finalizeChatStream() {
-    setTypingIndicator(false);
-    if (currentPartialElem) {
-      currentPartialElem.classList.remove("streaming");
-    }
-    currentPartialElem = null;
-    streamBuffer = "";
   }
   if (chatSend) {
     chatSend.addEventListener("click", () => {
@@ -31761,8 +31880,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       if (!prompt) return;
       appendChatMessage(prompt, "user");
       chatInput.value = "";
-      currentPartialElem = null;
-      setTypingIndicator(true);
+      resetChatStream();
       vscode.postMessage({ command: "chat", prompt });
     });
   }
