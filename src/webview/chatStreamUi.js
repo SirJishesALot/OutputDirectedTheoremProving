@@ -12,7 +12,8 @@ let toolDetailsElem = null;
 let toolSummaryElem = null;
 let toolLogElem = null;
 let streamBuffer = '';
-let toolEntryCount = 0;
+/** Logical tool invocations (kind === 'call'). */
+let toolCallCount = 0;
 
 export function initChatStreamUi(options = {}) {
     chatLog = options.chatLog ?? document.getElementById('chatLog');
@@ -78,7 +79,7 @@ function updateToolSummary() {
     if (!toolSummaryElem) {
         return;
     }
-    const n = toolEntryCount;
+    const n = toolCallCount;
     toolSummaryElem.textContent =
         n === 0 ? 'Tool activity' : n === 1 ? '1 tool call' : `${n} tool calls`;
 }
@@ -109,7 +110,7 @@ function ensureAssistantTurn() {
 
         chatLog.appendChild(currentTurnElem);
         streamBuffer = '';
-        toolEntryCount = 0;
+        toolCallCount = 0;
         updateToolSummary();
     }
 }
@@ -159,12 +160,13 @@ export function appendToolActivity(activity) {
         return;
     }
     ensureAssistantTurn();
-    toolEntryCount += 1;
+    if (activity.kind === 'call') {
+        toolCallCount += 1;
+        updateToolSummary();
+    }
     if (toolDetailsElem) {
         toolDetailsElem.hidden = false;
     }
-    updateToolSummary();
-
     const entry = document.createElement('div');
     entry.className = 'chat-tool-activity-entry chat-tool-activity-' + (activity.kind || 'status');
     const label = document.createElement('div');
@@ -185,7 +187,7 @@ export function finalizeChatStream() {
     setTypingIndicator(false);
     if (currentTurnElem) {
         currentTurnElem.classList.remove('streaming');
-        if (toolDetailsElem && toolEntryCount === 0) {
+        if (toolDetailsElem && toolCallCount === 0 && !toolLogElem?.childElementCount) {
             toolDetailsElem.remove();
         }
         if (mainResponseElem && !streamBuffer.trim()) {
@@ -198,7 +200,7 @@ export function finalizeChatStream() {
     toolSummaryElem = null;
     toolLogElem = null;
     streamBuffer = '';
-    toolEntryCount = 0;
+    toolCallCount = 0;
 }
 
 export function resetChatStream() {

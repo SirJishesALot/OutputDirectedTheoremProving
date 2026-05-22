@@ -78,7 +78,8 @@ Qed.
 Theorem accepts_unionLeft_thm : forall r1 r2 s, 
   accepts r1 s -> accepts (r1 <|> r2) s.
 Proof.
-  intros. 
+  intros.  constructor. 
+
 Admitted. 
 
 Theorem accepts_star_empty_thm : forall r, 

@@ -15707,7 +15707,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   var toolSummaryElem = null;
   var toolLogElem = null;
   var streamBuffer = "";
-  var toolEntryCount = 0;
+  var toolCallCount = 0;
   function initChatStreamUi(options = {}) {
     chatLog = options.chatLog ?? document.getElementById("chatLog");
     chatTypingIndicator = options.chatTypingIndicator ?? document.getElementById("chatTypingIndicator");
@@ -15766,7 +15766,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     if (!toolSummaryElem) {
       return;
     }
-    const n = toolEntryCount;
+    const n = toolCallCount;
     toolSummaryElem.textContent = n === 0 ? "Tool activity" : n === 1 ? "1 tool call" : `${n} tool calls`;
   }
   function ensureAssistantTurn() {
@@ -15791,7 +15791,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       currentTurnElem.appendChild(toolDetailsElem);
       chatLog.appendChild(currentTurnElem);
       streamBuffer = "";
-      toolEntryCount = 0;
+      toolCallCount = 0;
       updateToolSummary();
     }
   }
@@ -15837,11 +15837,13 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       return;
     }
     ensureAssistantTurn();
-    toolEntryCount += 1;
+    if (activity.kind === "call") {
+      toolCallCount += 1;
+      updateToolSummary();
+    }
     if (toolDetailsElem) {
       toolDetailsElem.hidden = false;
     }
-    updateToolSummary();
     const entry = document.createElement("div");
     entry.className = "chat-tool-activity-entry chat-tool-activity-" + (activity.kind || "status");
     const label = document.createElement("div");
@@ -15861,7 +15863,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     setTypingIndicator(false);
     if (currentTurnElem) {
       currentTurnElem.classList.remove("streaming");
-      if (toolDetailsElem && toolEntryCount === 0) {
+      if (toolDetailsElem && toolCallCount === 0 && !toolLogElem?.childElementCount) {
         toolDetailsElem.remove();
       }
       if (mainResponseElem && !streamBuffer.trim()) {
@@ -15874,7 +15876,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     toolSummaryElem = null;
     toolLogElem = null;
     streamBuffer = "";
-    toolEntryCount = 0;
+    toolCallCount = 0;
   }
   function resetChatStream() {
     finalizeChatStream();
