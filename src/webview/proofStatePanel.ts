@@ -73,7 +73,7 @@ export class ProofStatePanel {
 
         const panel = vscode.window.createWebviewPanel(
             'coqProofState',
-            'Coq Proof State',
+            'Output Directed Prover',
             column,
             {
                 enableScripts: true,
