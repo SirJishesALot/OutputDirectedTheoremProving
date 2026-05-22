@@ -70,8 +70,10 @@ Theorem accepts_concat_thm : forall r1 r2 s1 s2,
   accepts r1 s1 -> accepts r2 s2 -> accepts (r1 <·> r2) (s1 ++ s2).
 Proof.
   intros. 
-  
-  Admitted.
+  constructor. 
+  - assumption. 
+  - assumption. 
+Qed. 
 
 Theorem accepts_unionLeft_thm : forall r1 r2 s, 
   accepts r1 s -> accepts (r1 <|> r2) s.
