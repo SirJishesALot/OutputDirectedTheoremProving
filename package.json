@@ -114,7 +114,7 @@
     "chatParticipants": [
       {
         "id": "coq.llmChat",
-        "fullName": "Output Directed Prover AI",
+        "fullName": "Coq Prover AI",
         "name": "coqproverai",
         "when": "resourceExtname == .v",
         "isSticky": true,

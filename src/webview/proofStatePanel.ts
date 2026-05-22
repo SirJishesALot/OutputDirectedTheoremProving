@@ -344,8 +344,6 @@ export class ProofStatePanel {
             if (!isMain) return;
             console.log('proof state update requested');
             await this.updateProofState();
-        } else if (cmd === 'toggleActiveProver') {
-            await vscode.commands.executeCommand('outputdirectedtheoremproving.toggleActiveProver');
         } else if (cmd === 'applyTactic') {
             if (!isMain) return;
             const tactic: string = message.tactic;
@@ -896,12 +894,12 @@ export class ProofStatePanel {
   <link rel="stylesheet" type="text/css" href="${cssUri}">
   <link rel="stylesheet" type="text/css" href="${katexCssUri}">
   
-<title>Coq Proof State</title>
+<title>Output Directed Prover AI</title>
 </head>
 <body>
   <div style="display: flex; align-items: center; justify-content: space-between;">
     <h2>Output Directed Theorem Prover</h2>
-    <button id="toggleProverButton" type="button">Toggle Prover</button>
+    <span id="activeProverLabel" class="active-prover-label" aria-live="polite">Prover: Coq</span>
   </div>
   <div id="webviewStatus" class="webview-status" aria-live="polite"></div>
   <div id="editor"></div>

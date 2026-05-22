@@ -24,6 +24,12 @@ h2 {
     margin-bottom: 4px;
 }
 
+.active-prover-label {
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    flex: 0 0 auto;
+}
+
 /* This is the main ProseMirror editor container */
 #editor {
     flex: 0 0 auto;

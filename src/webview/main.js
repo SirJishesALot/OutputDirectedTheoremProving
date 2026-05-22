@@ -59,10 +59,10 @@ function updateWebviewStatus(text) {
     if (el) el.textContent = text;
 }
 
-function updateProverToggleButton() {
-    const btn = document.getElementById('toggleProverButton');
-    if (!btn) return;
-    btn.textContent = `Prover: ${activeProverLabel} (toggle)`;
+function updateActiveProverLabel() {
+    const label = document.getElementById('activeProverLabel');
+    if (!label) return;
+    label.textContent = `Prover: ${activeProverLabel}`;
 }
 const nodes = {
     doc: { 
@@ -554,7 +554,7 @@ window.addEventListener('message', (event) => {
             return;
         case 'activeProverChanged':
             activeProverLabel = msg.prover || 'Coq';
-            updateProverToggleButton();
+            updateActiveProverLabel();
             return;
         case 'noDocument':
             html = '<p><i>No active prover document or cursor not at a goal position.</i></p>';
@@ -772,12 +772,6 @@ if (chatStopBtn) {
     });
 }
 
-const toggleProverBtn = document.getElementById('toggleProverButton');
-if (toggleProverBtn) {
-    toggleProverBtn.addEventListener('click', () => {
-        vscode.postMessage({ command: 'toggleActiveProver' });
-    });
-    updateProverToggleButton();
-}
+updateActiveProverLabel();
 
 vscode.postMessage({ command: 'requestUpdate' });

@@ -31273,10 +31273,10 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     const el = document.getElementById("webviewStatus");
     if (el) el.textContent = text2;
   }
-  function updateProverToggleButton() {
-    const btn = document.getElementById("toggleProverButton");
-    if (!btn) return;
-    btn.textContent = `Prover: ${activeProverLabel} (toggle)`;
+  function updateActiveProverLabel() {
+    const label = document.getElementById("activeProverLabel");
+    if (!label) return;
+    label.textContent = `Prover: ${activeProverLabel}`;
   }
   var nodes2 = {
     doc: {
@@ -31707,7 +31707,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         return;
       case "activeProverChanged":
         activeProverLabel = msg.prover || "Coq";
-        updateProverToggleButton();
+        updateActiveProverLabel();
         return;
       case "noDocument":
         html = "<p><i>No active prover document or cursor not at a goal position.</i></p>";
@@ -31904,12 +31904,6 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       vscode.postMessage({ command: "stopGeneration" });
     });
   }
-  var toggleProverBtn = document.getElementById("toggleProverButton");
-  if (toggleProverBtn) {
-    toggleProverBtn.addEventListener("click", () => {
-      vscode.postMessage({ command: "toggleActiveProver" });
-    });
-    updateProverToggleButton();
-  }
+  updateActiveProverLabel();
   vscode.postMessage({ command: "requestUpdate" });
 })();
