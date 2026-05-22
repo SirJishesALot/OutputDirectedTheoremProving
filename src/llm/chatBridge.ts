@@ -33,6 +33,17 @@ function formatToolCallDetail(toolName: string, args: unknown): string {
     }
 }
 
+/** Max failed validate_proof_state_change calls before the agent must stop retrying and explain. */
+const MAX_VALIDATE_ATTEMPTS = 4;
+
+function isValidateProofStateFailure(result: string): boolean {
+    return /^\s*error:/i.test(result.trim());
+}
+
+function normalizeProposedAddition(addition: string): string {
+    return addition.trim().replace(/\s+/g, ' ');
+}
+
 /**
  * Extracts a tool-call JSON string from model output. Accepts:
  * 1. A ```json ... ``` or ``` ... ``` code block.
@@ -555,7 +566,7 @@ ${proofStateChange.desiredValue}
 
 If you need to make a multi-step edit (e.g. replace existing text rather than only appending at cursor), use suggest_proof_script_edit with line, character, oldText, newText. That tool also verifies with Coq before applying.
 
-When validate_proof_state_change fails with "state does not match", the tactic may still be correct (e.g. destruct produces multiple subgoals and the desired goal is one of them). Try suggest_proof_script_edit to insert the same tactic at the correct line/character, or try a different proposedAddition. Do not stop after one failure—retry with different tactics or positions (cursor may be in a bullet branch; get_current_proof_script shows the exact script and line numbers).
+When validate_proof_state_change fails with "state does not match", the tactic may still be correct (e.g. destruct produces multiple subgoals and the desired goal is one of them). Try suggest_proof_script_edit to insert the same tactic at the correct line/character, or try a different proposedAddition. Do not stop after one failure—retry with different tactics or positions (cursor may be in a bullet branch; get_current_proof_script shows the exact script and line numbers). You will receive explicit retry nudges after failed validation (up to ${MAX_VALIDATE_ATTEMPTS} attempts); after that you must explain clearly to the user if the desired state appears unreachable.
 
 To use a tool, respond with ONLY a JSON block:
 \`\`\`json
@@ -579,6 +590,9 @@ Then: if the current state matches the Original state, call validate_proof_state
     let turn = 0;
     let anyToolExecuted = false;
     let nudgeSent = false;
+    let validateFailureCount = 0;
+    let validateRetriesExhausted = false;
+    const proposedAdditionsTried: string[] = [];
 
     try {
         while (turn < MAX_TURNS) {
@@ -631,9 +645,19 @@ Then: if the current state matches the Original state, call validate_proof_state
                 const hasExplanation = fullResponseText.trim().length >= 80 &&
                     /\b(state|goal|match|cannot|because|original|desired|mismatch|tactic|insert|cursor)\b/i.test(fullResponseText);
                 if (!hasExplanation) {
-                    onUpdate(
-                        'The desired state from the panel (e.g. replacing a goal with `True`) usually cannot be reached by only inserting tactics at the cursor. The prover tries to add tactics at the current position; if the panel’s “Original” state had one goal and the cursor now has two (e.g. after `constructor`), the states don’t match and the tool won’t apply. To proceed, either refresh the panel so Original/Desired match the current state, or use a different approach (e.g. edit the script manually with `destruct (k >? k0) eqn:H` then prove the subgoals).'
-                    );
+                    if (validateFailureCount >= MAX_VALIDATE_ATTEMPTS) {
+                        onUpdate(
+                            `After ${validateFailureCount} attempts, no tactic inserted at the cursor produced the desired proof state. The panel change may be unreachable from the current position (wrong cursor, stale Original/Desired, or needs a multi-step edit). Refresh the proof state panel, adjust the suggestion, or edit the script manually.`
+                        );
+                    } else if (validateFailureCount > 0) {
+                        onUpdate(
+                            'Validation failed and the prover stopped before trying other tactics. The desired state may still be reachable with a different `proposedAddition` (e.g. plain `constructor.` rather than `constructor 1.`). Click Implement Changes again or edit the script manually.'
+                        );
+                    } else {
+                        onUpdate(
+                            'The desired state from the panel (e.g. replacing a goal with `True`) usually cannot be reached by only inserting tactics at the cursor. The prover tries to add tactics at the current position; if the panel’s “Original” state had one goal and the cursor now has two (e.g. after `constructor`), the states don’t match and the tool won’t apply. To proceed, either refresh the panel so Original/Desired match the current state, or use a different approach (e.g. edit the script manually with `destruct (k >? k0) eqn:H` then prove the subgoals).'
+                        );
+                    }
                 }
                 break;
             }
@@ -668,6 +692,58 @@ Then: if the current state matches the Original state, call validate_proof_state
                     toolName,
                     detail: result,
                 });
+
+                if (toolName === 'validate_proof_state_change') {
+                    const addition = normalizeProposedAddition(
+                        String(toolArgs?.proposedAddition ?? '')
+                    );
+                    if (addition) {
+                        proposedAdditionsTried.push(addition);
+                    }
+
+                    if (isValidateProofStateFailure(result)) {
+                        validateFailureCount++;
+
+                        if (validateFailureCount < MAX_VALIDATE_ATTEMPTS) {
+                            const triedList = [...new Set(proposedAdditionsTried)];
+                            const duplicateHint =
+                                triedList.length >= 2 &&
+                                triedList[triedList.length - 1] === triedList[triedList.length - 2]
+                                    ? ' Do not repeat the same proposedAddition.'
+                                    : '';
+                            messages.push({
+                                role: 'user',
+                                content:
+                                    `validate_proof_state_change failed (attempt ${validateFailureCount} of ${MAX_VALIDATE_ATTEMPTS}). ` +
+                                    `Read the TOOL RESULT above (especially "Current state after your proposed addition"). ` +
+                                    `Call validate_proof_state_change again with a different proposedAddition ` +
+                                    `(originalValue and desiredValue unchanged from the system prompt). ` +
+                                    `Try plain tactics first (e.g. constructor., apply <lemma>., exact H.) rather than numbered forms like constructor 1. ` +
+                                    `If insertion at the cursor cannot work, try suggest_proof_script_edit instead.${duplicateHint} ` +
+                                    `Reply with ONLY a JSON tool call.`,
+                            });
+                            emitTool({
+                                kind: 'status',
+                                detail: `Validation failed (${validateFailureCount}/${MAX_VALIDATE_ATTEMPTS}). Asking the prover to try another proposedAddition.`,
+                            });
+                        } else if (!validateRetriesExhausted) {
+                            validateRetriesExhausted = true;
+                            messages.push({
+                                role: 'user',
+                                content:
+                                    `validate_proof_state_change has failed ${validateFailureCount} times. ` +
+                                    `Do not call validate_proof_state_change again unless you have a substantially new approach. ` +
+                                    `Reply to the user in plain text (at least a few sentences): either explain why the desired panel state ` +
+                                    `cannot be reached by inserting tactics at the cursor (stale Original/Desired, wrong goal, needs manual script edit), ` +
+                                    `or suggest concrete manual steps. You may call suggest_proof_script_edit once if you have a specific line-level edit.`,
+                            });
+                            emitTool({
+                                kind: 'status',
+                                detail: `Validation failed ${validateFailureCount} times. Asking the prover to conclude or explain.`,
+                            });
+                        }
+                    }
+                }
 
             } catch (e) {
                 emitTool({

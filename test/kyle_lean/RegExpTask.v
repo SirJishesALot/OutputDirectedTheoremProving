@@ -72,13 +72,14 @@ Proof.
   intros. 
   constructor. 
   - assumption. 
-  - assumption. 
+  - assumption.  
 Qed. 
 
 Theorem accepts_unionLeft_thm : forall r1 r2 s, 
   accepts r1 s -> accepts (r1 <|> r2) s.
 Proof.
-  Admitted.
+  intros. 
+Admitted. 
 
 Theorem accepts_star_empty_thm : forall r, 
   accepts (r*) [].
