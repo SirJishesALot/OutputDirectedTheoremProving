@@ -9,6 +9,11 @@ import { runProverAgent } from '../llm/chatBridge';
 import { createLeanAutoformaliserTools, createLeanProverTools } from '../tools/leanAgentTools';
 import { convertToString, ProofGoal, Hyp, PpString, GoalsWithMessages } from '../lsp/coqLspTypes';
 import { isCoqDocumentLanguage } from '../utils/coqUtils'; 
+import {
+    formatPos,
+    formatUri,
+    proofStateLog,
+} from '../logging/proofStateLogger';
 import { ProverClient } from '../prover/ProverClient';
 import { CoqClient } from '../prover/CoqClient';
 
@@ -169,6 +174,9 @@ export class ProofStatePanel {
             this.selectionDebounceTimer = undefined;
             void this.updateProofState();
         }, ProofStatePanel.PROOF_STATE_DEBOUNCE_MS);
+        proofStateLog(
+            `cursor change debounced (${ProofStatePanel.PROOF_STATE_DEBOUNCE_MS}ms)`
+        );
     }
 
     private isCoqBackendErrorMessage(msg: string): boolean {
@@ -810,8 +818,12 @@ export class ProofStatePanel {
 
     private async updateProofState() {
         const generation = ++this.proofStateUpdateGeneration;
+        const start = Date.now();
         try {
-            if (this.panel.active) { return; }
+            if (this.panel.active) {
+                proofStateLog(`update #${generation} skipped (webview panel focused)`);
+                return;
+            }
             const activeProver = this.getActiveProver();
             let editor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
             const currentMatches = editor !== undefined && this.isEditorForActiveProver(editor, activeProver);
@@ -832,6 +844,7 @@ export class ProofStatePanel {
                 );
             }
             if (!editor) {
+                proofStateLog(`update #${generation} no prover document open`);
                 this.panel.webview.postMessage({ type: 'noDocument' });
                 return;
             }
@@ -844,10 +857,21 @@ export class ProofStatePanel {
                     ? new vscode.Position(this.savedCursorPosition.line, this.savedCursorPosition.character)
                     : editor.selection.active;
             this.savedCursorPosition = { line: position.line, character: position.character };
+
+            proofStateLog(
+                `update #${generation} start ${formatUri(editor.document.uri.toString())} ${formatPos(position.line, position.character)} prover=${activeProver}`
+            );
+
             const state = await this.getProofState(editor.document, position);
             if (generation !== this.proofStateUpdateGeneration) {
+                proofStateLog(
+                    `update #${generation} stale (superseded by #${this.proofStateUpdateGeneration}, ${Date.now() - start}ms)`
+                );
                 return;
             }
+            proofStateLog(
+                `update #${generation} done ${state.goals.length} goal(s) (${Date.now() - start}ms)`
+            );
             this.panel.webview.postMessage({
                 type: 'proofUpdate',
                 goals: state.goals,
@@ -856,9 +880,14 @@ export class ProofStatePanel {
             });
         } catch (e) {
             if (generation !== this.proofStateUpdateGeneration) {
+                proofStateLog(
+                    `update #${generation} stale error (${Date.now() - start}ms)`
+                );
                 return;
             }
-            this.postError(e instanceof Error ? e.message : String(e));
+            const message = e instanceof Error ? e.message : String(e);
+            proofStateLog(`update #${generation} failed: ${message} (${Date.now() - start}ms)`);
+            this.postError(message);
         }
     }
 

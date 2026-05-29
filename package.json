@@ -25,7 +25,9 @@
     "onCommand:outputdirectedtheoremproving.changeLLMModel",
     "onCommand:outputdirectedtheoremproving.toggleActiveProver",
     "onCommand:outputdirectedtheoremproving.updateProofState",
-    "onLanguage:coq"
+    "onCommand:outputdirectedtheoremproving.showProofStateLog",
+    "onLanguage:coq",
+    "onLanguage:rocq"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -53,6 +55,10 @@
       {
         "command": "outputdirectedtheoremproving.updateProofState",
         "title": "Update Proof State at Cursor"
+      },
+      {
+        "command": "outputdirectedtheoremproving.showProofStateLog",
+        "title": "Show Proof State Log"
       },
       {
         "command": "outputdirectedtheoremproving.acceptSuggestion",
@@ -88,6 +94,12 @@
           "type": "string",
           "default": "gemini-3.1-pro-preview",
           "description": "Gemini model id used by default when Gemini (Vertex AI) is selected (e.g. gemini-3.1-pro-preview)."
+        },
+        "myExtension.coqGoalsTimeoutMs": {
+          "type": "number",
+          "default": 15000,
+          "minimum": 1000,
+          "description": "Max milliseconds to wait for a coq-lsp proof/goals response before showing a timeout error in the proof state panel."
         }
       }
     },

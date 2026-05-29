@@ -19,7 +19,8 @@ if (result.error) {
 // Note: Adjust these import paths based on where you saved suggestionManager.ts 
 // and the file containing your Prover Tools / clearSuggestedEditDecoration function.
 import { SuggestionManager } from './suggestionManager';
-import { clearSuggestedEditDecoration } from './tools/proverTools'; 
+import { clearSuggestedEditDecoration } from './tools/proverTools';
+import { initProofStateLogger, showProofStateLog } from './logging/proofStateLogger';
 // ------------------------------------------
 
 let coqLspClientReady: Promise<CoqLspClient> | undefined = undefined;
@@ -176,6 +177,7 @@ function detectProverFromEditor(editor: vscode.TextEditor | undefined): ProverKi
 export function activate(context: vscode.ExtensionContext) {
     console.log('Congratulations, your extension "outputdirectedtheoremproving" is now active!');
     extensionContext = context;
+    initProofStateLogger(context);
 
     // --- SETUP INLINE SUGGESTIONS (Cursor Style) ---
 	globalSuggestionManager = new SuggestionManager();
@@ -419,6 +421,15 @@ export function activate(context: vscode.ExtensionContext) {
         }
     );
     context.subscriptions.push(updateProofStateDisposable);
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'outputdirectedtheoremproving.showProofStateLog',
+            () => {
+                showProofStateLog();
+            }
+        )
+    );
 
     const setOpenAiKeyCmd = vscode.commands.registerCommand('outputdirectedtheoremproving.setOpenAiApiKey', async () => {
         const key = await vscode.window.showInputBox({

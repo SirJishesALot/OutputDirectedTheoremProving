@@ -27,6 +27,12 @@ import {
 import { throwOnAbort } from "../core/abortUtils";
 
 import { EventLogger } from "../logging/eventLogger";
+import {
+    DEFAULT_GOALS_TIMEOUT_MS,
+    formatPos,
+    formatUri,
+    proofStateLog,
+} from "../logging/proofStateLogger";
 import { getErrorMessage } from "../utils/errorsUtils";
 import { Uri } from "../utils/uri";
 
@@ -35,6 +41,7 @@ import { CoqLspConnector } from "./coqLspConnector";
 import {
     CoqLspError,
     CoqLspStartupError,
+    CoqLspTimeoutError,
     FlecheDocument,
     FlecheDocumentParams,
     GoalAnswer,
@@ -72,7 +79,8 @@ export interface CoqLspClient extends Disposable {
         position: Position,
         documentUri: Uri,
         version: number,
-        command?: string
+        command?: string,
+        goalsTimeoutMs?: number
     ): Promise<Result<GoalsWithMessages, Error>>;
 
     /**
@@ -203,26 +211,91 @@ export class CoqLspClientImpl implements CoqLspClient {
         position: Position,
         documentUri: Uri,
         version: number,
-        command?: string
+        command?: string,
+        goalsTimeoutMs: number = DEFAULT_GOALS_TIMEOUT_MS
     ): Promise<Result<GoalsWithMessages, Error>> {
-        if (this.withTextDocumentDepth > 0) {
+        const run = async (): Promise<Result<GoalsWithMessages, Error>> => {
             throwOnAbort(this.abortSignal);
-            return await this.getGoalsAtPointUnsafe(
-                position,
-                documentUri,
-                version,
-                command
+            try {
+                return await this.withGoalsTimeout(
+                    goalsTimeoutMs,
+                    this.goalsRequestLabel(position, documentUri, command),
+                    () =>
+                        this.getGoalsAtPointUnsafe(
+                            position,
+                            documentUri,
+                            version,
+                            command
+                        )
+                );
+            } catch (e) {
+                if (e instanceof CoqLspTimeoutError) {
+                    return Err(e);
+                }
+                throw e;
+            }
+        };
+        if (this.withTextDocumentDepth > 0) {
+            return await run();
+        }
+        if (this.mutex.isLocked()) {
+            proofStateLog(
+                `proof/goals waiting for LSP mutex (${this.goalsRequestLabel(position, documentUri, command)})`
             );
         }
-        return await this.mutex.runExclusive(async () => {
-            throwOnAbort(this.abortSignal);
-            return this.getGoalsAtPointUnsafe(
-                position,
-                documentUri,
-                version,
-                command
-            );
-        });
+        return await this.mutex.runExclusive(run);
+    }
+
+    private goalsRequestLabel(
+        position: Position,
+        documentUri: Uri,
+        command?: string
+    ): string {
+        const pos = formatPos(position.line, position.character);
+        const file = formatUri(documentUri.uri);
+        return command
+            ? `${file} ${pos} command=${JSON.stringify(command)}`
+            : `${file} ${pos}`;
+    }
+
+    private async withGoalsTimeout<T>(
+        goalsTimeoutMs: number,
+        label: string,
+        operation: () => Promise<T>
+    ): Promise<T> {
+        const start = Date.now();
+        proofStateLog(`proof/goals start ${label}`);
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        try {
+            const result = await Promise.race([
+                operation(),
+                new Promise<never>((_, reject) => {
+                    timeoutId = setTimeout(() => {
+                        reject(
+                            new CoqLspTimeoutError(
+                                `proof/goals timed out after ${goalsTimeoutMs}ms at ${label}`
+                            )
+                        );
+                    }, goalsTimeoutMs);
+                }),
+            ]);
+            proofStateLog(`proof/goals done ${label} (${Date.now() - start}ms)`);
+            return result;
+        } catch (e) {
+            const elapsed = Date.now() - start;
+            if (e instanceof CoqLspTimeoutError) {
+                proofStateLog(`proof/goals TIMEOUT ${label} (${elapsed}ms)`);
+            } else {
+                proofStateLog(
+                    `proof/goals error ${label} (${elapsed}ms): ${getErrorMessage(e)}`
+                );
+            }
+            throw e;
+        } finally {
+            if (timeoutId !== undefined) {
+                clearTimeout(timeoutId);
+            }
+        }
     }
 
     async getFirstGoalAtPointOrThrow(
@@ -354,6 +427,11 @@ export class CoqLspClientImpl implements CoqLspClient {
         documentSpec: DocumentSpec,
         block: (openedDocDiagnostic: DiagnosticMessage) => Promise<T>
     ): Promise<T> {
+        if (this.mutex.isLocked()) {
+            proofStateLog(
+                `withTextDocument waiting for LSP mutex (${formatUri(documentSpec.uri.uri)} v${documentSpec.version ?? 1})`
+            );
+        }
         return await this.mutex.runExclusive(async () => {
             throwOnAbort(this.abortSignal);
             const fullText =
@@ -364,10 +442,13 @@ export class CoqLspClientImpl implements CoqLspClient {
             const version = documentSpec.version ?? 1;
             const openTimeoutMs = documentSpec.openTimeoutMs ?? 300000;
             const lang = documentSpec.languageId;
+            const fileLabel = `${formatUri(uriKey)} v${version}`;
 
             let diagnostic: DiagnosticMessage;
+            let sessionAction: string;
 
             if (this.heldSession === undefined || this.heldSession.uriKey !== uriKey) {
+                sessionAction = "open (new uri)";
                 if (this.heldSession !== undefined) {
                     await this.closeTextDocumentUnsafe(this.heldSession.uri);
                     this.heldSession = undefined;
@@ -391,6 +472,7 @@ export class CoqLspClientImpl implements CoqLspClient {
                 this.heldSession.content !== fullText
             ) {
                 if (version > this.heldSession.version) {
+                    sessionAction = "sync (didChange)";
                     diagnostic = await this.syncFullDocumentUnsafe(
                         documentSpec.uri,
                         version,
@@ -398,6 +480,7 @@ export class CoqLspClientImpl implements CoqLspClient {
                         openTimeoutMs
                     );
                 } else {
+                    sessionAction = "reopen (version rollback)";
                     await this.closeTextDocumentUnsafe(this.heldSession.uri);
                     this.heldSession = undefined;
                     diagnostic = await this.openTextDocumentUnsafe(
@@ -416,12 +499,19 @@ export class CoqLspClientImpl implements CoqLspClient {
                     lastDiagnostic: diagnostic,
                 };
             } else {
+                sessionAction = "reuse session";
                 diagnostic = this.heldSession.lastDiagnostic;
             }
 
+            const sessionStart = Date.now();
+            proofStateLog(`withTextDocument ${sessionAction} ${fileLabel}`);
             this.withTextDocumentDepth++;
             try {
-                return await block(diagnostic);
+                const result = await block(diagnostic);
+                proofStateLog(
+                    `withTextDocument done ${sessionAction} ${fileLabel} (${Date.now() - sessionStart}ms)`
+                );
+                return result;
             } finally {
                 this.withTextDocumentDepth--;
             }

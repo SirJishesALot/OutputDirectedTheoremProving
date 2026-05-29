@@ -2,6 +2,12 @@ import * as vscode from "vscode";
 import { createCoqLspClient } from "../lsp/coqBuilders";
 import { CoqLspClient } from "../lsp/coqLspClient";
 import { convertToString, Hyp, PpString, ProofGoal } from "../lsp/coqLspTypes";
+import {
+    formatPos,
+    formatUri,
+    getConfiguredGoalsTimeoutMs,
+    proofStateLog,
+} from "../logging/proofStateLogger";
 import { Uri } from "../utils/uri";
 import {
     NormalizedGoal,
@@ -67,34 +73,48 @@ export class CoqClient implements ProverClient {
         const docUri = Uri.fromVscodeUri(document.uri);
         const version = document.version;
         const content = document.getText();
+        const goalsTimeoutMs = getConfiguredGoalsTimeoutMs();
+        const posLabel = formatPos(position.line, position.character);
+        const fileLabel = formatUri(document.uri.toString());
 
-        return client.withTextDocument(
-            {
-                uri: docUri,
-                version,
-                languageId: document.languageId,
-                content,
-                openTimeoutMs: 45000,
-            },
-            async () => {
-                const result = await client.getGoalsAtPoint(
-                    position as any,
-                    docUri as any,
-                    version
-                );
+        proofStateLog(`getGoalState start ${fileLabel} ${posLabel} v${version}`);
+        const start = Date.now();
 
-                if (!result.ok) {
-                    const err = result.val;
-                    throw err instanceof Error ? err : new Error(String(err));
+        try {
+            return await client.withTextDocument(
+                {
+                    uri: docUri,
+                    version,
+                    languageId: document.languageId,
+                    content,
+                    openTimeoutMs: 45000,
+                },
+                async () => {
+                    const result = await client.getGoalsAtPoint(
+                        position as any,
+                        docUri as any,
+                        version,
+                        undefined,
+                        goalsTimeoutMs
+                    );
+
+                    if (!result.ok) {
+                        const err = result.val;
+                        throw err instanceof Error ? err : new Error(String(err));
+                    }
+
+                    return {
+                        goals: result.val.goals.map(normalizeGoal),
+                        messages: result.val.messages ?? [],
+                        error: result.val.error,
+                    };
                 }
-
-                return {
-                    goals: result.val.goals.map(normalizeGoal),
-                    messages: result.val.messages ?? [],
-                    error: result.val.error,
-                };
-            }
-        );
+            );
+        } finally {
+            proofStateLog(
+                `getGoalState end ${fileLabel} ${posLabel} (${Date.now() - start}ms)`
+            );
+        }
     }
 
     dispose(): void {
