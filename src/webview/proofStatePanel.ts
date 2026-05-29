@@ -56,6 +56,9 @@ export class ProofStatePanel {
     private chatCancelSource: vscode.CancellationTokenSource | undefined;
     /** Bumped on each proof-state refresh; stale async results are dropped. */
     private proofStateUpdateGeneration = 0;
+    /** At most one LSP proof-state fetch runs at a time; further cursor moves coalesce. */
+    private proofStateUpdateInFlight = false;
+    private pendingProofStateUpdate = false;
     private selectionDebounceTimer: ReturnType<typeof setTimeout> | undefined;
     private static readonly PROOF_STATE_DEBOUNCE_MS = 200;
 
@@ -144,8 +147,28 @@ export class ProofStatePanel {
             this.disposables
         );
 
+        vscode.workspace.onDidChangeTextDocument(
+            (event) => {
+                const activeProver = this.getActiveProver();
+                const doc = event.document;
+                if (activeProver === 'Coq') {
+                    if (!isCoqDocumentLanguage(doc.languageId)) {
+                        return;
+                    }
+                } else {
+                    const lang = doc.languageId.toLowerCase();
+                    if (!lang.includes('lean') && !doc.uri.fsPath.endsWith('.lean')) {
+                        return;
+                    }
+                }
+                this.scheduleProofStateUpdate();
+            },
+            null,
+            this.disposables
+        );
+
         this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
-        void this.updateProofState(); // initial update
+        void this.runCoalescedProofStateUpdate(); // initial update
     }
 
     public setProviders(
@@ -172,11 +195,29 @@ export class ProofStatePanel {
         }
         this.selectionDebounceTimer = setTimeout(() => {
             this.selectionDebounceTimer = undefined;
-            void this.updateProofState();
+            void this.runCoalescedProofStateUpdate();
         }, ProofStatePanel.PROOF_STATE_DEBOUNCE_MS);
-        proofStateLog(
-            `cursor change debounced (${ProofStatePanel.PROOF_STATE_DEBOUNCE_MS}ms)`
-        );
+    }
+
+    /**
+     * Runs at most one proof-state LSP fetch at a time. If the cursor moves again while a
+     * fetch is in flight, queue exactly one follow-up with the latest position (no mutex queue).
+     */
+    private async runCoalescedProofStateUpdate(): Promise<void> {
+        if (this.proofStateUpdateInFlight) {
+            this.pendingProofStateUpdate = true;
+            proofStateLog('cursor change coalesced (update already in flight)');
+            return;
+        }
+        this.proofStateUpdateInFlight = true;
+        try {
+            do {
+                this.pendingProofStateUpdate = false;
+                await this.updateProofState();
+            } while (this.pendingProofStateUpdate);
+        } finally {
+            this.proofStateUpdateInFlight = false;
+        }
     }
 
     private isCoqBackendErrorMessage(msg: string): boolean {
@@ -217,7 +258,7 @@ export class ProofStatePanel {
 
     /** Call this to refresh the proof state at the current editor cursor (e.g. from a keybinding or toolbar). */
     public async requestProofStateUpdate(): Promise<void> {
-        await this.updateProofState();
+        await this.runCoalescedProofStateUpdate();
     }
 
     public dispose() {
@@ -350,8 +391,7 @@ export class ProofStatePanel {
 
         if (cmd === 'requestUpdate') {
             if (!isMain) return;
-            console.log('proof state update requested');
-            await this.updateProofState();
+            await this.runCoalescedProofStateUpdate();
         } else if (cmd === 'applyTactic') {
             if (!isMain) return;
             const tactic: string = message.tactic;

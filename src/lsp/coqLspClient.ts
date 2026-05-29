@@ -453,12 +453,18 @@ export class CoqLspClientImpl implements CoqLspClient {
                     await this.closeTextDocumentUnsafe(this.heldSession.uri);
                     this.heldSession = undefined;
                 }
+                proofStateLog(`withTextDocument ${sessionAction} start ${fileLabel}`);
+                const prepStart = Date.now();
                 diagnostic = await this.openTextDocumentUnsafe(
                     documentSpec.uri,
                     version,
                     fullText,
                     openTimeoutMs,
-                    lang
+                    lang,
+                    fileLabel
+                );
+                proofStateLog(
+                    `withTextDocument ${sessionAction} done ${fileLabel} (${Date.now() - prepStart}ms)`
                 );
                 this.heldSession = {
                     uriKey,
@@ -467,20 +473,25 @@ export class CoqLspClientImpl implements CoqLspClient {
                     content: fullText,
                     lastDiagnostic: diagnostic,
                 };
-            } else if (
-                this.heldSession.version !== version ||
-                this.heldSession.content !== fullText
-            ) {
+            } else if (this.heldSession.content !== fullText) {
                 if (version > this.heldSession.version) {
                     sessionAction = "sync (didChange)";
+                    proofStateLog(`withTextDocument ${sessionAction} start ${fileLabel}`);
+                    const prepStart = Date.now();
                     diagnostic = await this.syncFullDocumentUnsafe(
                         documentSpec.uri,
                         version,
                         fullText,
-                        openTimeoutMs
+                        openTimeoutMs,
+                        fileLabel
+                    );
+                    proofStateLog(
+                        `withTextDocument ${sessionAction} done ${fileLabel} (${Date.now() - prepStart}ms)`
                     );
                 } else {
                     sessionAction = "reopen (version rollback)";
+                    proofStateLog(`withTextDocument ${sessionAction} start ${fileLabel}`);
+                    const prepStart = Date.now();
                     await this.closeTextDocumentUnsafe(this.heldSession.uri);
                     this.heldSession = undefined;
                     diagnostic = await this.openTextDocumentUnsafe(
@@ -488,7 +499,11 @@ export class CoqLspClientImpl implements CoqLspClient {
                         version,
                         fullText,
                         openTimeoutMs,
-                        lang
+                        lang,
+                        fileLabel
+                    );
+                    proofStateLog(
+                        `withTextDocument ${sessionAction} done ${fileLabel} (${Date.now() - prepStart}ms)`
                     );
                 }
                 this.heldSession = {
@@ -498,18 +513,26 @@ export class CoqLspClientImpl implements CoqLspClient {
                     content: fullText,
                     lastDiagnostic: diagnostic,
                 };
+            } else if (this.heldSession.version !== version) {
+                sessionAction = "version bump (no sync)";
+                proofStateLog(`withTextDocument ${sessionAction} ${fileLabel}`);
+                this.heldSession = {
+                    ...this.heldSession,
+                    version,
+                };
+                diagnostic = this.heldSession.lastDiagnostic;
             } else {
                 sessionAction = "reuse session";
+                proofStateLog(`withTextDocument ${sessionAction} ${fileLabel}`);
                 diagnostic = this.heldSession.lastDiagnostic;
             }
 
-            const sessionStart = Date.now();
-            proofStateLog(`withTextDocument ${sessionAction} ${fileLabel}`);
+            const blockStart = Date.now();
             this.withTextDocumentDepth++;
             try {
                 const result = await block(diagnostic);
                 proofStateLog(
-                    `withTextDocument done ${sessionAction} ${fileLabel} (${Date.now() - sessionStart}ms)`
+                    `withTextDocument block done ${fileLabel} (${Date.now() - blockStart}ms)`
                 );
                 return result;
             } finally {
@@ -857,8 +880,12 @@ export class CoqLspClientImpl implements CoqLspClient {
         params: any,
         uri: Uri,
         lastDocumentEndPosition?: Position,
-        timeout: number = 300000
+        timeout: number = 300000,
+        operationLabel?: string
     ): Promise<DiagnosticMessage> {
+        const label = operationLabel ?? formatUri(uri.uri);
+        const waitStart = Date.now();
+        proofStateLog(`document sync wait start ${label}`);
         let pendingProgress = true;
         let pendingDiagnostic = true;
         let awaitedDiagnostics: Diagnostic[] | undefined = undefined;
@@ -912,16 +939,30 @@ export class CoqLspClientImpl implements CoqLspClient {
                 awaitedDiagnostics === undefined
             ) {
                 const sec = Math.round(timeoutMs / 1000);
+                const elapsed = Date.now() - waitStart;
+                proofStateLog(
+                    `document sync wait TIMEOUT ${label} (${elapsed}ms, limit ${sec}s)`
+                );
                 throw new CoqLspError(
                     `coq-lsp did not respond in time (waited ${sec}s). The file may be large or the server busy. Try moving the cursor again or reloading the window.`
                 );
             }
             const finalDiagnostics: Diagnostic[] = awaitedDiagnostics ?? [];
 
+            proofStateLog(
+                `document sync wait done ${label} (${Date.now() - waitStart}ms)`
+            );
             return this.filterDiagnostics(
                 finalDiagnostics,
                 lastDocumentEndPosition ?? Position.create(0, 0)
             );
+        } catch (e) {
+            if (!(e instanceof CoqLspError) || !String(e.message).includes("did not respond in time")) {
+                proofStateLog(
+                    `document sync wait failed ${label} (${Date.now() - waitStart}ms): ${getErrorMessage(e)}`
+                );
+            }
+            throw e;
         } finally {
             waitDisposables.forEach((d) => d.dispose());
         }
@@ -932,7 +973,8 @@ export class CoqLspClientImpl implements CoqLspClient {
         version: number = 1,
         content?: string,
         openTimeoutMs: number = 300000,
-        languageId: string = "coq"
+        languageId: string = "coq",
+        operationLabel?: string
     ): Promise<DiagnosticMessage> {
         const docText =
             content !== undefined
@@ -949,12 +991,14 @@ export class CoqLspClientImpl implements CoqLspClient {
             },
         };
 
+        const label = operationLabel ?? `didOpen ${formatUri(uri.uri)} v${version}`;
         return await this.waitUntilFileFullyChecked(
             DidOpenTextDocumentNotification.type,
             params,
             uri,
             undefined,
-            openTimeoutMs
+            openTimeoutMs,
+            label
         );
     }
 
@@ -963,7 +1007,8 @@ export class CoqLspClientImpl implements CoqLspClient {
         uri: Uri,
         version: number,
         fullText: string,
-        openTimeoutMs: number
+        openTimeoutMs: number,
+        operationLabel?: string
     ): Promise<DiagnosticMessage> {
         const params: DidChangeTextDocumentParams = {
             textDocument: {
@@ -972,12 +1017,14 @@ export class CoqLspClientImpl implements CoqLspClient {
             },
             contentChanges: [{ text: fullText }],
         };
+        const label = operationLabel ?? `didChange ${formatUri(uri.uri)} v${version}`;
         return await this.waitUntilFileFullyChecked(
             DidChangeTextDocumentNotification.type,
             params,
             uri,
             Position.create(0, 0),
-            openTimeoutMs
+            openTimeoutMs,
+            label
         );
     }
 
