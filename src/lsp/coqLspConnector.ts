@@ -43,8 +43,9 @@ export class CoqLspConnector extends LanguageClient {
             initializationOptions: serverConfig,
             markdown: { isTrusted: true, supportHtml: true },
             middleware: {
-                handleDiagnostics: (_uri, _diagnostics, _next) => {
-                    return;
+                // Forward coq-lsp diagnostics so failing tactics show red squiggles in the editor.
+                handleDiagnostics: (uri, diagnostics, next) => {
+                    next(uri, diagnostics);
                 },
                 provideDocumentSymbols: (_document, _token, _next) => {
                     return [];

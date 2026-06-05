@@ -155,6 +155,12 @@ export class CoqLspClientImpl implements CoqLspClient {
     private subscriptions: Disposable[] = [];
     private mutex = new Mutex();
     private diagnosticsMap: Map<string, Diagnostic[]> = new Map();
+    /**
+     * coq-lsp documents are synced via manual didOpen/didChange, which bypasses the language
+     * client's built-in diagnostic routing. Push diagnostics into the editor explicitly.
+     */
+    private readonly editorDiagnostics =
+        vscode.languages.createDiagnosticCollection("coq-lsp");
     /** >0 while executing the user callback inside `withTextDocument` (mutex already held). */
     private withTextDocumentDepth = 0;
 
@@ -529,6 +535,18 @@ export class CoqLspClientImpl implements CoqLspClient {
 
             const blockStart = Date.now();
             this.withTextDocumentDepth++;
+            const editorForUri =
+                vscode.window.visibleTextEditors.find(
+                    (e) => e.document.uri.toString() === uriKey
+                ) ?? vscode.window.activeTextEditor;
+            const editorTextAtOpen =
+                editorForUri?.document.uri.toString() === uriKey
+                    ? editorForUri.document.getText()
+                    : undefined;
+            const usedShadowContent =
+                documentSpec.content !== undefined &&
+                editorTextAtOpen !== undefined &&
+                documentSpec.content !== editorTextAtOpen;
             try {
                 const result = await block(diagnostic);
                 proofStateLog(
@@ -537,6 +555,29 @@ export class CoqLspClientImpl implements CoqLspClient {
                 return result;
             } finally {
                 this.withTextDocumentDepth--;
+                if (usedShadowContent && editorForUri !== undefined) {
+                    const editorText = editorForUri.document.getText();
+                    if (editorText !== fullText) {
+                        const restoreVersion = editorForUri.document.version;
+                        proofStateLog(
+                            `withTextDocument restore editor buffer ${fileLabel} v${restoreVersion}`
+                        );
+                        const restoreDiagnostic = await this.syncFullDocumentUnsafe(
+                            documentSpec.uri,
+                            restoreVersion,
+                            editorText,
+                            openTimeoutMs,
+                            `restore after shadow ${fileLabel}`
+                        );
+                        this.heldSession = {
+                            uriKey,
+                            uri: documentSpec.uri,
+                            version: restoreVersion,
+                            content: editorText,
+                            lastDiagnostic: restoreDiagnostic,
+                        };
+                    }
+                }
             }
         });
     }
@@ -582,7 +623,9 @@ export class CoqLspClientImpl implements CoqLspClient {
         this.client.onNotification(
             PublishDiagnosticsNotification.type,
             (params: PublishDiagnosticsParams) => {
-                this.diagnosticsMap.set(params.uri, params.diagnostics);
+                const uriKey = String(params.uri);
+                this.diagnosticsMap.set(uriKey, params.diagnostics);
+                this.pushDiagnosticsToEditor(uriKey, params.diagnostics);
                 function filterIncorrectLspSuspectedDiagnostics(
                     diagnostic: Diagnostic
                 ): boolean {
@@ -619,6 +662,62 @@ export class CoqLspClientImpl implements CoqLspClient {
                     );
                 }
             }
+        );
+    }
+
+    /** Map an LSP file URI to the matching open VS Code document URI when possible. */
+    private resolveOpenDocumentUri(lspUri: string): vscode.Uri {
+        const expectedPath = this.fileUriToPath(lspUri);
+        const openDoc = vscode.workspace.textDocuments.find(
+            (d) => this.fileUriToPath(d.uri.toString()) === expectedPath
+        );
+        return openDoc?.uri ?? vscode.Uri.parse(this.normalizeFileUriForCompare(lspUri));
+    }
+
+    private lspSeverityToVsCode(
+        severity: number | undefined
+    ): vscode.DiagnosticSeverity {
+        switch (severity) {
+            case 2:
+                return vscode.DiagnosticSeverity.Warning;
+            case 3:
+                return vscode.DiagnosticSeverity.Information;
+            case 4:
+                return vscode.DiagnosticSeverity.Hint;
+            case 1:
+            default:
+                return vscode.DiagnosticSeverity.Error;
+        }
+    }
+
+    private lspDiagnosticToVsCode(d: Diagnostic): vscode.Diagnostic {
+        const range = new vscode.Range(
+            d.range.start.line,
+            d.range.start.character,
+            d.range.end.line,
+            d.range.end.character
+        );
+        const vsDiag = new vscode.Diagnostic(
+            range,
+            this.removeTraceFromLspError(d.message),
+            this.lspSeverityToVsCode(d.severity)
+        );
+        if (d.source) {
+            vsDiag.source = d.source;
+        } else {
+            vsDiag.source = "coq-lsp";
+        }
+        return vsDiag;
+    }
+
+    private pushDiagnosticsToEditor(
+        lspUri: string,
+        diagnostics: Diagnostic[]
+    ): void {
+        const vscodeUri = this.resolveOpenDocumentUri(lspUri);
+        this.editorDiagnostics.set(
+            vscodeUri,
+            diagnostics.map((d) => this.lspDiagnosticToVsCode(d))
         );
     }
 
@@ -948,6 +1047,8 @@ export class CoqLspClientImpl implements CoqLspClient {
                 );
             }
             const finalDiagnostics: Diagnostic[] = awaitedDiagnostics ?? [];
+            this.diagnosticsMap.set(uri.uri, finalDiagnostics);
+            this.pushDiagnosticsToEditor(uri.uri, finalDiagnostics);
 
             proofStateLog(
                 `document sync wait done ${label} (${Date.now() - waitStart}ms)`
@@ -1095,6 +1196,7 @@ export class CoqLspClientImpl implements CoqLspClient {
      * to finish, the client and its process will be disposed at some point asynchronously.
      */
     dispose(): void {
+        this.editorDiagnostics.dispose();
         this.subscriptions.forEach((d) => d.dispose());
         void (async () => {
             try {

@@ -36,6 +36,100 @@ function formatToolCallDetail(toolName: string, args: unknown): string {
 /** Max failed validate_proof_state_change calls before the agent must stop retrying and explain. */
 const MAX_VALIDATE_ATTEMPTS = 4;
 
+/** Autoformaliser chat: cap tool rounds, reserve turns for a text answer + optional finalize. */
+const MAX_TOOL_TURNS = 4;
+const MAX_AGENT_TURNS = 8;
+const MIN_SUBSTANTIAL_RESPONSE_LEN = 60;
+
+const ANSWER_ONLY_AFTER_TOOLS_NUDGE =
+    'You have enough information from the tool results above. Give a complete text answer to the user\'s question. Do NOT call any tools — respond with prose only. Explain the current proof situation, why they may be stuck, and concrete next steps (lemmas, tactics, or strategy).';
+
+const FINALIZE_ANSWER_NUDGE =
+    'Based on all tool results and the user\'s question above, write a complete text answer now. Do NOT call any tools or use JSON. Respond with clear prose only.';
+
+function userAskedForSuggestionEdit(userRequest: string): boolean {
+    return /\bsuggest\b.*\bedit\b|\bedit\b.*\bsuggest\b|suggest\s+an?\s+edit/i.test(userRequest.trim());
+}
+
+function anyToolExecutedInMessages(messages: Array<{ role: string; content: string }>): boolean {
+    return messages.some(
+        (m) =>
+            m.role === 'user' &&
+            typeof m.content === 'string' &&
+            m.content.startsWith('TOOL RESULT (')
+    );
+}
+
+function isSubstantialUserFacingText(text: string): boolean {
+    return text.trim().length >= MIN_SUBSTANTIAL_RESPONSE_LEN;
+}
+
+/** Prose remaining after stripping a tool-call JSON block (for mixed model replies). */
+function proseWithoutToolCall(text: string): string {
+    let out = text;
+    const codeBlock = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    if (codeBlock) {
+        out = out.replace(codeBlock[0], '');
+    }
+    const extracted = extractToolCallJson(text);
+    if (extracted) {
+        out = out.replace(extracted, '');
+    }
+    return out.trim();
+}
+
+async function invokeModel(
+    messages: Array<{ role: string; content: string }>,
+    model: { sendRequest: (messages: unknown, options: { maxTokens: number }, token?: vscode.CancellationToken) => Promise<{ text: AsyncIterable<string> }> },
+    token?: vscode.CancellationToken
+): Promise<string> {
+    let fullResponseText = '';
+    const responseStream = await model.sendRequest(messages, { maxTokens: 2048 }, token);
+    for await (const chunk of responseStream.text) {
+        fullResponseText += chunk;
+    }
+    return fullResponseText;
+}
+
+async function finalizeAgentAnswerIfNeeded(
+    messages: Array<{ role: string; content: string }>,
+    model: { sendRequest: (messages: unknown, options: { maxTokens: number }, token?: vscode.CancellationToken) => Promise<{ text: AsyncIterable<string> }> },
+    token: vscode.CancellationToken | undefined,
+    onUpdate: (text: string) => void,
+    emitTool: (activity: AgentToolActivity) => void,
+    userGotSubstantialText: boolean
+): Promise<void> {
+    if (userGotSubstantialText || !anyToolExecutedInMessages(messages) || token?.isCancellationRequested) {
+        return;
+    }
+
+    emitTool({
+        kind: 'status',
+        detail: 'No complete answer yet — summarizing from tool results…',
+    });
+    messages.push({ role: 'user', content: FINALIZE_ANSWER_NUDGE });
+    const fullResponseText = await invokeModel(messages, model, token);
+    messages.push({ role: 'assistant', content: fullResponseText });
+
+    const toolCallJson = extractToolCallJson(fullResponseText);
+    const prose = proseWithoutToolCall(fullResponseText);
+    if (prose && isSubstantialUserFacingText(prose)) {
+        onUpdate(prose);
+        return;
+    }
+    if (!toolCallJson && fullResponseText.trim()) {
+        onUpdate(fullResponseText.trim());
+        return;
+    }
+    if (prose) {
+        onUpdate(prose);
+        return;
+    }
+    onUpdate(
+        'The agent gathered proof context but could not produce a summary. Try asking again or rephrase your question.'
+    );
+}
+
 function isValidateProofStateFailure(result: string): boolean {
     return /^\s*error:/i.test(result.trim());
 }
@@ -272,12 +366,11 @@ IMPORTANT: When the user asks questions about:
 
 CRITICAL: If the user asks about the current proof, theorem name, proof script, or what they're working on, you MUST use get_current_proof_script to get accurate information. Do not guess or make assumptions.
 
-MULTIPLE TOOL CALLS: You can and should make multiple tool calls in sequence when needed. After receiving a tool result, you can immediately call another tool if it's needed to answer the user's question. You are not limited to a single tool call - continue calling tools until you have enough information to provide a complete answer. For example:
-- If edit history exists, call get_edit_history first, then call other tools as needed (get_current_proof_state, get_proof_context, etc.)
-- If you need both the proof script and current state, call both tools
-- If you need multiple pieces of information, call multiple tools in sequence
+MULTIPLE TOOL CALLS: Use tools when you need fresh data, but do not hoard tool calls—after you have enough context, you MUST answer in text. For explanatory questions (how to proceed, why stuck, what to try next): prefer get_current_proof_state first; call get_current_proof_script or get_proof_context only if truly needed; then give a complete text answer. Do not call more than two or three inspection tools before answering unless the user explicitly needs lemma search.
 
-To use a tool, you MUST respond with ONLY a JSON block like this:
+After ANY tool result, your next message must either be one more necessary tool call OR a complete text answer for the user—never stop silently. When you have enough information, respond with prose only (no JSON).
+
+To use a tool, respond with ONLY a JSON block like this:
 \`\`\`json
 { "tool": "tool_name", "args": { ... } }
 \`\`\`
@@ -320,31 +413,59 @@ For questions about the theorem name or proof script, you should use get_current
     // Add the new user request
     messages.push({ role: 'user', content: userRequest });
 
-    const MAX_TURNS = 5; // Prevent infinite loops
     let turn = 0;
-    let nudgeSent = false; // Only nudge once when agent gathers proof state but doesn't call suggest_proof_state_edit
-    let suggestionMade = false; // True if suggest_proof_state_edit was called this run
+    let nudgeSent = false;
+    let suggestionMade = false;
+    let toolExecutionCount = 0;
+    let userGotSubstantialText = false;
+    let forceAnswerOnly = false;
+    let answerOnlyNudgeInjected = false;
+    const userAskedForSuggestion = userAskedForSuggestionEdit(userRequest);
+
+    const markSubstantialText = (text: string) => {
+        if (isSubstantialUserFacingText(text)) {
+            userGotSubstantialText = true;
+        }
+    };
+
+    const emitAssistantTextToUser = (fullResponseText: string) => {
+        const toolCallJson = extractToolCallJson(fullResponseText);
+        const textToShow = toolCallJson
+            ? proseWithoutToolCall(fullResponseText)
+            : fullResponseText.trim();
+        if (textToShow) {
+            onUpdate(textToShow);
+            markSubstantialText(textToShow);
+        }
+    };
+
+    const injectAnswerOnlyNudge = () => {
+        if (answerOnlyNudgeInjected) {
+            return;
+        }
+        answerOnlyNudgeInjected = true;
+        forceAnswerOnly = true;
+        messages.push({ role: 'user', content: ANSWER_ONLY_AFTER_TOOLS_NUDGE });
+    };
 
     try {
-        while (turn < MAX_TURNS) {
+        while (turn < MAX_AGENT_TURNS) {
             turn++;
             if (token?.isCancellationRequested) break;
 
-            // --- A. Call the Model ---
-            let fullResponseText = "";
-            
-            // We stream the response to the UI so the user sees "Thinking..."
-            // Request more tokens for longer responses (especially for multi-turn agent conversations)
-            const responseStream = await model.sendRequest(messages, { maxTokens: 2048 }, token);
-            
-            for await (const chunk of responseStream.text) {
-                fullResponseText += chunk;
+            const anyToolExecuted = anyToolExecutedInMessages(messages);
+            if (
+                turn >= MAX_AGENT_TURNS - 1 &&
+                anyToolExecuted &&
+                !userGotSubstantialText &&
+                !userAskedForSuggestion
+            ) {
+                injectAnswerOnlyNudge();
             }
 
-            // Append model's response to history
+            const fullResponseText = await invokeModel(messages, model, token);
             messages.push({ role: 'assistant', content: fullResponseText });
 
-            // --- B. Parse for Tool Calls ---
             const toolCallJson = extractToolCallJson(fullResponseText);
             if (toolCallJson) {
                 try {
@@ -357,28 +478,35 @@ For questions about the theorem name or proof script, you should use get_current
                 } catch {
                     emitTool({ kind: 'call', detail: toolCallJson });
                 }
+                const prose = proseWithoutToolCall(fullResponseText);
+                if (prose) {
+                    onUpdate(prose);
+                    markSubstantialText(prose);
+                }
             } else if (fullResponseText.trim()) {
-                onUpdate(fullResponseText);
+                emitAssistantTextToUser(fullResponseText);
             }
-            const anyToolExecuted = messages.some((m: any) => m.role === 'user' && typeof m.content === 'string' && m.content.startsWith('TOOL RESULT ('));
 
             if (!toolCallJson) {
-                // Empty or near-empty response: model may have failed or hit a limit. Nudge once to retry with a tool call.
                 const emptyOrNoResponse = fullResponseText.trim().length < 20;
                 if (emptyOrNoResponse && !nudgeSent) {
                     nudgeSent = true;
-                    messages.push({
-                        role: 'user',
-                        content: 'You did not respond with a tool call or sufficient text. You must call at least one tool. If edit history exists, call get_edit_history first; otherwise call get_current_proof_state to see the proof state. Reply with ONLY a JSON block, e.g. {"tool": "get_edit_history", "args": {}} or {"tool": "get_current_proof_state", "args": {}}.',
-                    });
+                    const content = anyToolExecuted
+                        ? 'You did not give a sufficient text answer. Use the tool results already in the conversation. Respond with a complete text explanation for the user. Do NOT call any tools.'
+                        : 'You did not respond with a tool call or sufficient text. You must call at least one tool. If edit history exists, call get_edit_history first; otherwise call get_current_proof_state to see the proof state. Reply with ONLY a JSON block, e.g. {"tool": "get_edit_history", "args": {}} or {"tool": "get_current_proof_state", "args": {}}.';
+                    messages.push({ role: 'user', content });
                     emitTool({
                         kind: 'status',
-                        detail: 'The model returned no (or almost no) response. Asking it to call a tool and try again.',
+                        detail: anyToolExecuted
+                            ? 'The model returned no (or almost no) response. Asking for a text answer using tool results.'
+                            : 'The model returned no (or almost no) response. Asking it to call a tool and try again.',
                     });
+                    if (anyToolExecuted) {
+                        injectAnswerOnlyNudge();
+                    }
                     continue;
                 }
 
-                // First turn but no tool called and no empty-response nudge used: nudge once to use a tool.
                 if (turn === 1 && !anyToolExecuted && !nudgeSent) {
                     nudgeSent = true;
                     messages.push({
@@ -392,9 +520,12 @@ For questions about the theorem name or proof script, you should use get_current
                     continue;
                 }
 
-                // No tool call found. If user asked for a suggestion and we have proof state but no suggest_proof_state_edit, nudge once and retry.
-                const userAskedForSuggestion = /\bsuggest\b.*\bedit\b|\bedit\b.*\bsuggest\b|suggest\s+an?\s+edit/i.test(userRequest.trim());
-                const hadProofState = messages.some((m: any) => m.role === 'user' && typeof m.content === 'string' && m.content.startsWith('TOOL RESULT (get_current_proof_state):'));
+                const hadProofState = messages.some(
+                    (m: { role: string; content: string }) =>
+                        m.role === 'user' &&
+                        typeof m.content === 'string' &&
+                        m.content.startsWith('TOOL RESULT (get_current_proof_state):')
+                );
                 const didNotCallSuggest = !fullResponseText.includes('suggest_proof_state_edit');
 
                 if (!nudgeSent && onSuggestion && userAskedForSuggestion && hadProofState && didNotCallSuggest) {
@@ -408,11 +539,10 @@ For questions about the theorem name or proof script, you should use get_current
                         detail:
                             'The agent returned a response without calling suggest_proof_state_edit. Asking it to call suggest_proof_state_edit now.',
                     });
-                    continue; // One more turn
+                    continue;
                 }
 
-                // Agent is done (text-only response or gave up).
-                console.log("Agent finished without tool call - responding with text only");
+                console.log('Agent finished without tool call - responding with text only');
                 if (fullResponseText.trim().length < 20) {
                     onUpdate(
                         'The agent returned no (or almost no) response. This can happen if the model hit a token limit, the connection failed, or the model produced no output. Try again or rephrase your question.'
@@ -425,13 +555,37 @@ For questions about the theorem name or proof script, you should use get_current
                 break;
             }
 
-            // --- C. Execute Tool ---
+            let command: { tool: string; args: Record<string, unknown> };
             try {
-                const command = JSON.parse(toolCallJson);
-                const toolName = command.tool;
-                const toolArgs = command.args;
+                command = JSON.parse(toolCallJson);
+            } catch {
+                messages.push({
+                    role: 'user',
+                    content: 'Tool call JSON was invalid. Respond with a valid tool JSON block or answer in text.',
+                });
+                continue;
+            }
 
-                const targetTool = tools.find(t => t.name === toolName);
+            const toolName = command.tool;
+            const isSuggestTool = toolName === 'suggest_proof_state_edit';
+            const allowToolDespiteAnswerOnly =
+                userAskedForSuggestion && isSuggestTool;
+            const atToolLimit =
+                toolExecutionCount >= MAX_TOOL_TURNS && !allowToolDespiteAnswerOnly;
+
+            if ((forceAnswerOnly || atToolLimit) && !allowToolDespiteAnswerOnly) {
+                injectAnswerOnlyNudge();
+                emitTool({
+                    kind: 'status',
+                    detail: 'Tool limit reached or answer required — asking for a text-only response.',
+                });
+                continue;
+            }
+
+            try {
+                const toolArgs = command.args as Record<string, unknown>;
+
+                const targetTool = tools.find((t) => t.name === toolName);
                 if (!targetTool) {
                     throw new Error(`Unknown tool: ${toolName}`);
                 }
@@ -442,31 +596,30 @@ For questions about the theorem name or proof script, you should use get_current
                     detail: `Executing ${toolName}…`,
                 });
 
-                // Execute logic
                 const result = await targetTool.execute(toolArgs);
+                toolExecutionCount++;
 
-                // If this is a suggestion tool, extract and send the suggestion to the UI
                 if (toolName === 'suggest_proof_state_edit' && onSuggestion) {
                     suggestionMade = true;
                     try {
-                        // Extract suggestion details from toolArgs (goalIndex optional, for multi-goal targeting)
-                        const suggestion = {
-                            hypothesisName: toolArgs.hypothesisName,
-                            originalValue: toolArgs.originalValue,
-                            suggestedValue: toolArgs.suggestedValue,
-                            reason: toolArgs.reason,
-                            ...(toolArgs.goalIndex !== undefined && toolArgs.goalIndex !== null && { goalIndex: toolArgs.goalIndex }),
-                        };
-                        onSuggestion(suggestion);
+                        onSuggestion({
+                            hypothesisName: String(toolArgs.hypothesisName),
+                            originalValue: String(toolArgs.originalValue),
+                            suggestedValue: String(toolArgs.suggestedValue),
+                            reason: toolArgs.reason != null ? String(toolArgs.reason) : undefined,
+                            ...(toolArgs.goalIndex !== undefined &&
+                                toolArgs.goalIndex !== null && {
+                                    goalIndex: Number(toolArgs.goalIndex),
+                                }),
+                        });
                     } catch (e) {
                         console.error('Failed to process suggestion:', e);
                     }
                 }
 
-                // Add result to history
-                messages.push({ 
-                    role: 'user', // We use 'user' to represent the "System Output" in generic chat formats
-                    content: `TOOL RESULT (${toolName}): ${result}` 
+                messages.push({
+                    role: 'user',
+                    content: `TOOL RESULT (${toolName}): ${result}`,
                 });
 
                 emitTool({
@@ -475,6 +628,16 @@ For questions about the theorem name or proof script, you should use get_current
                     detail: result,
                 });
 
+                if (
+                    toolExecutionCount >= MAX_TOOL_TURNS &&
+                    !userAskedForSuggestion
+                ) {
+                    injectAnswerOnlyNudge();
+                    emitTool({
+                        kind: 'status',
+                        detail: 'Inspection tools finished — next response should be a text answer for the user.',
+                    });
+                }
             } catch (e) {
                 emitTool({
                     kind: 'error',
@@ -482,8 +645,16 @@ For questions about the theorem name or proof script, you should use get_current
                 });
                 messages.push({ role: 'user', content: `TOOL ERROR: ${e}` });
             }
-            // Loop continues -> sends history + tool result back to LLM
         }
+
+        await finalizeAgentAnswerIfNeeded(
+            messages,
+            model,
+            token,
+            onUpdate,
+            emitTool,
+            userGotSubstantialText
+        );
     } catch (e) {
         onUpdate(`Agent error: ${e}`);
     } finally {

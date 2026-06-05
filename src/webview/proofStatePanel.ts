@@ -797,11 +797,11 @@ export class ProofStatePanel {
         const needsProofState = proofStateKeywords.some(keyword => lowerPrompt.includes(keyword));
         
         if (needsProofScript) {
-            return `${prompt}\n\nNote: To answer this question accurately, you should use the get_current_proof_script tool to see the theorem name and proof script.`;
+            return `${prompt}\n\nNote: If needed, use get_current_proof_script for the theorem name and script, then answer the user in text (avoid extra tools once you have enough context).`;
         }
         
         if (needsProofState) {
-            return `${prompt}\n\nNote: To answer this question accurately, you should use the get_current_proof_state tool to see the current goals and hypotheses.`;
+            return `${prompt}\n\nNote: If needed, use get_current_proof_state (and at most one other inspection tool), then you must answer the user in text.`;
         }
         
         return prompt;
