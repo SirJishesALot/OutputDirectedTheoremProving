@@ -12,12 +12,12 @@ export interface AntigravityModelInfo {
 }
 
 export const POPULAR_ANTIGRAVITY_MODELS: AntigravityModelInfo[] = [
-    { id: 'gemini-3.8-flash-low', description: 'Fast, lightweight & responsive (Recommended)' },
+    { id: 'gemini-3.1-pro-high', description: 'Gemini 3.1 Pro mathematical reasoning (Recommended)' },
+    { id: 'gemini-3.1-pro-low', description: 'Gemini 3.1 Pro low reasoning' },
+    { id: 'gemini-3.8-flash-low', description: 'Fast, lightweight & responsive' },
     { id: 'gemini-3.8-flash-medium', description: 'Balanced reasoning speed and depth' },
     { id: 'gemini-3.8-flash-high', description: 'Deep reasoning effort with thinking tokens' },
     { id: 'gemini-3.7-flash-high', description: 'Gemini 3.7 Flash with high reasoning' },
-    { id: 'gemini-3.1-pro-high', description: 'Gemini 3.1 Pro mathematical reasoning' },
-    { id: 'gemini-3.1-pro-low', description: 'Gemini 3.1 Pro low reasoning' },
     { id: 'claude-sonnet-5-5-high', description: 'Claude Sonnet 5.5 (High reasoning)' },
     { id: 'claude-opus-5-5-high', description: 'Claude Opus 5.5 (High reasoning)' },
 ];
@@ -186,7 +186,7 @@ export function createAntigravityCliAdapter(
         modelId ||
         vscode.workspace
             .getConfiguration()
-            .get<string>('myExtension.defaultAntigravityModel', 'gemini-3.8-flash-low');
+            .get<string>('myExtension.defaultAntigravityModel', 'gemini-3.1-pro-high');
 
     return {
         backend: 'antigravity-cli',

@@ -51,8 +51,8 @@ function getConfiguredAntigravityModel(): string {
     return (
         vscode.workspace
             .getConfiguration()
-            .get<string>('myExtension.defaultAntigravityModel', 'gemini-3.8-flash-low') ||
-        'gemini-3.8-flash-low'
+            .get<string>('myExtension.defaultAntigravityModel', 'gemini-3.1-pro-high') ||
+        'gemini-3.1-pro-high'
     );
 }
 
@@ -592,7 +592,7 @@ export function activate(context: vscode.ExtensionContext) {
             modelOptions.push({ label: 'Custom...', description: 'Specify a custom model identifier' });
 
             const picked = await vscode.window.showQuickPick(modelOptions, {
-                placeHolder: 'Select Antigravity model to use (gemini-3.8-flash-low recommended for fast responses)',
+                placeHolder: 'Select Antigravity model to use (gemini-3.1-pro-high recommended for mathematical reasoning)',
             });
             if (!picked) {
                 return null;
@@ -601,8 +601,8 @@ export function activate(context: vscode.ExtensionContext) {
             let selectedModel = picked.label;
             if (selectedModel === 'Custom...') {
                 const customModel = await vscode.window.showInputBox({
-                    prompt: 'Enter model identifier for agy (e.g. gemini-3.8-flash-low, claude-sonnet-5-5-high)',
-                    placeHolder: 'gemini-3.8-flash-low',
+                    prompt: 'Enter model identifier for agy (e.g. gemini-3.1-pro-high, gemini-3.8-flash-low, claude-sonnet-5-5-high)',
+                    placeHolder: 'gemini-3.1-pro-high',
                     ignoreFocusOut: true,
                 });
                 if (!customModel) {

@@ -116,8 +116,8 @@
         },
         "myExtension.defaultAntigravityModel": {
           "type": "string",
-          "default": "gemini-3.8-flash-low",
-          "description": "Default model used by Antigravity CLI (e.g. gemini-3.8-flash-low, gemini-3.8-flash-high, gemini-3.1-pro-high, claude-sonnet-5-5-high)."
+          "default": "gemini-3.1-pro-high",
+          "description": "Default model used by Antigravity CLI (e.g. gemini-3.1-pro-high, gemini-3.1-pro-low, gemini-3.8-flash-low, claude-sonnet-5-5-high)."
         },
         "myExtension.activeProver": {
           "type": "string",
@@ -217,7 +217,11 @@
     "compile-webview:main": "esbuild ./src/webview/main.js --bundle --outfile=src/webview/proofState.js --platform=browser --external:vscode",
     "compile-webview-chat": "esbuild ./src/webview/chatPanel.js --bundle --outfile=src/webview/proofStateChat.js --platform=browser --external:vscode",
     "watch-webview": "esbuild ./src/webview/main.js --bundle --outfile=src/webview/proofState.js --platform=browser --external:vscode --watch",
-    "compile-webview:production": "esbuild ./src/webview/main.js --bundle --outfile=src/webview/proofState.js --platform=browser --external:vscode --minify"
+    "compile-webview:production": "esbuild ./src/webview/main.js --bundle --outfile=src/webview/proofState.js --platform=browser --external:vscode --minify",
+    "benchmark": "ts-node scripts/benchmark/runBenchmark.ts",
+    "benchmark:mini": "ts-node scripts/benchmark/runBenchmark.ts --mode mini",
+    "benchmark:compare": "ts-node scripts/benchmark/compareWithBaseline.ts",
+    "benchmark:plot": "/Users/jishnuraychaudhuri/miniconda3/envs/ml/bin/python scripts/benchmark/plot_results.py"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
@@ -231,6 +235,7 @@
     "esbuild": "^0.25.12",
     "eslint": "^9.34.0",
     "npm-run-all": "^4.1.5",
+    "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
   },
   "dependencies": {
