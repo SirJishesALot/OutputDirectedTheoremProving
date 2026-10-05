@@ -1,3 +1,5 @@
+import { OutputLogger } from "./logger";
+
 export enum Severity {
     LOGIC,
     INFO,
@@ -42,9 +44,9 @@ export class EventLogger {
     }
 
     unsubscribe(event: string, subscriptionId: SubscriptionId) {
-        this.events[event] = this.events[event]?.filter((eventSubscription) => {
-            eventSubscription.id !== subscriptionId;
-        });
+        this.events[event] = this.events[event]?.filter((eventSubscription) => 
+            eventSubscription.id !== subscriptionId
+        );
     }
 
     log(
@@ -64,6 +66,13 @@ export class EventLogger {
                 eventSubscription.callback(message, data);
             }
         });
+
+        const detail = message ? `${event}: ${message}` : event;
+        if (severity === Severity.DEBUG) {
+            OutputLogger.debug("LSP", detail, data);
+        } else {
+            OutputLogger.info("LSP", detail, data);
+        }
     }
 
     subscribeToLogicEvent(

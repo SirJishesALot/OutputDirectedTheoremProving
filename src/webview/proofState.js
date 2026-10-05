@@ -31271,6 +31271,9 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   };
   var vscode = acquireVsCodeApi();
   var activeProverLabel = "Coq";
+  function logToHost(level, message) {
+    vscode.postMessage({ command: "log", level, message });
+  }
   function updateWebviewStatus(text2) {
     const el = document.getElementById("webviewStatus");
     if (el) el.textContent = text2;
@@ -31742,6 +31745,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         return;
       default:
         console.warn("Unknown message type:", msg.type);
+        logToHost("warn", "Unknown message type: " + msg.type);
         return;
     }
     const domNode = document.createElement("div");
@@ -31756,6 +31760,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   function handleSuggestion(suggestion) {
     if (!suggestion || !suggestion.hypothesisName || suggestion.suggestedValue == null || suggestion.suggestedValue === "") {
       console.warn("Invalid suggestion received:", suggestion);
+      logToHost("warn", "Invalid suggestion received: " + JSON.stringify(suggestion));
       return;
     }
     const isAddHypothesis = suggestion.originalValue == null || String(suggestion.originalValue).trim() === "";
@@ -31789,6 +31794,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       });
       if (insertPos == null) {
         console.warn("Could not find goal to add hypothesis");
+        logToHost("warn", "Could not find goal to add hypothesis for " + suggestion.hypothesisName);
         appendChatMessage(`Suggestion: Add hypothesis "${suggestion.hypothesisName} : ${suggestion.suggestedValue}"${suggestion.reason ? ` (${suggestion.reason})` : ""}`, "assistant");
         return;
       }
@@ -31819,6 +31825,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         view.dispatch(tr2);
       } catch (err) {
         console.warn("Failed to insert add-hypothesis suggestion:", err);
+        logToHost("error", "Failed to insert add-hypothesis suggestion: " + (err.message || String(err)));
       }
       appendChatMessage(`Suggestion: Add hypothesis "${suggestion.hypothesisName} : ${suggestion.suggestedValue}"${suggestion.reason ? ` (${suggestion.reason})` : ""}`, "assistant");
       return;
@@ -31839,6 +31846,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     });
     if (foundPos === -1) {
       console.warn(`Could not find original value "${suggestion.originalValue}" in document`);
+      logToHost("warn", `Could not find original value "${suggestion.originalValue}" in document`);
       appendChatMessage(`Suggestion: Replace "${suggestion.originalValue}" with "${suggestion.suggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ""}`, "assistant");
       return;
     }

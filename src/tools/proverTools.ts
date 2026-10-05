@@ -5,6 +5,7 @@ import { ProofGoal, Hyp, PpString, GoalsWithMessages, convertToString } from '..
 import { AgentTool } from '../llm/chatBridge';
 import { parseCoqFile } from '../parser/parseCoqFile';
 import { hypToString } from '../core/exposedCompletionGeneratorUtils';
+import { EditorBufferGuard } from './editorBufferGuard';
 
 /** Decoration used to highlight a suggested proof edit (green) so the user can Keep or Revert. */
 const suggestedEditDecorationType = vscode.window.createTextEditorDecorationType({
@@ -50,15 +51,23 @@ function serializeGoalsToPanelFormat(goals: ProofGoal[]): string {
         .join('\n\n');
 }
 
-/** Normalize whitespace for comparison so Coq output and panel/desired state match regardless of minor spacing. */
-function normalizeProofState(s: string): string {
+/** Normalize whitespace and logical symbols for robust comparison across Coq syntax variations. */
+export function normalizeProofState(s: string): string {
     return s
         .trim()
+        // Canonicalize Unicode & ASCII logic operators
+        .replace(/\\forall\b|∀/g, 'forall')
+        .replace(/\\exists\b|∃/g, 'exists')
+        .replace(/→/g, '->')
+        .replace(/∧/g, '/\\')
+        .replace(/∨/g, '\\/')
+        .replace(/↔/g, '<->')
+        .replace(/¬/g, '~')
         .replace(/\s+/g, ' ')
-        .replace(/\n+/g, '\n')
-        .replace(/\s*:\s*/g, ' : ') // "n: nat" and "n : nat" match
-        .replace(/\s+\(/g, '(')   // "S (n" and "S(n" match (Coq may print space before "(", panel may not)
-        .replace(/\s+\)/g, ')'); // optional: " )" and ")" match
+        .replace(/\s*:\s*/g, ' : ')
+        .replace(/\(\s+/g, '(')
+        .replace(/\s+\)/g, ')')
+        .replace(/\s*,\s*/g, ', ');
 }
 
 /**
@@ -75,30 +84,67 @@ export interface ParsedGoal {
     ty: string;
 }
 
-/** Parse the panel serialization format (hyp lines "names : type" or "names: type" then goal type) into ParsedGoal[]. */
-function parsePanelFormatToGoals(stateStr: string): ParsedGoal[] | null {
+/**
+ * Parse the panel serialization format (hyp lines "names : type" or "names: type" then goal type) into ParsedGoal[].
+ * Supports multi-line hypothesis types and avoids misparsing binder lines in goal expressions (e.g. forall x : nat).
+ */
+export function parsePanelFormatToGoals(stateStr: string): ParsedGoal[] | null {
     const trimmed = stateStr.trim();
     if (!trimmed) return null;
     if (trimmed.includes('no remaining goals')) return [];
-    const goalBlocks = trimmed.split(/\n\n+/);
+    const goalBlocks = trimmed.split(/\n\s*\n+/);
     const goals: ParsedGoal[] = [];
+
+    const reservedKeywords = new Set([
+        'forall', 'exists', 'fun', 'let', 'match', 'fix',
+        'Theorem', 'Lemma', 'Definition', 'Example', 'Fixpoint'
+    ]);
+
     for (const block of goalBlocks) {
-        const lines = block.split('\n').map((l) => l.trim()).filter(Boolean);
-        if (lines.length === 0) continue;
-        const goalTy = lines[lines.length - 1] ?? '';
-        const hypLines = lines.slice(0, -1);
+        const rawLines = block.split('\n').map((l) => l.trim()).filter(Boolean);
+        if (rawLines.length === 0) continue;
+
         const hyps: ParsedHyp[] = [];
-        for (const line of hypLines) {
-            // Accept " : " or ":" so "n: nat" and "n : nat" both parse
-            const idx = line.includes(' : ')
+        let currentHyp: ParsedHyp | null = null;
+        const goalTyLines: string[] = [];
+        let inGoal = false;
+
+        for (let i = 0; i < rawLines.length; i++) {
+            const line = rawLines[i];
+            const colonIdx = line.includes(' : ')
                 ? line.indexOf(' : ')
                 : line.indexOf(':');
-            if (idx < 0) return null;
-            const namesStr = line.slice(0, idx).trim();
-            const ty = line.slice(idx + (line[idx + 1] === ' ' ? 3 : 1)).trim();
-            const names = namesStr ? namesStr.split(/\s+/) : [];
-            hyps.push({ names, ty });
+
+            let isHypLine = false;
+            let names: string[] = [];
+            let tyPart = '';
+
+            if (colonIdx > 0 && !inGoal && i < rawLines.length - 1) {
+                const prefix = line.slice(0, colonIdx).trim();
+                const prefixTokens = prefix.split(/\s+/).filter(Boolean);
+                const firstWord = prefixTokens[0] || '';
+                // Ensure it's valid hypothesis identifier(s) and not a binder or statement keyword
+                const isValidId = prefixTokens.every((tok) => /^[a-zA-Z_][a-zA-Z0-9_']*$/.test(tok));
+                if (isValidId && !reservedKeywords.has(firstWord)) {
+                    isHypLine = true;
+                    names = prefixTokens;
+                    tyPart = line.slice(colonIdx + (line[colonIdx + 1] === ' ' ? 3 : 1)).trim();
+                }
+            }
+
+            if (isHypLine) {
+                currentHyp = { names, ty: tyPart };
+                hyps.push(currentHyp);
+            } else if (currentHyp && !inGoal && i < rawLines.length - 1) {
+                // Continuation line of the current hypothesis
+                currentHyp.ty += ' ' + line;
+            } else {
+                inGoal = true;
+                goalTyLines.push(line);
+            }
         }
+
+        const goalTy = goalTyLines.join(' ').trim() || rawLines[rawLines.length - 1];
         goals.push({ hyps, ty: goalTy });
     }
     return goals.length ? goals : null;
@@ -262,6 +308,8 @@ export interface ProverToolsOptions {
     cursorPositionOverride?: { line: number; character: number };
     /** Called when a proof edit is applied as a suggestion (green highlight). Panel can show Keep/Revert UI. */
     onSuggestedEditApplied?: (editor: vscode.TextEditor, range: vscode.Range, oldText: string) => void;
+    /** Editor buffer guard for strict concurrency/version checking. */
+    editorGuard?: EditorBufferGuard;
 }
 
 /** Clears the green suggestion decoration from an editor. Call when user chooses Keep or Revert. */
@@ -284,6 +332,7 @@ export function createProverTools(
     const sessionOriginal = (options?.sessionOriginalValue ?? '').trim();
     const sessionDesired = (options?.sessionDesiredValue ?? '').trim();
     const cursorOverride = options?.cursorPositionOverride;
+    const guard = options?.editorGuard ?? new EditorBufferGuard(editor, cursorOverride);
     const getPosition = (): vscode.Position =>
         cursorOverride
             ? new vscode.Position(cursorOverride.line, cursorOverride.character)
@@ -433,6 +482,11 @@ Args: originalValue (full proof state before the change), desiredValue (full pro
                     );
 
                     if (tryResult.verified && tryResult.applied) {
+                        try {
+                            guard.assertNotModified(editor);
+                        } catch (e) {
+                            return `error: ${e instanceof Error ? e.message : String(e)}`;
+                        }
                         const applied = await editor.edit((editBuilder) => {
                             editBuilder.replace(editRange, textToInsert);
                         });
@@ -658,6 +712,12 @@ Call this with your proposed edit; if you get an error back, try again with a di
                         new vscode.Position(line, character),
                         new vscode.Position(endLine, endCharacter)
                     );
+
+                    try {
+                        guard.assertNotModified(editor);
+                    } catch (e) {
+                        return `error: ${e instanceof Error ? e.message : String(e)}`;
+                    }
 
                     const applied = await editor.edit((editBuilder) => {
                         editBuilder.replace(range, newText);

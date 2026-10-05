@@ -1,41 +1,24 @@
 import * as vscode from "vscode";
-import { OutputChannel, window } from "vscode";
+import { OutputLogger } from "./logger";
 
-const LOG_PREFIX = "[proof-state]";
+export const PROOF_STATE_OUTPUT_CHANNEL_NAME = OutputLogger.CHANNEL_NAME;
 const DEFAULT_GOALS_TIMEOUT_MS = 15000;
 
-/** Visible in View → Output channel dropdown once the extension activates. */
-export const PROOF_STATE_OUTPUT_CHANNEL_NAME = "Output Directed Prover";
-
-let channel: OutputChannel | undefined;
-
-function getChannel(): OutputChannel {
-    if (!channel) {
-        channel = window.createOutputChannel(PROOF_STATE_OUTPUT_CHANNEL_NAME);
-    }
-    return channel;
-}
-
 /**
- * Create the output channel at activation so it appears in the Output dropdown
- * even before the first cursor move.
+ * Initialize unified logger at activation.
  */
 export function initProofStateLogger(context: vscode.ExtensionContext): void {
-    const ch = getChannel();
-    context.subscriptions.push(ch);
-    ch.appendLine(
-        `${LOG_PREFIX} Extension activated — proof state logging ready.`
-    );
+    OutputLogger.init(context);
 }
 
-/** Append a line to the "Output Directed Prover" output channel. */
+/** Append a message under the [ProofState] category in the unified channel. */
 export function proofStateLog(message: string): void {
-    getChannel().appendLine(`${LOG_PREFIX} ${message}`);
+    OutputLogger.info("ProofState", message);
 }
 
-/** Show the proof-state log in the Output panel. */
+/** Show the unified log in the Output panel. */
 export function showProofStateLog(): void {
-    getChannel().show(true);
+    OutputLogger.show(true);
 }
 
 export function formatPos(line: number, character: number): string {

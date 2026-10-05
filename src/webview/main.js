@@ -54,6 +54,10 @@ Transform.prototype.removeNodeMark = function (pos, mark) {
 const vscode = acquireVsCodeApi();
 let activeProverLabel = 'Coq';
 
+function logToHost(level, message) {
+    vscode.postMessage({ command: 'log', level, message });
+}
+
 function updateWebviewStatus(text) {
     const el = document.getElementById('webviewStatus');
     if (el) el.textContent = text;
@@ -587,6 +591,7 @@ window.addEventListener('message', (event) => {
             return;
         default:
             console.warn("Unknown message type:", msg.type);
+            logToHost("warn", "Unknown message type: " + msg.type);
             return;
     }
 
@@ -606,6 +611,7 @@ window.addEventListener('message', (event) => {
 function handleSuggestion(suggestion) {
     if (!suggestion || !suggestion.hypothesisName || suggestion.suggestedValue == null || suggestion.suggestedValue === '') {
         console.warn('Invalid suggestion received:', suggestion);
+        logToHost('warn', 'Invalid suggestion received: ' + JSON.stringify(suggestion));
         return;
     }
 
@@ -642,6 +648,7 @@ function handleSuggestion(suggestion) {
         });
         if (insertPos == null) {
             console.warn('Could not find goal to add hypothesis');
+            logToHost('warn', 'Could not find goal to add hypothesis for ' + suggestion.hypothesisName);
             appendChatMessage(`Suggestion: Add hypothesis "${suggestion.hypothesisName} : ${suggestion.suggestedValue}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`, 'assistant');
             return;
         }
@@ -671,6 +678,7 @@ function handleSuggestion(suggestion) {
             view.dispatch(tr);
         } catch (err) {
             console.warn('Failed to insert add-hypothesis suggestion:', err);
+            logToHost('error', 'Failed to insert add-hypothesis suggestion: ' + (err.message || String(err)));
         }
         appendChatMessage(`Suggestion: Add hypothesis "${suggestion.hypothesisName} : ${suggestion.suggestedValue}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`, 'assistant');
         return;
@@ -693,6 +701,7 @@ function handleSuggestion(suggestion) {
 
     if (foundPos === -1) {
         console.warn(`Could not find original value "${suggestion.originalValue}" in document`);
+        logToHost('warn', `Could not find original value "${suggestion.originalValue}" in document`);
         appendChatMessage(`Suggestion: Replace "${suggestion.originalValue}" with "${suggestion.suggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`, 'assistant');
         return;
     }

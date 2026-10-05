@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { AgentTool } from '../llm/chatBridge';
 import { ProverClient } from '../prover/ProverClient';
+import { EditorBufferGuard } from './editorBufferGuard';
 
 type EditHistory = {
     edits: Array<{ lhs: string; rhs: string; timestamp?: number }>;
@@ -132,29 +133,79 @@ export function createLeanAutoformaliserTools(
     ];
 }
 
+export interface LeanProverToolsOptions {
+    onSuggestedEditApplied?: (editor: vscode.TextEditor, range: vscode.Range, oldText: string) => void;
+    editorGuard?: EditorBufferGuard;
+}
+
 export function createLeanProverTools(
     getClient: () => ProverClient | undefined,
     editor: vscode.TextEditor,
-    onSuggestedEditApplied?: (editor: vscode.TextEditor, range: vscode.Range, oldText: string) => void
+    onSuggestedEditAppliedOrOptions?:
+        | ((editor: vscode.TextEditor, range: vscode.Range, oldText: string) => void)
+        | LeanProverToolsOptions
 ): AgentTool[] {
+    const options: LeanProverToolsOptions =
+        typeof onSuggestedEditAppliedOrOptions === 'function'
+            ? { onSuggestedEditApplied: onSuggestedEditAppliedOrOptions }
+            : onSuggestedEditAppliedOrOptions ?? {};
+
+    const guard = options.editorGuard ?? new EditorBufferGuard(editor);
+
     return [
         {
             name: 'validate_proof_state_change',
-            description: 'Applies proposed Lean tactic text at cursor (best effort).',
-            execute: async (args: { proposedAddition?: string }) => {
+            description: 'Validates and applies proposed Lean tactic at the cursor with speculative rollback safety.',
+            execute: async (args: {
+                originalValue?: string;
+                desiredValue?: string;
+                proposedAddition?: string;
+            }) => {
                 const addition = (args?.proposedAddition ?? '').trim();
                 if (!addition) return 'error: proposedAddition is required.';
-                const pos = editor.selection.active;
-                const textToInsert = (addition.endsWith('\n') ? addition : `${addition}\n`);
-                const ok = await editor.edit((b) => b.insert(pos, textToInsert));
-                if (!ok) return 'error: failed to apply proposed addition.';
-                const end = new vscode.Position(pos.line + textToInsert.split('\n').length - 1, 0);
-                onSuggestedEditApplied?.(editor, new vscode.Range(pos, end), '');
+
                 try {
-                    const state = await formatGoalState(getCurrentClient(getClient), editor);
-                    return `valid: applied proposed addition.\n\n${state}`;
-                } catch {
-                    return 'valid: applied proposed addition.';
+                    guard.assertNotModified(editor);
+                } catch (e) {
+                    return `error: ${e instanceof Error ? e.message : String(e)}`;
+                }
+
+                const client = getCurrentClient(getClient);
+                const pos = editor.selection.active;
+                const textToInsert = addition.endsWith('\n') ? addition : `${addition}\n`;
+                const lines = textToInsert.split('\n');
+                const linesAdded = lines.length - 1;
+                const lastLineLen = lines[linesAdded].length;
+
+                // 1. Speculatively apply the edit
+                const ok = await editor.edit((b) => b.insert(pos, textToInsert));
+                if (!ok) return 'error: failed to apply proposed addition to editor.';
+
+                const endPos = new vscode.Position(pos.line + linesAdded, lastLineLen);
+                const insertedRange = new vscode.Range(pos, endPos);
+
+                try {
+                    // 2. Query Lean goal state at the new position
+                    const goalState = await client.getGoalState(editor.document, endPos);
+                    const hasError =
+                        Boolean(goalState.error) ||
+                        (goalState.messages && goalState.messages.some((m) => /error:/i.test(m)));
+
+                    if (hasError) {
+                        // Roll back the speculative edit immediately
+                        await editor.edit((b) => b.delete(insertedRange));
+                        const errMsg = goalState.error || goalState.messages.join('\n');
+                        return `error: Proposed tactic produced Lean errors and was rolled back:\n${errMsg}`;
+                    }
+
+                    // 3. Success: retain edit and apply suggestion decoration
+                    options.onSuggestedEditApplied?.(editor, insertedRange, '');
+                    const formatted = await formatGoalState(client, editor);
+                    return `valid: Proposed addition compiles in Lean 4.\n\n${formatted}`;
+                } catch (e) {
+                    // Ensure rollback if goal state query threw
+                    await editor.edit((b) => b.delete(insertedRange));
+                    return `error: Speculative Lean check failed: ${e instanceof Error ? e.message : String(e)}`;
                 }
             }
         },
@@ -167,13 +218,19 @@ export function createLeanProverTools(
             name: 'suggest_proof_script_edit',
             description: 'Applies direct proof script edit at a Lean source position.',
             execute: async (args: { line: number; character: number; oldText: string; newText: string }) => {
+                try {
+                    guard.assertNotModified(editor);
+                } catch (e) {
+                    return `error: ${e instanceof Error ? e.message : String(e)}`;
+                }
+
                 const line = Math.max(0, args.line >= 1 ? args.line - 1 : args.line);
                 const start = new vscode.Position(line, Math.max(0, args.character));
                 const end = new vscode.Position(line, Math.max(0, args.character) + (args.oldText ?? '').length);
                 const range = new vscode.Range(start, end);
                 const ok = await editor.edit((b) => b.replace(range, args.newText ?? ''));
                 if (!ok) return 'error: failed to apply edit.';
-                onSuggestedEditApplied?.(editor, new vscode.Range(start, new vscode.Position(start.line, start.character + (args.newText ?? '').length)), args.oldText ?? '');
+                options.onSuggestedEditApplied?.(editor, new vscode.Range(start, new vscode.Position(start.line, start.character + (args.newText ?? '').length)), args.oldText ?? '');
                 return '=== PROOF SCRIPT EDIT APPLIED ===';
             }
         },

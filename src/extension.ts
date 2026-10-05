@@ -9,18 +9,20 @@ import {
     ProverManager,
 } from './prover/ProverManager';
 import { NormalizedGoal } from './prover/ProverClient';
+import { initProofStateLogger, showProofStateLog } from './logging/proofStateLogger';
+import { OutputLogger } from './logging/logger';
+
 const result = dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 if (result.error) {
-    console.error("Error loading .env file: ", result.error); 
+    OutputLogger.warn('Config', `Error loading .env file: ${result.error.message || String(result.error)}`); 
 } else { 
-    console.log("Loaded .env file: ", result.parsed);
+    OutputLogger.debug('Config', 'Loaded .env file successfully.');
 }
 // --- NEW IMPORTS FOR INLINE SUGGESTIONS ---
 // Note: Adjust these import paths based on where you saved suggestionManager.ts 
 // and the file containing your Prover Tools / clearSuggestedEditDecoration function.
 import { SuggestionManager } from './suggestionManager';
 import { clearSuggestedEditDecoration } from './tools/proverTools';
-import { initProofStateLogger, showProofStateLog } from './logging/proofStateLogger';
 // ------------------------------------------
 
 let coqLspClientReady: Promise<CoqLspClient> | undefined = undefined;
@@ -29,9 +31,50 @@ let applyConfiguredProverPromise: Promise<void> | undefined = undefined;
 let extensionContext: vscode.ExtensionContext | undefined;
 const OPENAI_SECRET_KEY = 'outputdirectedtheoremproving.openaiApiKey';
 const GEMINI_PROJECT_ID_KEY = 'outputdirectedtheoremproving.geminiProjectId';
+const PORTKEY_SECRET_KEY = 'outputdirectedtheoremproving.portkeyApiKey';
+const DEFAULT_PORTKEY_MODEL = '@GCP-public-dataset-integration/gemini-3.1-pro-preview';
+const DEFAULT_PORTKEY_PROVIDER_SLUG = '@GCP-public-dataset-integration';
+const DEFAULT_PORTKEY_BASE_URL = 'https://api.portkey.ai/v1';
 const DEFAULT_GEMINI_MODEL = 'gemini-3.1-pro-preview';
 const GEMINI_VERTEX_LOCATION = 'global';
 let defaultChatAdapter: any | undefined = undefined;
+
+function getConfiguredPortkeyModel(): string {
+    return (
+        process.env.PORTKEY_MODEL ||
+        vscode.workspace
+            .getConfiguration()
+            .get<string>('myExtension.defaultPortkeyModel', DEFAULT_PORTKEY_MODEL)
+    );
+}
+
+function getConfiguredPortkeySlug(): string {
+    return (
+        process.env.PORTKEY_PROVIDER_SLUG ||
+        vscode.workspace
+            .getConfiguration()
+            .get<string>('myExtension.portkeyProviderSlug', DEFAULT_PORTKEY_PROVIDER_SLUG)
+    );
+}
+
+function getConfiguredPortkeyBaseUrl(): string {
+    return (
+        process.env.PORTKEY_BASE_URL ||
+        vscode.workspace
+            .getConfiguration()
+            .get<string>('myExtension.portkeyBaseUrl', DEFAULT_PORTKEY_BASE_URL)
+    );
+}
+
+async function getStoredPortkeyApiKey(): Promise<string | undefined> {
+    if (extensionContext) {
+        const fromSecrets = await extensionContext.secrets.get(PORTKEY_SECRET_KEY);
+        if (fromSecrets) {
+            return fromSecrets;
+        }
+    }
+    return process.env.PORTKEY_API_KEY || undefined;
+}
 
 function getConfiguredGeminiModel(): string {
     return vscode.workspace
@@ -49,6 +92,74 @@ async function getStoredGeminiProjectId(): Promise<string | undefined> {
     return process.env.GEMINI_PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT ?? undefined;
 }
 
+import { normalizeMessagesForGemini } from './llm/messageNormalizer';
+
+async function createPortkeyAdapter(
+    apiKey: string,
+    modelId: string = getConfiguredPortkeyModel()
+): Promise<any> {
+    const OpenAI = require('openai');
+    const baseURL = getConfiguredPortkeyBaseUrl();
+    const slug = getConfiguredPortkeySlug();
+
+    const resolvedModel = modelId.startsWith('@')
+        ? modelId
+        : `${slug.replace(/\/$/, '')}/${modelId.replace(/^\//, '')}`;
+
+    const client = new OpenAI({
+        apiKey: 'dummy',
+        baseURL,
+        defaultHeaders: {
+            'x-portkey-api-key': apiKey,
+        },
+    });
+
+    return {
+        sendRequest: async (messages: any[], opts: any, token?: vscode.CancellationToken) => {
+            const chatMessages = messages.map((m) => {
+                if (typeof m === 'string') {
+                    return { role: 'user', content: m };
+                }
+                if (m && typeof m === 'object' && m.role && m.content) {
+                    return { role: m.role, content: m.content };
+                }
+                return { role: 'user', content: m?.text ?? String(m) };
+            });
+
+            const targetModel = opts?.model
+                ? (opts.model.startsWith('@') ? opts.model : `${slug.replace(/\/$/, '')}/${opts.model.replace(/^\//, '')}`)
+                : resolvedModel;
+
+            try {
+                const stream = await client.chat.completions.create({
+                    model: targetModel,
+                    messages: chatMessages,
+                    max_tokens: Math.max(opts?.maxTokens ?? 4096, 4096),
+                    temperature: opts?.temperature ?? 0.2,
+                    stream: true,
+                });
+
+                return {
+                    text: (async function* () {
+                        for await (const chunk of stream) {
+                            if (token && token.isCancellationRequested) {
+                                break;
+                            }
+                            const content = chunk.choices[0]?.delta?.content;
+                            if (content) {
+                                yield content;
+                            }
+                        }
+                    })(),
+                };
+            } catch (e: any) {
+                OutputLogger.error('Agent:Chat', 'Portkey API call failed:', e);
+                throw new Error('Portkey API error: ' + (e && e.message ? e.message : String(e)));
+            }
+        },
+    };
+}
+
 async function createGeminiAdapter(
     projectId: string,
     modelId: string = getConfiguredGeminiModel()
@@ -62,28 +173,20 @@ async function createGeminiAdapter(
 
     return {
         sendRequest: async (messages: any[], opts: any, token?: vscode.CancellationToken) => {
-            try {
-                const contents: any[] = [];
-                for (const m of messages) {
-                    if (typeof m === 'string') {
-                        contents.push({ role: 'user', parts: [{ text: m }] });
-                    } else if (m.role && m.content) {
-                        const role = m.role === 'assistant' ? 'model' : 'user';
-                        contents.push({ role: role, parts: [{ text: m.content }] });
-                    } else if (m.role && m.parts) {
-                        contents.push(m);
-                    } else {
-                        contents.push({ role: 'user', parts: [{ text: m.text ?? String(m) }] });
-                    }
-                }
+            const { systemInstruction, contents } = normalizeMessagesForGemini(messages);
+            const generationConfig: any = {
+                maxOutputTokens: opts?.maxTokens ?? 2048,
+                temperature: opts?.temperature ?? 1.0,
+            };
+            if (systemInstruction) {
+                generationConfig.systemInstruction = systemInstruction;
+            }
 
+            try {
                 const stream = await ai.models.generateContentStream({
                     model: modelId,
                     contents: contents,
-                    generationConfig: {
-                        maxOutputTokens: opts?.maxTokens ?? 2048,
-                        temperature: opts?.temperature ?? 1.0,
-                    },
+                    config: generationConfig,
                 });
 
                 return {
@@ -100,32 +203,38 @@ async function createGeminiAdapter(
                     })(),
                 };
             } catch (e: any) {
-                return {
-                    text: (async function* () {
-                        yield 'Gemini error: ' + (e && e.message ? e.message : String(e));
-                    })(),
-                };
+                OutputLogger.error('Agent:Chat', 'Gemini API call failed:', e);
+                throw new Error('Gemini API error: ' + (e && e.message ? e.message : String(e)));
             }
         },
     };
 }
 
-/** Initialize Gemini 3.1 Pro when a GCP project id is already stored (no UI). */
+/** Initialize default model: Portkey (Gemini 3.1 Pro via AI Gateway) prioritized, fallback to GCP Vertex AI. */
 async function ensureDefaultChatAdapter(): Promise<any | null> {
     if (defaultChatAdapter) {
         return defaultChatAdapter;
     }
+    const portkeyApiKey = await getStoredPortkeyApiKey();
+    if (portkeyApiKey) {
+        try {
+            defaultChatAdapter = await createPortkeyAdapter(portkeyApiKey, getConfiguredPortkeyModel());
+            OutputLogger.info('Config', `Auto-initialized default Portkey adapter with model ${getConfiguredPortkeyModel()}`);
+            return defaultChatAdapter;
+        } catch (e) {
+            OutputLogger.error('Config', 'Failed to auto-initialize Portkey adapter:', e);
+        }
+    }
     const projectId = await getStoredGeminiProjectId();
-    if (!projectId) {
-        return null;
+    if (projectId) {
+        try {
+            defaultChatAdapter = await createGeminiAdapter(projectId, getConfiguredGeminiModel());
+            return defaultChatAdapter;
+        } catch (e) {
+            OutputLogger.error('Config', 'Failed to auto-initialize default Gemini adapter:', e);
+        }
     }
-    try {
-        defaultChatAdapter = await createGeminiAdapter(projectId, getConfiguredGeminiModel());
-        return defaultChatAdapter;
-    } catch (e) {
-        console.error('Failed to auto-initialize default Gemini adapter', e);
-        return null;
-    }
+    return null;
 }
 
 import { streamCoqChat } from './llm/chatBridge';
@@ -175,7 +284,7 @@ function detectProverFromEditor(editor: vscode.TextEditor | undefined): ProverKi
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('Congratulations, your extension "outputdirectedtheoremproving" is now active!');
+    OutputLogger.info('Config', 'Congratulations, your extension "outputdirectedtheoremproving" is now active!');
     extensionContext = context;
     initProofStateLogger(context);
 
@@ -278,7 +387,7 @@ export function activate(context: vscode.ExtensionContext) {
                 void ProofStatePanel.currentPanel.requestProofStateUpdate();
             }
         } catch (e) {
-            console.error(`Failed to initialize ${configured} prover`, e);
+            OutputLogger.error('Config', `Failed to initialize ${configured} prover:`, e);
             vscode.window.showErrorMessage(
                 `Failed to initialize ${configured} prover: ${e instanceof Error ? e.message : String(e)}`
             );
@@ -447,6 +556,24 @@ export function activate(context: vscode.ExtensionContext) {
     });
     context.subscriptions.push(setOpenAiKeyCmd); 
 
+    const setPortkeyApiKeyCmd = vscode.commands.registerCommand('outputdirectedtheoremproving.setPortkeyApiKey', async () => {
+        const key = await vscode.window.showInputBox({
+            prompt: 'Enter your Portkey API Key',
+            password: true,
+            ignoreFocusOut: true,
+        });
+        if (!key) { return; }
+        if (!extensionContext) {
+            vscode.window.showErrorMessage('Extension context not available.');
+            return;
+        }
+        await extensionContext.secrets.store(PORTKEY_SECRET_KEY, key);
+        defaultChatAdapter = undefined;
+        await ensureDefaultChatAdapter();
+        vscode.window.showInformationMessage('Portkey API key saved securely and adapter initialized.');
+    });
+    context.subscriptions.push(setPortkeyApiKeyCmd);
+
     const getModelCmd = vscode.commands.registerCommand('outputdirectedtheoremproving.getDefaultChatModel', async (args?: { useCache?: boolean }) => {
         // If useCache is true (programmatic call), return cached adapter if available
         // If useCache is false or undefined (command palette call), always show picker
@@ -464,9 +591,10 @@ export function activate(context: vscode.ExtensionContext) {
         const { GrazieService } = require('./llm/llmServices/grazie/grazieService');
         const { DeepSeekService } = require('./llm/llmServices/deepSeek/deepSeekService');
         const services = [
+            { label: 'Portkey (Gemini / Claude / Kimi)', description: 'Google Gemini & frontier models via Portkey AI Gateway', instance: null },
             { label: 'PredefinedProofs', description: 'Offline fallback using simple tactics', instance: new PredefinedProofsService() },
             { label: 'OpenAI', description: 'OpenAI GPT models (requires API key)', instance: new OpenAiService() },
-            { label: 'Gemini (Vertex AI)', description: 'Google Gemini models via Vertex AI (requires GCP project)', instance: null },
+            { label: 'Gemini (Vertex AI)', description: 'Google Gemini models via Vertex AI (legacy GCP project)', instance: null },
             { label: 'LMStudio', description: 'Local LMStudio server', instance: new LMStudioService() },
             { label: 'Grazie', description: 'JetBrains Grazie AI', instance: new GrazieService() },
             { label: 'DeepSeek', description: 'DeepSeek AI', instance: new DeepSeekService() },
@@ -478,6 +606,59 @@ export function activate(context: vscode.ExtensionContext) {
         if (choice.label === 'Open Chat view') {
             try { await vscode.commands.executeCommand('workbench.action.openChat'); } catch (e) { /* ignore */ }
             return null;
+        }
+
+        if (choice.label === 'Portkey (Gemini / Claude / Kimi)') {
+            let apiKey = await getStoredPortkeyApiKey();
+            if (!apiKey) {
+                const inputKey = await vscode.window.showInputBox({
+                    prompt: 'Enter your Portkey API Key',
+                    password: true,
+                    ignoreFocusOut: true,
+                });
+                if (!inputKey) {
+                    return null;
+                }
+                apiKey = inputKey;
+                if (extensionContext) {
+                    await extensionContext.secrets.store(PORTKEY_SECRET_KEY, apiKey);
+                }
+            }
+
+            const modelOptions = [
+                { label: '@GCP-public-dataset-integration/gemini-3.1-pro-preview', description: 'Default & recommended reasoning model for theorem proving' },
+                { label: '@GCP-public-dataset-integration/gemini-2.5-pro', description: 'High-performance reasoning model' },
+                { label: '@GCP-public-dataset-integration/gemini-2.5-flash', description: 'Fast and lightweight model' },
+                { label: '@GCP-public-dataset-integration/gemini-3-flash-preview', description: 'Next-gen fast preview model' },
+                { label: '@GCP-public-dataset-integration/kimi-k2-thinking-maas', description: 'Thinking model via MaaS' },
+                { label: 'Custom...', description: 'Specify a custom model slug' },
+            ];
+            const picked = await vscode.window.showQuickPick(modelOptions, { placeHolder: 'Select Portkey model to use' });
+            if (!picked) {
+                return null;
+            }
+
+            let selectedModel = picked.label;
+            if (selectedModel === 'Custom...') {
+                const customModel = await vscode.window.showInputBox({
+                    prompt: 'Enter model slug (e.g. @GCP-public-dataset-integration/gemini-2.5-pro)',
+                    placeHolder: '@GCP-public-dataset-integration/gemini-3.1-pro-preview',
+                    ignoreFocusOut: true,
+                });
+                if (!customModel) {
+                    return null;
+                }
+                selectedModel = customModel;
+            }
+
+            try {
+                const adapter = await createPortkeyAdapter(apiKey, selectedModel);
+                defaultChatAdapter = adapter;
+                return adapter;
+            } catch (e: any) {
+                vscode.window.showErrorMessage(`Failed to initialize Portkey adapter: ${e.message || String(e)}`);
+                return null;
+            }
         }
 
         if (choice.label === 'PredefinedProofs') {
@@ -617,6 +798,46 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(changeModelCmd);
 
     void ensureDefaultChatAdapter();
+
+    const copyDiagnosticReportCmd = vscode.commands.registerCommand(
+        'outputdirectedtheoremproving.copyDiagnosticReport',
+        async () => {
+            try {
+                const os = require('os');
+                const activeKind = proverManager?.getActiveKind() ?? getConfiguredProverKind();
+                const portkeyConfigured = !!(await getStoredPortkeyApiKey());
+                const portkeyModel = getConfiguredPortkeyModel();
+                const portkeySlug = getConfiguredPortkeySlug();
+                const openAiConfigured = extensionContext ? !!(await extensionContext.secrets.get(OPENAI_SECRET_KEY)) : false;
+                const geminiProject = await getStoredGeminiProjectId();
+                const geminiModel = getConfiguredGeminiModel();
+                const coqLspPath = process.env.COQ_LSP_PATH || '/home/vscode/.opam/rocq-9.0/bin/coq-lsp';
+                
+                let report = `### Output Directed Theorem Proving - Diagnostic Report\n\n`;
+                report += `- **Timestamp:** ${new Date().toISOString()}\n`;
+                report += `- **VS Code Version:** ${vscode.version}\n`;
+                report += `- **OS:** ${process.platform} ${process.arch} (${os.release()})\n`;
+                report += `- **Active Prover:** ${activeKind}\n`;
+                report += `- **Auto Switch Prover:** ${vscode.workspace.getConfiguration().get('myExtension.autoSwitchProver', true)}\n`;
+                report += `- **Coq LSP Path:** \`${coqLspPath}\`\n`;
+                report += `- **Portkey API Key Set:** ${portkeyConfigured ? 'Yes' : 'No'}\n`;
+                report += `- **Active Portkey Model:** \`${portkeyModel}\`\n`;
+                report += `- **Portkey Provider Slug:** \`${portkeySlug}\`\n`;
+                report += `- **OpenAI Key Set:** ${openAiConfigured ? 'Yes' : 'No'}\n`;
+                report += `- **Gemini Project ID Set:** ${geminiProject ? 'Yes' : 'No'}\n`;
+                report += `- **Default Gemini Model:** \`${geminiModel}\`\n`;
+                report += `- **Goals Timeout:** ${vscode.workspace.getConfiguration().get('myExtension.coqGoalsTimeoutMs', 15000)}ms\n`;
+
+                await vscode.env.clipboard.writeText(report);
+                OutputLogger.info('Config', 'Diagnostic report copied to clipboard.');
+                vscode.window.showInformationMessage('Diagnostic report copied to clipboard!');
+            } catch (e) {
+                OutputLogger.error('Config', 'Failed to copy diagnostic report:', e);
+                vscode.window.showErrorMessage(`Failed to copy diagnostic report: ${e instanceof Error ? e.message : String(e)}`);
+            }
+        }
+    );
+    context.subscriptions.push(copyDiagnosticReportCmd);
 
     const disposable = vscode.commands.registerCommand('outputdirectedtheoremproving.helloWorld', () => {
         vscode.window.showInformationMessage('Hello World from OutputDirectedTheoremProving!');

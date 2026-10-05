@@ -26,6 +26,7 @@
     "onCommand:outputdirectedtheoremproving.toggleActiveProver",
     "onCommand:outputdirectedtheoremproving.updateProofState",
     "onCommand:outputdirectedtheoremproving.showProofStateLog",
+    "onCommand:outputdirectedtheoremproving.copyDiagnosticReport",
     "onLanguage:coq",
     "onLanguage:rocq"
   ],
@@ -61,6 +62,10 @@
         "title": "Show Proof State Log"
       },
       {
+        "command": "outputdirectedtheoremproving.copyDiagnosticReport",
+        "title": "Copy Diagnostic Report"
+      },
+      {
         "command": "outputdirectedtheoremproving.acceptSuggestion",
         "title": "Accept Proof Suggestion"
       },
@@ -71,6 +76,10 @@
       {
         "command": "outputdirectedtheoremproving.toggleActiveProver",
         "title": "Toggle Active Prover (Coq/Lean)"
+      },
+      {
+        "command": "outputdirectedtheoremproving.setPortkeyApiKey",
+        "title": "Set Portkey API Key"
       }
     ],
     "configuration": {
@@ -89,6 +98,21 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically switch active prover based on focused editor language (Coq or Lean)."
+        },
+        "myExtension.defaultPortkeyModel": {
+          "type": "string",
+          "default": "@GCP-public-dataset-integration/gemini-3.1-pro-preview",
+          "description": "Default Portkey model slug used for AI assistant and theorem proving agent."
+        },
+        "myExtension.portkeyProviderSlug": {
+          "type": "string",
+          "default": "@GCP-public-dataset-integration",
+          "description": "Default provider slug in Portkey."
+        },
+        "myExtension.portkeyBaseUrl": {
+          "type": "string",
+          "default": "https://api.portkey.ai/v1",
+          "description": "Base URL for the Portkey AI Gateway."
         },
         "myExtension.defaultGeminiModel": {
           "type": "string",

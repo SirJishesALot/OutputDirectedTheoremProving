@@ -14,12 +14,12 @@ import {
     formatUri,
     proofStateLog,
 } from '../logging/proofStateLogger';
+import { OutputLogger } from '../logging/logger';
 import { ProverClient } from '../prover/ProverClient';
 import { CoqClient } from '../prover/CoqClient';
 
-// --- NEW IMPORT FOR INLINE SUGGESTIONS ---
+import { EditorBufferGuard } from '../tools/editorBufferGuard';
 import { globalSuggestionManager } from '../extension';
-// -----------------------------------------
 
 type ClientReadyPromise = Promise<CoqLspClient>;
 type ActiveProverKind = 'Coq' | 'Lean';
@@ -512,10 +512,11 @@ export class ProofStatePanel {
                         handleSuggestion, // onSuggestion callback
                         this.conversationHistory, // conversation history
                         handleHistoryUpdate, // onHistoryUpdate callback
-                        this.editHistory // edit history
+                        this.editHistory, // edit history
+                        activeProver
                     );
                 } catch (e) {
-                    console.error('Stream chat response failed:', e);
+                    OutputLogger.error('Agent:Chat', 'Stream chat response failed:', e);
                     this.getChatWebview().postMessage({ type: 'chatResponseDone' });
                 } finally {
                     this.chatCancelSource?.dispose();
@@ -524,7 +525,7 @@ export class ProofStatePanel {
             })();
         } else if (cmd === 'agentRequest') {
             if (!isMain) return;
-            console.log('[Proof State Panel] agentRequest received, context:', JSON.stringify(message.context));
+            OutputLogger.info('ProofState', `agentRequest received, context: ${JSON.stringify(message.context)}`);
             await this.handleAgentRequest(message.context);
         } else if (cmd === 'updateEditHistory') {
             if (!isMain) return;
@@ -542,9 +543,12 @@ export class ProofStatePanel {
                         rhs: edit.rhs,
                         timestamp: edit.timestamp || Date.now()
                     });
-                    console.log('Edit history updated:', this.editHistory.edits.length, 'edits');
+                    OutputLogger.debug('ProofState', `Edit history updated: ${this.editHistory.edits.length} edits`);
                 }
             }
+        } else if (cmd === 'log') {
+            const level = message.level === 'error' ? 'error' : (message.level === 'warn' ? 'warn' : 'info');
+            OutputLogger[level]('Webview', message.message || message.text || '');
         }
     }
 
@@ -593,12 +597,12 @@ export class ProofStatePanel {
         }
 
         if (!editor) {
-            console.error('[Proof State Panel] Could not find the bound Coq editor.');
-            this.getChatWebview().postMessage({ type: 'chatResponsePart', text: 'Error: The Coq file for this proof state is no longer visible.' });
+            OutputLogger.warn('Agent:Prover', 'Could not find the bound editor for the active prover.');
+            this.getChatWebview().postMessage({ type: 'chatResponsePart', text: 'Error: The prover file for this proof state is no longer visible.' });
             this.getChatWebview().postMessage({ type: 'chatResponseDone' });
             return;
         }
-        console.log('[Proof State Panel] Editor found, running prover agent');
+        OutputLogger.info('Agent:Prover', 'Editor found, starting prover agent run.');
 
         if (!this.savedCursorPosition) {
             this.savedCursorPosition = { line: editor.selection.active.line, character: editor.selection.active.character };
@@ -628,13 +632,18 @@ export class ProofStatePanel {
             }
             this.panel.webview.postMessage({ type: 'proofSuggestionApplied' });
         };
+        const guard = new EditorBufferGuard(editor, this.savedCursorPosition);
         const proverTools = activeProver === 'Lean'
-            ? createLeanProverTools(() => this.getActiveClient(), editor, onSuggestedEditApplied)
+            ? createLeanProverTools(() => this.getActiveClient(), editor, {
+                onSuggestedEditApplied,
+                editorGuard: guard,
+            })
             : createProverTools(this.clientReady, editor, {
                 sessionOriginalValue: originalValue,
                 sessionDesiredValue: desiredValue,
                 cursorPositionOverride: this.savedCursorPosition,
                 onSuggestedEditApplied,
+                editorGuard: guard,
             });
 
         // Show initial message (show full-state summary when available)
@@ -647,7 +656,7 @@ export class ProofStatePanel {
         });
 
         try {
-            console.log('[Proof State Panel] Calling runProverAgent');
+            OutputLogger.debug('Agent:Prover', 'Calling runProverAgent...');
             await runProverAgent(
                 this.clientReady,
                 model,
@@ -667,11 +676,12 @@ export class ProofStatePanel {
                 () => {
                     this.getChatWebview().postMessage({ type: 'chatResponseDone' });
                 },
-                token
+                token,
+                activeProver
             );
-            console.log('[Proof State Panel] runProverAgent finished');
+            OutputLogger.info('Agent:Prover', 'runProverAgent finished successfully.');
         } catch (e) {
-            console.error('[Proof State Panel] Prover agent error:', e);
+            OutputLogger.error('Agent:Prover', 'Prover agent error:', e);
             this.getChatWebview().postMessage({
                 type: 'chatResponsePart',
                 text: `Error running prover agent: ${e instanceof Error ? e.message : String(e)}`

@@ -18,6 +18,7 @@ import {
     NormalizedGoalState,
     ProverClient,
 } from "./ProverClient";
+import { OutputLogger } from "../logging/logger";
 
 /**
  * Recursively flattens Lean 4 TaggedText into a plain string.
@@ -144,11 +145,8 @@ function getLeanEnv(): NodeJS.ProcessEnv {
 export class LeanClient implements ProverClient {
     private client: LanguageClient | undefined;
     private isInitializing: boolean = false;
-    private outputChannel: vscode.OutputChannel;
 
-    constructor() {
-        this.outputChannel = vscode.window.createOutputChannel("AI Lean LSP");
-    }
+    constructor() {}
 
     async initialize(): Promise<void> {
         if (this.client || this.isInitializing) return;
@@ -160,15 +158,15 @@ export class LeanClient implements ProverClient {
             const leanPath = path.join(elanBin, process.platform === "win32" ? "lean.exe" : "lean");
             const leanEnv = getLeanEnv();
 
-            this.outputChannel.appendLine(`[Init] Checking Lean at: ${leanPath}`);
+            OutputLogger.info("Prover:Lean", `[Init] Checking Lean at: ${leanPath}`);
 
             // 1. PRE-FLIGHT CHECK: Can we even run 'lean --version'?
             // This captures errors that usually crash the LSP silently.
             try {
                 const version = cp.execSync(`"${leanPath}" --version`, { env: leanEnv, cwd }).toString();
-                this.outputChannel.appendLine(`[Init] Lean version check: ${version.trim()}`);
+                OutputLogger.info("Prover:Lean", `[Init] Lean version check: ${version.trim()}`);
             } catch (e: any) {
-                this.outputChannel.appendLine(`[ERROR] Pre-flight check failed. Lean is not runnable: ${e.message}`);
+                OutputLogger.error("Prover:Lean", `[ERROR] Pre-flight check failed. Lean is not runnable: ${e.message}`);
                 this.isInitializing = false;
                 return;
             }
@@ -186,8 +184,8 @@ export class LeanClient implements ProverClient {
                     { scheme: 'file', language: 'lean4' }, 
                     { scheme: 'file', pattern: '**/*.lean' }
                 ],
-                outputChannel: this.outputChannel,
-                // traceOutputChannel: this.outputChannel, 
+                outputChannel: OutputLogger.getChannel(),
+                // traceOutputChannel: OutputLogger.getChannel(), 
                 // trace: Trace.Verbose,  
                 errorHandler: {
                     error: () => ({ action: ErrorAction.Shutdown }),
@@ -197,13 +195,13 @@ export class LeanClient implements ProverClient {
 
             const client = new LanguageClient('aiLeanProver', 'AI Lean Prover', serverOptions, clientOptions);
 
-            this.outputChannel.appendLine("[Init] Starting Language Client...");
+            OutputLogger.info("Prover:Lean", "[Init] Starting Language Client...");
             await client.start();
             
             this.client = client;
-            this.outputChannel.appendLine("[Init] Success.");
+            OutputLogger.info("Prover:Lean", "[Init] Success.");
         } catch (err) {
-            this.outputChannel.appendLine(`[FATAL] Start failed: ${err}`);
+            OutputLogger.error("Prover:Lean", `[FATAL] Start failed: ${err}`);
             this.client = undefined;
         } finally {
             this.isInitializing = false;
@@ -215,7 +213,7 @@ export class LeanClient implements ProverClient {
             throw new Error("Lean client not running.");
         }
         if (!this.client.protocol2CodeConverter.asUri(document.uri.toString())) {
-            this.outputChannel.appendLine(`Force-syncing document: ${document.uri.toString()}`);
+            OutputLogger.info("Prover:Lean", `Force-syncing document: ${document.uri.toString()}`);
         }
         const params = {
             textDocument: { uri: this.client.code2ProtocolConverter.asUri(document.uri)},
@@ -226,15 +224,15 @@ export class LeanClient implements ProverClient {
         while (retries > 0) {
             try {
                 const rawResponse = await this.client.sendRequest("$/lean/plainGoal", params);
-                console.log("rawResponse: ", rawResponse);
+                OutputLogger.trace("Prover:Lean", "rawResponse: " + JSON.stringify(rawResponse));
                 const normalized = normalizeLeanGoalState(rawResponse);
-                console.log("normalized: ", normalized);
+                OutputLogger.trace("Prover:Lean", "normalized: " + JSON.stringify(normalized));
                 return normalized;
             } catch (error: any) {
                 // If the server says the file is closed, wait 200ms and try again.
                 // This gives the LSP client time to finish the didOpen handshake.
                 if (error.message?.includes("closed file") && retries > 1) {
-                    this.outputChannel.appendLine(`File not yet synced, retrying... (${retries} left)`);
+                    OutputLogger.warn("Prover:Lean", `File not yet synced, retrying... (${retries} left)`);
                     await new Promise(resolve => setTimeout(resolve, 200));
                     retries--;
                     continue;
