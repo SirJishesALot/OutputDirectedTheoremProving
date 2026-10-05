@@ -8,7 +8,9 @@ export type LogCategory =
     | 'Agent:Prover'
     | 'Webview'
     | 'Config'
-    | 'LSP';
+    | 'LSP'
+    | 'LLM:Antigravity'
+    | 'LLM:Portkey';
 
 export class OutputLogger {
     private static channel: vscode.OutputChannel | vscode.LogOutputChannel | undefined;

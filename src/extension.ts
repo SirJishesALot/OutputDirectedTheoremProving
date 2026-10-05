@@ -27,34 +27,41 @@ let extensionContext: vscode.ExtensionContext | undefined;
 const OPENAI_SECRET_KEY = 'outputdirectedtheoremproving.openaiApiKey';
 const GEMINI_PROJECT_ID_KEY = 'outputdirectedtheoremproving.geminiProjectId';
 const PORTKEY_SECRET_KEY = 'outputdirectedtheoremproving.portkeyApiKey';
-const DEFAULT_PORTKEY_MODEL = '@GCP-public-dataset-integration/gemini-3.1-pro-preview';
-const DEFAULT_PORTKEY_PROVIDER_SLUG = '@GCP-public-dataset-integration';
-const DEFAULT_PORTKEY_BASE_URL = 'https://api.portkey.ai/v1';
+import {
+    createPortkeyAdapter,
+    getConfiguredPortkeyModel,
+    getConfiguredPortkeySlug,
+    getConfiguredPortkeyBaseUrl,
+    DEFAULT_PORTKEY_MODEL,
+    DEFAULT_PORTKEY_SLUG,
+    DEFAULT_PORTKEY_BASE_URL,
+} from './llm/portkeyAdapter';
+import {
+    createAntigravityCliAdapter,
+    findAgyBinaryPath,
+    listAvailableAgyModels,
+    POPULAR_ANTIGRAVITY_MODELS,
+} from './llm/antigravityCliAdapter';
+
 const DEFAULT_GEMINI_MODEL = 'gemini-3.1-pro-preview';
 const GEMINI_VERTEX_LOCATION = 'global';
 let defaultChatAdapter: any | undefined = undefined;
 
-function getConfiguredPortkeyModel(): string {
+function getConfiguredAntigravityModel(): string {
     return (
-        process.env.PORTKEY_MODEL ||
-        vscode.workspace.getConfiguration().get<string>('myExtension.defaultPortkeyModel') ||
-        DEFAULT_PORTKEY_MODEL
+        vscode.workspace
+            .getConfiguration()
+            .get<string>('myExtension.defaultAntigravityModel', 'gemini-3.8-flash-low') ||
+        'gemini-3.8-flash-low'
     );
 }
 
-function getConfiguredPortkeySlug(): string {
+function getConfiguredLlmBackend(): 'antigravity-cli' | 'portkey' | 'openai' | 'vertex' {
     return (
-        process.env.PORTKEY_PROVIDER_SLUG ||
-        vscode.workspace.getConfiguration().get<string>('myExtension.portkeyProviderSlug') ||
-        DEFAULT_PORTKEY_PROVIDER_SLUG
-    );
-}
-
-function getConfiguredPortkeyBaseUrl(): string {
-    return (
-        process.env.PORTKEY_BASE_URL ||
-        vscode.workspace.getConfiguration().get<string>('myExtension.portkeyBaseUrl') ||
-        DEFAULT_PORTKEY_BASE_URL
+        vscode.workspace
+            .getConfiguration()
+            .get<'antigravity-cli' | 'portkey' | 'openai' | 'vertex'>('myExtension.llmBackend', 'antigravity-cli') ||
+        'antigravity-cli'
     );
 }
 
@@ -86,73 +93,6 @@ async function getStoredGeminiProjectId(): Promise<string | undefined> {
 }
 
 import { normalizeMessagesForGemini } from './llm/messageNormalizer';
-
-async function createPortkeyAdapter(
-    apiKey: string,
-    modelId?: string
-): Promise<any> {
-    const OpenAI = require('openai');
-    const baseURL = getConfiguredPortkeyBaseUrl();
-    const slug = getConfiguredPortkeySlug();
-    const rawModel = modelId || getConfiguredPortkeyModel() || DEFAULT_PORTKEY_MODEL;
-
-    const resolvedModel = rawModel.startsWith('@')
-        ? rawModel
-        : `${slug.replace(/\/$/, '')}/${rawModel.replace(/^\//, '')}`;
-
-    const client = new OpenAI({
-        apiKey: 'dummy',
-        baseURL,
-        defaultHeaders: {
-            'x-portkey-api-key': apiKey,
-        },
-    });
-
-    return {
-        sendRequest: async (messages: any[], opts: any, token?: vscode.CancellationToken) => {
-            const chatMessages = messages.map((m) => {
-                if (typeof m === 'string') {
-                    return { role: 'user', content: m };
-                }
-                if (m && typeof m === 'object' && m.role && m.content) {
-                    return { role: m.role, content: m.content };
-                }
-                return { role: 'user', content: m?.text ?? String(m) };
-            });
-
-            const targetModel = opts?.model
-                ? (opts.model.startsWith('@') ? opts.model : `${slug.replace(/\/$/, '')}/${opts.model.replace(/^\//, '')}`)
-                : resolvedModel;
-
-            try {
-                const stream = await client.chat.completions.create({
-                    model: targetModel,
-                    messages: chatMessages,
-                    max_tokens: Math.max(opts?.maxTokens ?? 4096, 4096),
-                    temperature: opts?.temperature ?? 0.2,
-                    stream: true,
-                });
-
-                return {
-                    text: (async function* () {
-                        for await (const chunk of stream) {
-                            if (token && token.isCancellationRequested) {
-                                break;
-                            }
-                            const content = chunk.choices[0]?.delta?.content;
-                            if (content) {
-                                yield content;
-                            }
-                        }
-                    })(),
-                };
-            } catch (e: any) {
-                OutputLogger.error('Agent:Chat', 'Portkey API call failed:', e);
-                throw new Error('Portkey API error: ' + (e && e.message ? e.message : String(e)));
-            }
-        },
-    };
-}
 
 async function createGeminiAdapter(
     projectId: string,
@@ -204,21 +144,49 @@ async function createGeminiAdapter(
     };
 }
 
-/** Initialize default model: Portkey (Gemini 3.1 Pro via AI Gateway) prioritized, fallback to GCP Vertex AI. */
+/** Initialize default model based on configured backend (Antigravity CLI or Portkey gateway). */
 async function ensureDefaultChatAdapter(): Promise<any | null> {
     if (defaultChatAdapter) {
         return defaultChatAdapter;
     }
-    const portkeyApiKey = await getStoredPortkeyApiKey();
-    if (portkeyApiKey) {
+    const preferredBackend = getConfiguredLlmBackend();
+
+    if (preferredBackend === 'antigravity-cli') {
         try {
-            defaultChatAdapter = await createPortkeyAdapter(portkeyApiKey, getConfiguredPortkeyModel());
-            OutputLogger.info('Config', `Auto-initialized default Portkey adapter with model ${getConfiguredPortkeyModel()}`);
+            const model = getConfiguredAntigravityModel();
+            defaultChatAdapter = createAntigravityCliAdapter(model);
+            OutputLogger.info('Config', `Auto-initialized default Antigravity CLI adapter with model "${model}"`);
             return defaultChatAdapter;
         } catch (e) {
-            OutputLogger.error('Config', 'Failed to auto-initialize Portkey adapter:', e);
+            OutputLogger.error('Config', 'Failed to auto-initialize Antigravity CLI adapter:', e);
         }
     }
+
+    if (preferredBackend === 'portkey' || !defaultChatAdapter) {
+        const portkeyApiKey = await getStoredPortkeyApiKey();
+        if (portkeyApiKey) {
+            try {
+                defaultChatAdapter = await createPortkeyAdapter(portkeyApiKey, getConfiguredPortkeyModel());
+                OutputLogger.info('Config', `Auto-initialized Portkey adapter with model ${getConfiguredPortkeyModel()}`);
+                return defaultChatAdapter;
+            } catch (e) {
+                OutputLogger.error('Config', 'Failed to auto-initialize Portkey adapter:', e);
+            }
+        }
+    }
+
+    // Fallback to Antigravity CLI if Portkey was selected but no key available
+    if (!defaultChatAdapter) {
+        try {
+            const model = getConfiguredAntigravityModel();
+            defaultChatAdapter = createAntigravityCliAdapter(model);
+            OutputLogger.info('Config', `Auto-initialized fallback Antigravity CLI adapter with model "${model}"`);
+            return defaultChatAdapter;
+        } catch (e) {
+            OutputLogger.error('Config', 'Failed to auto-initialize fallback Antigravity CLI adapter:', e);
+        }
+    }
+
     const projectId = await getStoredGeminiProjectId();
     if (projectId) {
         try {
@@ -597,6 +565,7 @@ export function activate(context: vscode.ExtensionContext) {
         const { GrazieService } = require('./llm/llmServices/grazie/grazieService');
         const { DeepSeekService } = require('./llm/llmServices/deepSeek/deepSeekService');
         const services = [
+            { label: 'Antigravity CLI (agy)', description: 'Google Gemini 3.8 / Claude via local agy CLI (no API key required)', instance: null },
             { label: 'Portkey (Gemini / Claude / Kimi)', description: 'Google Gemini & frontier models via Portkey AI Gateway', instance: null },
             { label: 'PredefinedProofs', description: 'Offline fallback using simple tactics', instance: new PredefinedProofsService() },
             { label: 'OpenAI', description: 'OpenAI GPT models (requires API key)', instance: new OpenAiService() },
@@ -612,6 +581,47 @@ export function activate(context: vscode.ExtensionContext) {
         if (choice.label === 'Open Chat view') {
             try { await vscode.commands.executeCommand('workbench.action.openChat'); } catch (e) { /* ignore */ }
             return null;
+        }
+
+        if (choice.label === 'Antigravity CLI (agy)') {
+            const availableModels = await listAvailableAgyModels();
+            const modelOptions = availableModels.map((m) => ({
+                label: m.id,
+                description: m.description,
+            }));
+            modelOptions.push({ label: 'Custom...', description: 'Specify a custom model identifier' });
+
+            const picked = await vscode.window.showQuickPick(modelOptions, {
+                placeHolder: 'Select Antigravity model to use (gemini-3.8-flash-low recommended for fast responses)',
+            });
+            if (!picked) {
+                return null;
+            }
+
+            let selectedModel = picked.label;
+            if (selectedModel === 'Custom...') {
+                const customModel = await vscode.window.showInputBox({
+                    prompt: 'Enter model identifier for agy (e.g. gemini-3.8-flash-low, claude-sonnet-5-5-high)',
+                    placeHolder: 'gemini-3.8-flash-low',
+                    ignoreFocusOut: true,
+                });
+                if (!customModel) {
+                    return null;
+                }
+                selectedModel = customModel.trim();
+            }
+
+            try {
+                const adapter = createAntigravityCliAdapter(selectedModel);
+                defaultChatAdapter = adapter;
+                await vscode.workspace.getConfiguration().update('myExtension.llmBackend', 'antigravity-cli', vscode.ConfigurationTarget.Global);
+                await vscode.workspace.getConfiguration().update('myExtension.defaultAntigravityModel', selectedModel, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage(`Active LLM model set to Antigravity CLI (${selectedModel})`);
+                return adapter;
+            } catch (e: any) {
+                vscode.window.showErrorMessage(`Failed to initialize Antigravity CLI adapter: ${e.message || String(e)}`);
+                return null;
+            }
         }
 
         if (choice.label === 'Portkey (Gemini / Claude / Kimi)') {
@@ -660,6 +670,9 @@ export function activate(context: vscode.ExtensionContext) {
             try {
                 const adapter = await createPortkeyAdapter(apiKey, selectedModel);
                 defaultChatAdapter = adapter;
+                await vscode.workspace.getConfiguration().update('myExtension.llmBackend', 'portkey', vscode.ConfigurationTarget.Global);
+                await vscode.workspace.getConfiguration().update('myExtension.defaultPortkeyModel', selectedModel, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage(`Active LLM model set to Portkey (${selectedModel})`);
                 return adapter;
             } catch (e: any) {
                 vscode.window.showErrorMessage(`Failed to initialize Portkey adapter: ${e.message || String(e)}`);
@@ -803,6 +816,55 @@ export function activate(context: vscode.ExtensionContext) {
     });
     context.subscriptions.push(changeModelCmd);
 
+    const switchLlmBackendCmd = vscode.commands.registerCommand(
+        'outputdirectedtheoremproving.switchLlmBackend',
+        async () => {
+            const currentBackend = getConfiguredLlmBackend();
+            const backends = [
+                {
+                    label: 'Antigravity CLI (agy)',
+                    description: 'Local CLI with Gemini 3.8 & Claude models (no API key required)',
+                    id: 'antigravity-cli' as const,
+                },
+                {
+                    label: 'Portkey AI Gateway',
+                    description: 'Portkey gateway for Gemini / Claude / Kimi (requires Portkey API key)',
+                    id: 'portkey' as const,
+                },
+                {
+                    label: 'OpenAI',
+                    description: 'Direct OpenAI API (requires OpenAI API key)',
+                    id: 'openai' as const,
+                },
+                {
+                    label: 'Gemini (Vertex AI)',
+                    description: 'Direct Google Vertex AI (legacy GCP ADC login)',
+                    id: 'vertex' as const,
+                },
+            ];
+
+            const picked = await vscode.window.showQuickPick(
+                backends.map((b) => ({
+                    ...b,
+                    description: b.id === currentBackend ? `${b.description} (Active)` : b.description,
+                })),
+                { placeHolder: `Current backend: ${currentBackend}. Choose LLM backend:` }
+            );
+            if (!picked) {
+                return;
+            }
+
+            await vscode.workspace
+                .getConfiguration()
+                .update('myExtension.llmBackend', picked.id, vscode.ConfigurationTarget.Global);
+            defaultChatAdapter = undefined;
+            const newAdapter = await ensureDefaultChatAdapter();
+            vscode.window.showInformationMessage(`Switched LLM backend to: ${picked.label}`);
+            return newAdapter;
+        }
+    );
+    context.subscriptions.push(switchLlmBackendCmd);
+
     void ensureDefaultChatAdapter();
 
     const copyDiagnosticReportCmd = vscode.commands.registerCommand(
@@ -811,6 +873,9 @@ export function activate(context: vscode.ExtensionContext) {
             try {
                 const os = require('os');
                 const activeKind = proverManager?.getActiveKind() ?? getConfiguredProverKind();
+                const activeBackend = getConfiguredLlmBackend();
+                const agyBinary = findAgyBinaryPath();
+                const agyModel = getConfiguredAntigravityModel();
                 const portkeyConfigured = !!(await getStoredPortkeyApiKey());
                 const portkeyModel = getConfiguredPortkeyModel();
                 const portkeySlug = getConfiguredPortkeySlug();
@@ -826,6 +891,9 @@ export function activate(context: vscode.ExtensionContext) {
                 report += `- **Active Prover:** ${activeKind}\n`;
                 report += `- **Auto Switch Prover:** ${vscode.workspace.getConfiguration().get('myExtension.autoSwitchProver', true)}\n`;
                 report += `- **Coq LSP Path:** \`${coqLspPath}\`\n`;
+                report += `- **Active LLM Backend:** \`${activeBackend}\`\n`;
+                report += `- **Antigravity CLI Binary:** \`${agyBinary}\`\n`;
+                report += `- **Active Antigravity Model:** \`${agyModel}\`\n`;
                 report += `- **Portkey API Key Set:** ${portkeyConfigured ? 'Yes' : 'No'}\n`;
                 report += `- **Active Portkey Model:** \`${portkeyModel}\`\n`;
                 report += `- **Portkey Provider Slug:** \`${portkeySlug}\`\n`;
