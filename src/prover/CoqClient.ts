@@ -63,7 +63,8 @@ export class CoqClient implements ProverClient {
 
     async getGoalState(
         document: vscode.TextDocument,
-        position: vscode.Position
+        position: vscode.Position,
+        abortSignal?: AbortSignal
     ): Promise<NormalizedGoalState> {
         if (!this.lspClientReady) {
             throw new Error("Coq client is not initialized.");
@@ -88,6 +89,8 @@ export class CoqClient implements ProverClient {
                     languageId: document.languageId,
                     content,
                     openTimeoutMs: 45000,
+                    isShadowContent: false,
+                    abortSignal,
                 },
                 async () => {
                     const result = await client.getGoalsAtPoint(

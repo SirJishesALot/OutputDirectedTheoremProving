@@ -12,12 +12,7 @@ import { NormalizedGoal } from './prover/ProverClient';
 import { initProofStateLogger, showProofStateLog } from './logging/proofStateLogger';
 import { OutputLogger } from './logging/logger';
 
-const result = dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
-if (result.error) {
-    OutputLogger.warn('Config', `Error loading .env file: ${result.error.message || String(result.error)}`); 
-} else { 
-    OutputLogger.debug('Config', 'Loaded .env file successfully.');
-}
+const envLoadResult = dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 // --- NEW IMPORTS FOR INLINE SUGGESTIONS ---
 // Note: Adjust these import paths based on where you saved suggestionManager.ts 
 // and the file containing your Prover Tools / clearSuggestedEditDecoration function.
@@ -42,27 +37,24 @@ let defaultChatAdapter: any | undefined = undefined;
 function getConfiguredPortkeyModel(): string {
     return (
         process.env.PORTKEY_MODEL ||
-        vscode.workspace
-            .getConfiguration()
-            .get<string>('myExtension.defaultPortkeyModel', DEFAULT_PORTKEY_MODEL)
+        vscode.workspace.getConfiguration().get<string>('myExtension.defaultPortkeyModel') ||
+        DEFAULT_PORTKEY_MODEL
     );
 }
 
 function getConfiguredPortkeySlug(): string {
     return (
         process.env.PORTKEY_PROVIDER_SLUG ||
-        vscode.workspace
-            .getConfiguration()
-            .get<string>('myExtension.portkeyProviderSlug', DEFAULT_PORTKEY_PROVIDER_SLUG)
+        vscode.workspace.getConfiguration().get<string>('myExtension.portkeyProviderSlug') ||
+        DEFAULT_PORTKEY_PROVIDER_SLUG
     );
 }
 
 function getConfiguredPortkeyBaseUrl(): string {
     return (
         process.env.PORTKEY_BASE_URL ||
-        vscode.workspace
-            .getConfiguration()
-            .get<string>('myExtension.portkeyBaseUrl', DEFAULT_PORTKEY_BASE_URL)
+        vscode.workspace.getConfiguration().get<string>('myExtension.portkeyBaseUrl') ||
+        DEFAULT_PORTKEY_BASE_URL
     );
 }
 
@@ -77,9 +69,10 @@ async function getStoredPortkeyApiKey(): Promise<string | undefined> {
 }
 
 function getConfiguredGeminiModel(): string {
-    return vscode.workspace
-        .getConfiguration()
-        .get<string>('myExtension.defaultGeminiModel', DEFAULT_GEMINI_MODEL);
+    return (
+        vscode.workspace.getConfiguration().get<string>('myExtension.defaultGeminiModel') ||
+        DEFAULT_GEMINI_MODEL
+    );
 }
 
 async function getStoredGeminiProjectId(): Promise<string | undefined> {
@@ -96,15 +89,16 @@ import { normalizeMessagesForGemini } from './llm/messageNormalizer';
 
 async function createPortkeyAdapter(
     apiKey: string,
-    modelId: string = getConfiguredPortkeyModel()
+    modelId?: string
 ): Promise<any> {
     const OpenAI = require('openai');
     const baseURL = getConfiguredPortkeyBaseUrl();
     const slug = getConfiguredPortkeySlug();
+    const rawModel = modelId || getConfiguredPortkeyModel() || DEFAULT_PORTKEY_MODEL;
 
-    const resolvedModel = modelId.startsWith('@')
-        ? modelId
-        : `${slug.replace(/\/$/, '')}/${modelId.replace(/^\//, '')}`;
+    const resolvedModel = rawModel.startsWith('@')
+        ? rawModel
+        : `${slug.replace(/\/$/, '')}/${rawModel.replace(/^\//, '')}`;
 
     const client = new OpenAI({
         apiKey: 'dummy',
@@ -284,9 +278,15 @@ function detectProverFromEditor(editor: vscode.TextEditor | undefined): ProverKi
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    OutputLogger.info('Config', 'Congratulations, your extension "outputdirectedtheoremproving" is now active!');
     extensionContext = context;
     initProofStateLogger(context);
+    OutputLogger.info('Config', 'Congratulations, your extension "outputdirectedtheoremproving" is now active!');
+
+    if (envLoadResult.error) {
+        OutputLogger.warn('Config', `Error loading .env file: ${envLoadResult.error.message || String(envLoadResult.error)}`); 
+    } else { 
+        OutputLogger.debug('Config', 'Loaded .env file successfully.');
+    }
 
     // --- SETUP INLINE SUGGESTIONS (Cursor Style) ---
 	globalSuggestionManager = new SuggestionManager();
@@ -335,11 +335,17 @@ export function activate(context: vscode.ExtensionContext) {
     }));
     // -----------------------------------------------
 
-    const participant = vscode.chat.createChatParticipant(
-        'coq.llmChat', 
-        coqChatHandler,
-    ); 
-    context.subscriptions.push(participant);
+    if (vscode.chat && typeof vscode.chat.createChatParticipant === 'function') {
+        try {
+            const participant = vscode.chat.createChatParticipant(
+                'coq.llmChat', 
+                coqChatHandler,
+            ); 
+            context.subscriptions.push(participant);
+        } catch (e) {
+            OutputLogger.warn('Config', `Failed to initialize chat participant: ${e instanceof Error ? e.message : String(e)}`);
+        }
+    }
 
     const coqLspPath = process.env.COQ_LSP_PATH || '/home/vscode/.opam/rocq-9.0/bin/coq-lsp';
     proverManager = new ProverManager(coqLspPath);
@@ -463,12 +469,12 @@ export function activate(context: vscode.ExtensionContext) {
                         fallbackPromise,
                         context.extensionUri,
                         () => (proverManager?.getActiveKind() ?? getConfiguredProverKind()),
-                        async (document, position) => {
+                        async (document, position, abortSignal) => {
                             const client = proverManager?.getActiveClient();
                             if (!client) {
                                 throw new Error('No active prover client.');
                             }
-                            const state = await client.getGoalState(document, position);
+                            const state = await client.getGoalState(document, position, abortSignal);
                             return {
                                 goals: state.goals.map((g: NormalizedGoal) => ({
                                     ty: g.type,
@@ -494,12 +500,12 @@ export function activate(context: vscode.ExtensionContext) {
                 coqLspClientReady,
                 context.extensionUri,
                 () => (proverManager?.getActiveKind() ?? getConfiguredProverKind()),
-                async (document, position) => {
+                async (document, position, abortSignal) => {
                     const client = proverManager?.getActiveClient();
                     if (!client) {
                         throw new Error('No active prover client.');
                     }
-                    const state = await client.getGoalState(document, position);
+                    const state = await client.getGoalState(document, position, abortSignal);
                     return {
                         goals: state.goals.map((g: NormalizedGoal) => ({
                             ty: g.type,

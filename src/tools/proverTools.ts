@@ -426,7 +426,7 @@ Args: originalValue (full proof state before the change), desiredValue (full pro
 
                     // Same as panel: only use getGoalsAtPoint at insertion position; ignore diagnostics.
                     const tryResult: TryResult = await client.withTextDocument(
-                        { uri: docUri, version: version + 1, content: newContent },
+                        { uri: docUri, version: version + 1, content: newContent, isShadowContent: true },
                         async () => {
                             const goalsResult = await client.getGoalsAtPoint(
                                 positionAfterInsert as any,
@@ -669,7 +669,7 @@ Call this with your proposed edit; if you get an error back, try again with a di
                     // Verify with Coq LSP: only fail on errors inside or before the proof block we edited
                     type VerifyResult = { verified: boolean; error?: string; errorAt?: { line: number; character: number } };
                     const verifyResult: VerifyResult = await client.withTextDocument(
-                        { uri: docUri, version: version + 1, content: proposedContent },
+                        { uri: docUri, version: version + 1, content: proposedContent, isShadowContent: true },
                         async (diagnostic) => {
                             if (diagnostic?.ppMessage) {
                                 const at = diagnostic.range?.start;

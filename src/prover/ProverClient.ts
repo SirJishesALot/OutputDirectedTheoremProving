@@ -21,7 +21,9 @@ export interface ProverClient {
     initialize(): Promise<void>;
     getGoalState(
         document: vscode.TextDocument,
-        position: vscode.Position
+        position: vscode.Position,
+        abortSignal?: AbortSignal
     ): Promise<NormalizedGoalState>;
     dispose(): void;
 }
+

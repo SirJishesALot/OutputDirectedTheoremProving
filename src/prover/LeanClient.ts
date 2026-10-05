@@ -208,9 +208,16 @@ export class LeanClient implements ProverClient {
         }
     }
 
-    async getGoalState(document: vscode.TextDocument, position: vscode.Position): Promise<NormalizedGoalState> {
+    async getGoalState(
+        document: vscode.TextDocument,
+        position: vscode.Position,
+        abortSignal?: AbortSignal
+    ): Promise<NormalizedGoalState> {
         if (!this.client || this.client.state !== State.Running) {
             throw new Error("Lean client not running.");
+        }
+        if (abortSignal?.aborted) {
+            throw new Error("Proof state query cancelled: newer request issued");
         }
         if (!this.client.protocol2CodeConverter.asUri(document.uri.toString())) {
             OutputLogger.info("Prover:Lean", `Force-syncing document: ${document.uri.toString()}`);
@@ -222,6 +229,9 @@ export class LeanClient implements ProverClient {
 
         let retries = 3;
         while (retries > 0) {
+            if (abortSignal?.aborted) {
+                throw new Error("Proof state query cancelled: newer request issued");
+            }
             try {
                 const rawResponse = await this.client.sendRequest("$/lean/plainGoal", params);
                 OutputLogger.trace("Prover:Lean", "rawResponse: " + JSON.stringify(rawResponse));
@@ -229,6 +239,9 @@ export class LeanClient implements ProverClient {
                 OutputLogger.trace("Prover:Lean", "normalized: " + JSON.stringify(normalized));
                 return normalized;
             } catch (error: any) {
+                if (abortSignal?.aborted) {
+                    throw new Error("Proof state query cancelled: newer request issued");
+                }
                 // If the server says the file is closed, wait 200ms and try again.
                 // This gives the LSP client time to finish the didOpen handshake.
                 if (error.message?.includes("closed file") && retries > 1) {

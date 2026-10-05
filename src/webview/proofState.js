@@ -31283,6 +31283,19 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     if (!label) return;
     label.textContent = `Prover: ${activeProverLabel}`;
   }
+  function setProofStateModeUi(mode) {
+    const autoBtn = document.getElementById("btn-mode-auto");
+    const manualBtn = document.getElementById("btn-mode-manual");
+    if (autoBtn && manualBtn) {
+      if (mode === "manual") {
+        autoBtn.classList.remove("active");
+        manualBtn.classList.add("active");
+      } else {
+        autoBtn.classList.add("active");
+        manualBtn.classList.remove("active");
+      }
+    }
+  }
   var nodes2 = {
     doc: {
       content: "(goal | paragraph | messagesSection)*",
@@ -31714,6 +31727,9 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         activeProverLabel = msg.prover || "Coq";
         updateActiveProverLabel();
         return;
+      case "setProofStateMode":
+        setProofStateModeUi(msg.mode);
+        return;
       case "noDocument":
         html = "<p><i>No active prover document or cursor not at a goal position.</i></p>";
         break;
@@ -31912,6 +31928,26 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   if (chatStopBtn) {
     chatStopBtn.addEventListener("click", () => {
       vscode.postMessage({ command: "stopGeneration" });
+    });
+  }
+  var btnModeAuto = document.getElementById("btn-mode-auto");
+  var btnModeManual = document.getElementById("btn-mode-manual");
+  var btnRefresh = document.getElementById("btn-refresh");
+  if (btnModeAuto) {
+    btnModeAuto.addEventListener("click", () => {
+      setProofStateModeUi("auto");
+      vscode.postMessage({ command: "setProofStateMode", mode: "auto" });
+    });
+  }
+  if (btnModeManual) {
+    btnModeManual.addEventListener("click", () => {
+      setProofStateModeUi("manual");
+      vscode.postMessage({ command: "setProofStateMode", mode: "manual" });
+    });
+  }
+  if (btnRefresh) {
+    btnRefresh.addEventListener("click", () => {
+      vscode.postMessage({ command: "requestUpdate" });
     });
   }
   updateActiveProverLabel();

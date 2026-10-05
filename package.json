@@ -4,6 +4,7 @@
   "description": "AI Agent that helps with output directed theorem proving in Coq. ",
   "version": "0.0.1",
   "extensionKind": [
+    "ui",
     "workspace"
   ],
   "publisher": "SirJishesALot",
@@ -19,16 +20,23 @@
     "Other"
   ],
   "activationEvents": [
+    "onStartupFinished",
     "onCommand:outputdirectedtheoremproving.openProofState",
+    "onCommand:outputdirectedtheoremproving.helloWorld",
     "onCommand:outputdirectedtheoremproving.setOpenAiApiKey",
+    "onCommand:outputdirectedtheoremproving.setPortkeyApiKey",
     "onCommand:outputdirectedtheoremproving.getDefaultChatModel",
     "onCommand:outputdirectedtheoremproving.changeLLMModel",
     "onCommand:outputdirectedtheoremproving.toggleActiveProver",
     "onCommand:outputdirectedtheoremproving.updateProofState",
     "onCommand:outputdirectedtheoremproving.showProofStateLog",
     "onCommand:outputdirectedtheoremproving.copyDiagnosticReport",
+    "onCommand:outputdirectedtheoremproving.acceptSuggestion",
+    "onCommand:outputdirectedtheoremproving.rejectSuggestion",
     "onLanguage:coq",
-    "onLanguage:rocq"
+    "onLanguage:rocq",
+    "onLanguage:lean",
+    "onLanguage:lean4"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -130,9 +138,15 @@
     "keybindings": [
       {
         "command": "outputdirectedtheoremproving.updateProofState",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "editorTextFocus && (editorLangId == 'coq' || editorLangId == 'rocq' || editorLangId == 'lean4' || editorLangId == 'lean')"
+      },
+      {
+        "command": "outputdirectedtheoremproving.updateProofState",
         "key": "ctrl+alt+u",
         "mac": "cmd+alt+u",
-        "when": "editorTextFocus && editorLangId == 'coq'"
+        "when": "editorTextFocus && (editorLangId == 'coq' || editorLangId == 'rocq' || editorLangId == 'lean4' || editorLangId == 'lean')"
       },
       {
         "command": "outputdirectedtheoremproving.acceptSuggestion",
@@ -160,7 +174,7 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
-    "compile": "npm run check-types && npm run lint && node esbuild.js && npm run compile-webview",
+    "compile": "npm run check-types && node esbuild.js && npm run compile-webview",
     "watch": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",

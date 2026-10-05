@@ -31,7 +31,8 @@ type GenericProofState = {
 };
 type GenericProofStateProvider = (
     document: vscode.TextDocument,
-    position: vscode.Position
+    position: vscode.Position,
+    abortSignal?: AbortSignal
 ) => Promise<GenericProofState>;
 type ActiveClientProvider = () => ProverClient | undefined;
 
@@ -45,6 +46,9 @@ export class ProofStatePanel {
     private getActiveProver: ActiveProverProvider;
     private getProofState: GenericProofStateProvider;
     private getActiveClient: ActiveClientProvider;
+    private readonly context: vscode.ExtensionContext;
+    private proofStateMode: 'auto' | 'manual' = 'auto';
+    private activeAbortController: AbortController | undefined;
     private currentDocumentUri: vscode.Uri | undefined;
     /** Last cursor position when proof state was updated (Coq file had focus). Used by prover tools when panel has focus. */
     private savedCursorPosition: { line: number; character: number } | undefined;
@@ -60,7 +64,8 @@ export class ProofStatePanel {
     private proofStateUpdateInFlight = false;
     private pendingProofStateUpdate = false;
     private selectionDebounceTimer: ReturnType<typeof setTimeout> | undefined;
-    private static readonly PROOF_STATE_DEBOUNCE_MS = 200;
+    private static readonly DEBOUNCE_EDIT_MS = 500;
+    private static readonly DEBOUNCE_SELECTION_MS = 250;
 
     public static createOrShow(
         context: vscode.ExtensionContext,
@@ -97,7 +102,8 @@ export class ProofStatePanel {
             extensionUri,
             getActiveProver,
             getProofState,
-            getActiveClient
+            getActiveClient,
+            context
         );
 
         return ProofStatePanel.currentPanel;
@@ -109,7 +115,8 @@ export class ProofStatePanel {
         extensionUri: vscode.Uri,
         getActiveProver: ActiveProverProvider,
         getProofState: GenericProofStateProvider,
-        getActiveClient: ActiveClientProvider
+        getActiveClient: ActiveClientProvider,
+        context: vscode.ExtensionContext
     ) {
         this.panel = panel;
         this.extensionUri = extensionUri;
@@ -117,6 +124,8 @@ export class ProofStatePanel {
         this.getActiveProver = getActiveProver;
         this.getProofState = getProofState;
         this.getActiveClient = getActiveClient;
+        this.context = context;
+        this.proofStateMode = this.context.workspaceState.get<'auto' | 'manual'>('odtp.proofStateMode', 'auto');
 
         void vscode.commands.executeCommand('outputdirectedtheoremproving.getDefaultChatModel', {
             useCache: true,
@@ -130,10 +139,11 @@ export class ProofStatePanel {
 
         this.panel.webview.html = this.getHtmlForWebview(this.panel.webview);
         this.setActiveProver(this.getActiveProver());
+        this.panel.webview.postMessage({ type: 'setProofStateMode', mode: this.proofStateMode });
 
         vscode.window.onDidChangeTextEditorSelection(
             () => {
-                this.scheduleProofStateUpdate();
+                this.scheduleProofStateUpdate('selection');
             },
             null,
             this.disposables
@@ -141,7 +151,7 @@ export class ProofStatePanel {
 
         vscode.window.onDidChangeActiveTextEditor(
             () => {
-                this.scheduleProofStateUpdate();
+                this.scheduleProofStateUpdate('selection');
             },
             null,
             this.disposables
@@ -161,7 +171,7 @@ export class ProofStatePanel {
                         return;
                     }
                 }
-                this.scheduleProofStateUpdate();
+                this.scheduleProofStateUpdate('edit');
             },
             null,
             this.disposables
@@ -189,14 +199,54 @@ export class ProofStatePanel {
         this.panel.webview.postMessage({ type: 'activeProverChanged', prover: kind });
     }
 
-    private scheduleProofStateUpdate(): void {
+    public async setProofStateMode(mode: 'auto' | 'manual'): Promise<void> {
+        this.proofStateMode = mode;
+        await this.context.workspaceState.update('odtp.proofStateMode', mode);
+        this.panel.webview.postMessage({ type: 'setProofStateMode', mode });
+        proofStateLog(`proof state mode set to: ${mode}`);
+        if (mode === 'auto') {
+            this.scheduleProofStateUpdate('selection');
+        }
+    }
+
+    public getProofStateMode(): 'auto' | 'manual' {
+        return this.proofStateMode;
+    }
+
+    private scheduleProofStateUpdate(source: 'edit' | 'selection' | 'manual' = 'selection'): void {
+        if (this.proofStateMode === 'manual' && source !== 'manual') {
+            return;
+        }
+
+        // In auto mode, if the user starts typing, immediately abort any stale in-flight query
+        if (source === 'edit' && this.proofStateMode === 'auto') {
+            if (this.activeAbortController) {
+                proofStateLog('cancelling in-flight query immediately upon new keystroke');
+                this.activeAbortController.abort();
+                this.activeAbortController = undefined;
+            }
+        }
+
         if (this.selectionDebounceTimer !== undefined) {
             clearTimeout(this.selectionDebounceTimer);
-        }
-        this.selectionDebounceTimer = setTimeout(() => {
             this.selectionDebounceTimer = undefined;
+        }
+
+        const delay =
+            source === 'manual'
+                ? 0
+                : source === 'edit'
+                    ? ProofStatePanel.DEBOUNCE_EDIT_MS
+                    : ProofStatePanel.DEBOUNCE_SELECTION_MS;
+
+        if (delay === 0) {
             void this.runCoalescedProofStateUpdate();
-        }, ProofStatePanel.PROOF_STATE_DEBOUNCE_MS);
+        } else {
+            this.selectionDebounceTimer = setTimeout(() => {
+                this.selectionDebounceTimer = undefined;
+                void this.runCoalescedProofStateUpdate();
+            }, delay);
+        }
     }
 
     /**
@@ -206,7 +256,11 @@ export class ProofStatePanel {
     private async runCoalescedProofStateUpdate(): Promise<void> {
         if (this.proofStateUpdateInFlight) {
             this.pendingProofStateUpdate = true;
-            proofStateLog('cursor change coalesced (update already in flight)');
+            if (this.activeAbortController) {
+                proofStateLog('cursor change coalesced (aborting in-flight query for newer request)');
+                this.activeAbortController.abort();
+                this.activeAbortController = undefined;
+            }
             return;
         }
         this.proofStateUpdateInFlight = true;
@@ -258,7 +312,7 @@ export class ProofStatePanel {
 
     /** Call this to refresh the proof state at the current editor cursor (e.g. from a keybinding or toolbar). */
     public async requestProofStateUpdate(): Promise<void> {
-        await this.runCoalescedProofStateUpdate();
+        this.scheduleProofStateUpdate('manual');
     }
 
     public dispose() {
@@ -391,7 +445,10 @@ export class ProofStatePanel {
 
         if (cmd === 'requestUpdate') {
             if (!isMain) return;
-            await this.runCoalescedProofStateUpdate();
+            this.scheduleProofStateUpdate('manual');
+        } else if (cmd === 'setProofStateMode') {
+            const mode = message.mode === 'manual' ? 'manual' : 'auto';
+            await this.setProofStateMode(mode);
         } else if (cmd === 'applyTactic') {
             if (!isMain) return;
             const tactic: string = message.tactic;
@@ -737,6 +794,7 @@ export class ProofStatePanel {
                     languageId: editor.document.languageId,
                     content,
                     openTimeoutMs: 45000,
+                    isShadowContent: false,
                 },
                 async () => {
                 const result = await client.getGoalsAtPoint(position as any, docUri as any, version, tactic);
@@ -869,6 +927,8 @@ export class ProofStatePanel {
     private async updateProofState() {
         const generation = ++this.proofStateUpdateGeneration;
         const start = Date.now();
+        const abortController = new AbortController();
+        this.activeAbortController = abortController;
         try {
             if (this.panel.active) {
                 proofStateLog(`update #${generation} skipped (webview panel focused)`);
@@ -909,13 +969,13 @@ export class ProofStatePanel {
             this.savedCursorPosition = { line: position.line, character: position.character };
 
             proofStateLog(
-                `update #${generation} start ${formatUri(editor.document.uri.toString())} ${formatPos(position.line, position.character)} prover=${activeProver}`
+                `update #${generation} start ${formatUri(editor.document.uri.toString())} ${formatPos(position.line, position.character)} prover=${activeProver} mode=${this.proofStateMode}`
             );
 
-            const state = await this.getProofState(editor.document, position);
-            if (generation !== this.proofStateUpdateGeneration) {
+            const state = await this.getProofState(editor.document, position, abortController.signal);
+            if (generation !== this.proofStateUpdateGeneration || abortController.signal.aborted) {
                 proofStateLog(
-                    `update #${generation} stale (superseded by #${this.proofStateUpdateGeneration}, ${Date.now() - start}ms)`
+                    `update #${generation} stale or aborted (superseded by #${this.proofStateUpdateGeneration}, ${Date.now() - start}ms)`
                 );
                 return;
             }
@@ -929,15 +989,23 @@ export class ProofStatePanel {
                 error: state.error,
             });
         } catch (e) {
-            if (generation !== this.proofStateUpdateGeneration) {
+            if (generation !== this.proofStateUpdateGeneration || abortController.signal.aborted) {
                 proofStateLog(
-                    `update #${generation} stale error (${Date.now() - start}ms)`
+                    `update #${generation} stale error or aborted (${Date.now() - start}ms)`
                 );
                 return;
             }
             const message = e instanceof Error ? e.message : String(e);
+            if (message.includes('Proof state query cancelled') || message.includes('cancelled') || message.includes('aborted')) {
+                proofStateLog(`update #${generation} cancelled (${Date.now() - start}ms)`);
+                return;
+            }
             proofStateLog(`update #${generation} failed: ${message} (${Date.now() - start}ms)`);
             this.postError(message);
+        } finally {
+            if (this.activeAbortController === abortController) {
+                this.activeAbortController = undefined;
+            }
         }
     }
 
@@ -976,9 +1044,18 @@ export class ProofStatePanel {
 <title>Output Directed Prover AI</title>
 </head>
 <body>
-  <div style="display: flex; align-items: center; justify-content: space-between;">
-    <h2>Output Directed Theorem Prover</h2>
-    <span id="activeProverLabel" class="active-prover-label" aria-live="polite">Prover: Coq</span>
+  <div class="panel-header">
+    <div class="header-title-row">
+      <h2>Output Directed Theorem Prover</h2>
+      <span id="activeProverLabel" class="active-prover-label" aria-live="polite">Prover: Coq</span>
+    </div>
+    <div class="header-controls">
+      <div class="mode-toggle-group" role="group" aria-label="Proof state evaluation mode">
+        <button id="btn-mode-auto" class="mode-btn ${this.proofStateMode === 'auto' ? 'active' : ''}" type="button" title="Automatic Mode: updates on edit and cursor move">Auto</button>
+        <button id="btn-mode-manual" class="mode-btn ${this.proofStateMode === 'manual' ? 'active' : ''}" type="button" title="Manual Mode: only updates when Refresh or Cmd+Enter is pressed">Manual</button>
+      </div>
+      <button id="btn-refresh" class="refresh-btn" type="button" title="Refresh Proof State (⌘↵ / Ctrl+Enter)">↻ Refresh</button>
+    </div>
   </div>
   <div id="webviewStatus" class="webview-status" aria-live="polite"></div>
   <div id="editor"></div>

@@ -9,6 +9,20 @@
 			"name": "Run Extension",
 			"type": "extensionHost",
 			"request": "launch",
+			"address": "127.0.0.1",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}"
+			],
+			"outFiles": [
+				"${workspaceFolder}/dist/**/*.js"
+			],
+			"preLaunchTask": "npm: compile"
+		},
+		{
+			"name": "Run Extension (Without Debugger)",
+			"type": "extensionHost",
+			"request": "launch",
+			"noDebug": true,
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}"
 			],

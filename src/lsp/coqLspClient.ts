@@ -62,6 +62,14 @@ export interface DocumentSpec {
     content?: string;
     /** Max ms to wait for coq-lsp to respond after opening (default 300000). Use a shorter value (e.g. 45000) for proof-state updates. */
     openTimeoutMs?: number;
+    /**
+     * Whether this document spec represents temporary / speculative shadow content
+     * that should be restored to the editor buffer after the block finishes.
+     * When false, no shadow restore is performed.
+     */
+    isShadowContent?: boolean;
+    /** Optional cancellation signal for early aborting of in-flight checks. */
+    abortSignal?: AbortSignal;
 }
 
 export interface CoqLspClient extends Disposable {
@@ -150,11 +158,35 @@ export interface LspDiagnostic {
 
 export type DiagnosticMessage = LspDiagnostic | undefined;
 
+interface ServerStatusParams {
+    status: "Busy" | "Idle";
+    modname?: string;
+    mem?: string;
+}
+
+const serverStatusNotificationType = new ProtocolNotificationType<ServerStatusParams, void>(
+    "$/coq/serverStatus"
+);
+
+interface FileCheckEvent {
+    uri: string;
+    diagnostics?: Diagnostic[];
+    version?: number;
+    isIdle?: boolean;
+}
+
 export class CoqLspClientImpl implements CoqLspClient {
     private client: BaseLanguageClient;
     private subscriptions: Disposable[] = [];
     private mutex = new Mutex();
     private diagnosticsMap: Map<string, Diagnostic[]> = new Map();
+    /**
+     * Tracks monotonically increasing server document versions per URI to ensure
+     * coq-lsp never receives out-of-order or duplicate version numbers on didChange.
+     */
+    private serverVersions: Map<string, number> = new Map();
+    /** Waiters waiting for file checking completion from server notifications. */
+    private readonly fileCheckWaiters = new Set<(event: FileCheckEvent) => void>();
     /**
      * coq-lsp documents are synced via manual didOpen/didChange, which bypasses the language
      * client's built-in diagnostic routing. Push diagnostics into the editor explicitly.
@@ -184,7 +216,7 @@ export class CoqLspClientImpl implements CoqLspClient {
         public readonly abortSignal?: AbortSignal
     ) {
         this.client = coqLspConnector;
-        this.trackSuspiciousLspErrors();
+        this.registerNotificationHandlers();
     }
 
     getServerVersion(): { coq: string; ocaml: string; coq_lsp: string } | undefined {
@@ -433,6 +465,9 @@ export class CoqLspClientImpl implements CoqLspClient {
         documentSpec: DocumentSpec,
         block: (openedDocDiagnostic: DiagnosticMessage) => Promise<T>
     ): Promise<T> {
+        if (documentSpec.abortSignal?.aborted) {
+            throw new Error("Proof state query cancelled: newer request issued");
+        }
         if (this.mutex.isLocked()) {
             proofStateLog(
                 `withTextDocument waiting for LSP mutex (${formatUri(documentSpec.uri.uri)} v${documentSpec.version ?? 1})`
@@ -440,6 +475,9 @@ export class CoqLspClientImpl implements CoqLspClient {
         }
         return await this.mutex.runExclusive(async () => {
             throwOnAbort(this.abortSignal);
+            if (documentSpec.abortSignal?.aborted) {
+                throw new Error("Proof state query cancelled: newer request issued");
+            }
             const fullText =
                 documentSpec.content !== undefined
                     ? documentSpec.content
@@ -467,7 +505,8 @@ export class CoqLspClientImpl implements CoqLspClient {
                     fullText,
                     openTimeoutMs,
                     lang,
-                    fileLabel
+                    fileLabel,
+                    documentSpec.abortSignal
                 );
                 proofStateLog(
                     `withTextDocument ${sessionAction} done ${fileLabel} (${Date.now() - prepStart}ms)`
@@ -480,38 +519,20 @@ export class CoqLspClientImpl implements CoqLspClient {
                     lastDiagnostic: diagnostic,
                 };
             } else if (this.heldSession.content !== fullText) {
-                if (version > this.heldSession.version) {
-                    sessionAction = "sync (didChange)";
-                    proofStateLog(`withTextDocument ${sessionAction} start ${fileLabel}`);
-                    const prepStart = Date.now();
-                    diagnostic = await this.syncFullDocumentUnsafe(
-                        documentSpec.uri,
-                        version,
-                        fullText,
-                        openTimeoutMs,
-                        fileLabel
-                    );
-                    proofStateLog(
-                        `withTextDocument ${sessionAction} done ${fileLabel} (${Date.now() - prepStart}ms)`
-                    );
-                } else {
-                    sessionAction = "reopen (version rollback)";
-                    proofStateLog(`withTextDocument ${sessionAction} start ${fileLabel}`);
-                    const prepStart = Date.now();
-                    await this.closeTextDocumentUnsafe(this.heldSession.uri);
-                    this.heldSession = undefined;
-                    diagnostic = await this.openTextDocumentUnsafe(
-                        documentSpec.uri,
-                        version,
-                        fullText,
-                        openTimeoutMs,
-                        lang,
-                        fileLabel
-                    );
-                    proofStateLog(
-                        `withTextDocument ${sessionAction} done ${fileLabel} (${Date.now() - prepStart}ms)`
-                    );
-                }
+                sessionAction = "sync (didChange)";
+                proofStateLog(`withTextDocument ${sessionAction} start ${fileLabel}`);
+                const prepStart = Date.now();
+                diagnostic = await this.syncFullDocumentUnsafe(
+                    documentSpec.uri,
+                    version,
+                    fullText,
+                    openTimeoutMs,
+                    fileLabel,
+                    documentSpec.abortSignal
+                );
+                proofStateLog(
+                    `withTextDocument ${sessionAction} done ${fileLabel} (${Date.now() - prepStart}ms)`
+                );
                 this.heldSession = {
                     uriKey,
                     uri: documentSpec.uri,
@@ -544,10 +565,13 @@ export class CoqLspClientImpl implements CoqLspClient {
                     ? editorForUri.document.getText()
                     : undefined;
             const usedShadowContent =
-                documentSpec.content !== undefined &&
-                editorTextAtOpen !== undefined &&
-                documentSpec.content !== editorTextAtOpen;
+                documentSpec.isShadowContent === true ||
+                (documentSpec.isShadowContent !== false &&
+                    documentSpec.content !== undefined &&
+                    editorTextAtOpen !== undefined &&
+                    documentSpec.content !== editorTextAtOpen);
             try {
+                throwOnAbort(documentSpec.abortSignal);
                 const result = await block(diagnostic);
                 proofStateLog(
                     `withTextDocument block done ${fileLabel} (${Date.now() - blockStart}ms)`
@@ -562,20 +586,27 @@ export class CoqLspClientImpl implements CoqLspClient {
                         proofStateLog(
                             `withTextDocument restore editor buffer ${fileLabel} v${restoreVersion}`
                         );
-                        const restoreDiagnostic = await this.syncFullDocumentUnsafe(
-                            documentSpec.uri,
-                            restoreVersion,
-                            editorText,
-                            openTimeoutMs,
-                            `restore after shadow ${fileLabel}`
-                        );
-                        this.heldSession = {
-                            uriKey,
-                            uri: documentSpec.uri,
-                            version: restoreVersion,
-                            content: editorText,
-                            lastDiagnostic: restoreDiagnostic,
-                        };
+                        try {
+                            const restoreDiagnostic = await this.syncFullDocumentUnsafe(
+                                documentSpec.uri,
+                                restoreVersion,
+                                editorText,
+                                Math.min(openTimeoutMs, 10000),
+                                `restore after shadow ${fileLabel}`
+                            );
+                            this.heldSession = {
+                                uriKey,
+                                uri: documentSpec.uri,
+                                version: restoreVersion,
+                                content: editorText,
+                                lastDiagnostic: restoreDiagnostic,
+                            };
+                        } catch (e) {
+                            proofStateLog(
+                                `withTextDocument restore editor buffer failed ${fileLabel}: ${getErrorMessage(e)}`
+                            );
+                            this.heldSession = undefined;
+                        }
                     }
                 }
             }
@@ -619,50 +650,111 @@ export class CoqLspClientImpl implements CoqLspClient {
             .trim();
     }
 
-    trackSuspiciousLspErrors() {
-        this.client.onNotification(
-            PublishDiagnosticsNotification.type,
-            (params: PublishDiagnosticsParams) => {
-                const uriKey = String(params.uri);
-                this.diagnosticsMap.set(uriKey, params.diagnostics);
-                this.pushDiagnosticsToEditor(uriKey, params.diagnostics);
-                function filterIncorrectLspSuspectedDiagnostics(
-                    diagnostic: Diagnostic
-                ): boolean {
-                    const errorSubstrings = [
-                        "Cannot find a physical path bound to logical path",
-                        "Dynlink error: error loading shared library",
-                    ];
+    private registerNotificationHandlers(): void {
+        this.subscriptions.push(
+            this.client.onNotification(
+                PublishDiagnosticsNotification.type,
+                (params: PublishDiagnosticsParams) => {
+                    const uriKey = String(params.uri);
+                    this.diagnosticsMap.set(uriKey, params.diagnostics);
+                    this.pushDiagnosticsToEditor(uriKey, params.diagnostics);
+                    this.inspectSuspiciousLspErrors(params);
 
-                    return errorSubstrings.some(
-                        (substr) =>
-                            diagnostic.message.includes(substr) &&
-                            diagnostic.severity === 1
-                    );
-                }
-
-                const suspectedDiagnostics = params.diagnostics.filter(
-                    filterIncorrectLspSuspectedDiagnostics
-                );
-                if (suspectedDiagnostics.length > 0) {
-                    const data = {
-                        uri: params.uri.toString(),
+                    const event: FileCheckEvent = {
+                        uri: uriKey,
+                        diagnostics: params.diagnostics,
                         version: params.version,
-                        diagnosticMessage: suspectedDiagnostics.map(
-                            (d) => d.message
-                        ),
                     };
-                    const firstErrorMessage =
-                        suspectedDiagnostics[0].message.split("\n")[0];
-
-                    this.eventLogger?.log(
-                        CoqLspConnector.wrongServerSuspectedEvent,
-                        firstErrorMessage,
-                        data
-                    );
+                    for (const waiter of this.fileCheckWaiters) {
+                        try {
+                            waiter(event);
+                        } catch {
+                            /* ignore waiter errors */
+                        }
+                    }
                 }
-            }
+            )
         );
+
+        this.subscriptions.push(
+            this.client.onNotification(
+                serverStatusNotificationType,
+                (params: ServerStatusParams) => {
+                    if (params.status === "Idle") {
+                        const event: FileCheckEvent = {
+                            uri: params.modname ?? "",
+                            isIdle: true,
+                        };
+                        for (const waiter of this.fileCheckWaiters) {
+                            try {
+                                waiter(event);
+                            } catch {
+                                /* ignore waiter errors */
+                            }
+                        }
+                    }
+                }
+            )
+        );
+
+        this.subscriptions.push(
+            this.client.onNotification(
+                LogTraceNotification.type,
+                (params) => {
+                    if (params.message && params.message.includes("document fully checked")) {
+                        const event: FileCheckEvent = {
+                            uri: "",
+                            isIdle: true,
+                        };
+                        for (const waiter of this.fileCheckWaiters) {
+                            try {
+                                waiter(event);
+                            } catch {
+                                /* ignore waiter errors */
+                            }
+                        }
+                    }
+                }
+            )
+        );
+    }
+
+    private inspectSuspiciousLspErrors(params: PublishDiagnosticsParams): void {
+        function filterIncorrectLspSuspectedDiagnostics(
+            diagnostic: Diagnostic
+        ): boolean {
+            const errorSubstrings = [
+                "Cannot find a physical path bound to logical path",
+                "Dynlink error: error loading shared library",
+            ];
+
+            return errorSubstrings.some(
+                (substr) =>
+                    diagnostic.message.includes(substr) &&
+                    diagnostic.severity === 1
+            );
+        }
+
+        const suspectedDiagnostics = params.diagnostics.filter(
+            filterIncorrectLspSuspectedDiagnostics
+        );
+        if (suspectedDiagnostics.length > 0) {
+            const data = {
+                uri: params.uri.toString(),
+                version: params.version,
+                diagnosticMessage: suspectedDiagnostics.map(
+                    (d) => d.message
+                ),
+            };
+            const firstErrorMessage =
+                suspectedDiagnostics[0].message.split("\n")[0];
+
+            this.eventLogger?.log(
+                CoqLspConnector.wrongServerSuspectedEvent,
+                firstErrorMessage,
+                data
+            );
+        }
     }
 
     /** Map an LSP file URI to the matching open VS Code document URI when possible. */
@@ -814,9 +906,10 @@ export class CoqLspClientImpl implements CoqLspClient {
         version: number,
         command?: string
     ): Promise<Result<GoalsWithMessages, Error>> {
+        const baseVersion = this.serverVersions.get(documentUri.uri) ?? version;
         const baseTextDocument = VersionedTextDocumentIdentifier.create(
             documentUri.uri,
-            version
+            baseVersion
         );
         const makeGoalRequest = (
             pos: Position,
@@ -978,65 +1071,73 @@ export class CoqLspClientImpl implements CoqLspClient {
         requestType: ProtocolNotificationType<any, any>,
         params: any,
         uri: Uri,
+        expectedVersion?: number,
         lastDocumentEndPosition?: Position,
         timeout: number = 300000,
-        operationLabel?: string
+        operationLabel?: string,
+        abortSignal?: AbortSignal
     ): Promise<DiagnosticMessage> {
         const label = operationLabel ?? formatUri(uri.uri);
         const waitStart = Date.now();
         proofStateLog(`document sync wait start ${label}`);
-        let pendingProgress = true;
-        let pendingDiagnostic = true;
+
         let awaitedDiagnostics: Diagnostic[] | undefined = undefined;
+        let isDone = false;
         const expectedUriNormalized = this.normalizeFileUriForCompare(uri.uri);
         const expectedPath = this.fileUriToPath(uri.uri);
 
-        // Per-wait handlers only — pushing onto this.subscriptions leaked listeners on every
-        // open/sync and slowed or broke later waits.
-        const waitDisposables: Disposable[] = [];
-        try {
-            waitDisposables.push(
-                this.client.onNotification(LogTraceNotification.type, (notifParams) => {
-                    if (notifParams.message.includes("document fully checked")) {
-                        pendingProgress = false;
-                    }
-                })
-            );
-            waitDisposables.push(
-                this.client.onNotification(
-                    PublishDiagnosticsNotification.type,
-                    (diagParams: PublishDiagnosticsParams) => {
-                        const receivedUri =
-                            diagParams.uri?.toString?.() ?? String(diagParams.uri);
-                        const receivedNormalized =
-                            this.normalizeFileUriForCompare(receivedUri);
-                        const receivedPath = this.fileUriToPath(receivedUri);
-                        const uriMatches =
-                            receivedNormalized === expectedUriNormalized ||
-                            receivedPath === expectedPath;
-                        if (uriMatches) {
-                            pendingDiagnostic = false;
-                            awaitedDiagnostics = diagParams.diagnostics;
-                            pendingProgress = false;
-                        }
-                    }
-                )
-            );
+        const waiter = (event: FileCheckEvent) => {
+            const eventUriNormalized = event.uri ? this.normalizeFileUriForCompare(event.uri) : "";
+            const eventPath = event.uri ? this.fileUriToPath(event.uri) : "";
+            const uriMatches =
+                !event.uri ||
+                eventUriNormalized === expectedUriNormalized ||
+                eventPath === expectedPath ||
+                (event.uri && expectedPath.endsWith(event.uri));
 
+            if (!uriMatches) {
+                return;
+            }
+
+            if (event.diagnostics !== undefined) {
+                if (
+                    expectedVersion === undefined ||
+                    event.version === undefined ||
+                    event.version >= expectedVersion
+                ) {
+                    awaitedDiagnostics = event.diagnostics;
+                    isDone = true;
+                }
+            } else if (event.isIdle) {
+                isDone = true;
+            }
+        };
+
+        this.fileCheckWaiters.add(waiter);
+        try {
+            if (abortSignal?.aborted) {
+                proofStateLog(`document sync wait cancelled (pre-send) ${label}`);
+                throw new Error("Proof state query cancelled: newer request issued");
+            }
             await this.client.sendNotification(requestType, params);
 
             const timeoutMs = timeout;
-            while (timeout > 0 && (pendingProgress || pendingDiagnostic)) {
-                await this.sleep(100);
-                timeout -= 100;
+            while (timeout > 0 && !isDone) {
+                if (abortSignal?.aborted) {
+                    proofStateLog(`document sync wait cancelled ${label} (${Date.now() - waitStart}ms)`);
+                    throw new Error("Proof state query cancelled: newer request issued");
+                }
+                const sleepMs = Math.min(50, timeout);
+                await this.sleep(sleepMs);
+                timeout -= sleepMs;
             }
 
-            if (
-                timeout <= 0 ||
-                pendingProgress ||
-                pendingDiagnostic ||
-                awaitedDiagnostics === undefined
-            ) {
+            if (abortSignal?.aborted) {
+                proofStateLog(`document sync wait cancelled ${label} (${Date.now() - waitStart}ms)`);
+                throw new Error("Proof state query cancelled: newer request issued");
+            }
+
+            if (!isDone) {
                 const sec = Math.round(timeoutMs / 1000);
                 const elapsed = Date.now() - waitStart;
                 proofStateLog(
@@ -1046,7 +1147,13 @@ export class CoqLspClientImpl implements CoqLspClient {
                     `coq-lsp did not respond in time (waited ${sec}s). The file may be large or the server busy. Try moving the cursor again or reloading the window.`
                 );
             }
-            const finalDiagnostics: Diagnostic[] = awaitedDiagnostics ?? [];
+
+            if (awaitedDiagnostics === undefined) {
+                await this.sleep(30);
+            }
+
+            const finalDiagnostics: Diagnostic[] =
+                awaitedDiagnostics ?? this.diagnosticsMap.get(uri.uri) ?? [];
             this.diagnosticsMap.set(uri.uri, finalDiagnostics);
             this.pushDiagnosticsToEditor(uri.uri, finalDiagnostics);
 
@@ -1058,14 +1165,20 @@ export class CoqLspClientImpl implements CoqLspClient {
                 lastDocumentEndPosition ?? Position.create(0, 0)
             );
         } catch (e) {
-            if (!(e instanceof CoqLspError) || !String(e.message).includes("did not respond in time")) {
+            if (e instanceof Error && e.message.includes("Proof state query cancelled")) {
+                throw e;
+            }
+            if (
+                !(e instanceof CoqLspError) ||
+                !String(e.message).includes("did not respond in time")
+            ) {
                 proofStateLog(
                     `document sync wait failed ${label} (${Date.now() - waitStart}ms): ${getErrorMessage(e)}`
                 );
             }
             throw e;
         } finally {
-            waitDisposables.forEach((d) => d.dispose());
+            this.fileCheckWaiters.delete(waiter);
         }
     }
 
@@ -1075,8 +1188,13 @@ export class CoqLspClientImpl implements CoqLspClient {
         content?: string,
         openTimeoutMs: number = 300000,
         languageId: string = "coq",
-        operationLabel?: string
+        operationLabel?: string,
+        abortSignal?: AbortSignal
     ): Promise<DiagnosticMessage> {
+        const uriKey = uri.uri;
+        const effectiveVersion = Math.max(version ?? 1, 1);
+        this.serverVersions.set(uriKey, effectiveVersion);
+
         const docText =
             content !== undefined
                 ? content
@@ -1087,19 +1205,21 @@ export class CoqLspClientImpl implements CoqLspClient {
             textDocument: {
                 uri: uri.uri,
                 languageId: effectiveLanguageId,
-                version: version,
+                version: effectiveVersion,
                 text: docText,
             },
         };
 
-        const label = operationLabel ?? `didOpen ${formatUri(uri.uri)} v${version}`;
+        const label = operationLabel ?? `didOpen ${formatUri(uri.uri)} v${effectiveVersion}`;
         return await this.waitUntilFileFullyChecked(
             DidOpenTextDocumentNotification.type,
             params,
             uri,
+            effectiveVersion,
             undefined,
             openTimeoutMs,
-            label
+            label,
+            abortSignal
         );
     }
 
@@ -1109,23 +1229,31 @@ export class CoqLspClientImpl implements CoqLspClient {
         version: number,
         fullText: string,
         openTimeoutMs: number,
-        operationLabel?: string
+        operationLabel?: string,
+        abortSignal?: AbortSignal
     ): Promise<DiagnosticMessage> {
+        const uriKey = uri.uri;
+        const lastVersion = this.serverVersions.get(uriKey) ?? 0;
+        const effectiveVersion = Math.max(version, lastVersion + 1);
+        this.serverVersions.set(uriKey, effectiveVersion);
+
         const params: DidChangeTextDocumentParams = {
             textDocument: {
                 uri: uri.uri,
-                version,
+                version: effectiveVersion,
             },
             contentChanges: [{ text: fullText }],
         };
-        const label = operationLabel ?? `didChange ${formatUri(uri.uri)} v${version}`;
+        const label = operationLabel ?? `didChange ${formatUri(uri.uri)} v${effectiveVersion}`;
         return await this.waitUntilFileFullyChecked(
             DidChangeTextDocumentNotification.type,
             params,
             uri,
+            effectiveVersion,
             Position.create(0, 0),
             openTimeoutMs,
-            label
+            label,
+            abortSignal
         );
     }
 
@@ -1144,11 +1272,15 @@ export class CoqLspClientImpl implements CoqLspClient {
     ): Promise<DiagnosticMessage> {
         const updatedText = oldDocumentText.join("\n") + appendedSuffix;
         const oldEndPosition = this.getTextEndPosition(oldDocumentText);
+        const uriKey = uri.uri;
+        const lastVersion = this.serverVersions.get(uriKey) ?? 0;
+        const effectiveVersion = Math.max(version, lastVersion + 1);
+        this.serverVersions.set(uriKey, effectiveVersion);
 
         const params: DidChangeTextDocumentParams = {
             textDocument: {
                 uri: uri.uri,
-                version: version,
+                version: effectiveVersion,
             },
             contentChanges: [
                 {
@@ -1161,11 +1293,13 @@ export class CoqLspClientImpl implements CoqLspClient {
             DidChangeTextDocumentNotification.type,
             params,
             uri,
+            effectiveVersion,
             oldEndPosition
         );
     }
 
     private async closeTextDocumentUnsafe(uri: Uri): Promise<void> {
+        this.serverVersions.delete(uri.uri);
         const params: DidCloseTextDocumentParams = {
             textDocument: {
                 uri: uri.uri,
@@ -1198,6 +1332,7 @@ export class CoqLspClientImpl implements CoqLspClient {
     dispose(): void {
         this.editorDiagnostics.dispose();
         this.subscriptions.forEach((d) => d.dispose());
+        this.fileCheckWaiters.clear();
         void (async () => {
             try {
                 await this.mutex.runExclusive(async () => {
