@@ -6,3 +6,11 @@ node_modules
 .DS_Store
 .env
 benchmark_results
+.cursor
+.lia.cache
+*.aux 
+.*.aux
+*.glob
+*.vo
+*.vos
+*.vok
