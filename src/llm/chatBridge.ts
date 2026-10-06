@@ -711,7 +711,7 @@ export async function runProverAgent(
 
     const proverName = proverKind === 'Lean' ? 'Lean 4' : 'Coq';
     const tacticGuidance = proverKind === 'Lean'
-        ? 'For Lean 4: write Lean tactics like simp, rfl, intro, exact, apply, cases, induction. Do NOT append trailing periods to Lean tactics.'
+        ? 'For Lean 4: write Lean tactics like simp, rfl, intro, exact, apply, cases, induction. Do NOT append trailing periods to Lean tactics. Lean 4 uses indentation-based syntax: match the indentation level of the current proof block.'
         : 'For Coq: write Coq tactics ending with a period (e.g. reflexivity., simpl., intros., apply <lemma>.).';
 
     const toolDescriptions = tools.map(t => 

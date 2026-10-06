@@ -22,6 +22,7 @@ function formatGoalState(client: ProverClient, editor: vscode.TextEditor): Promi
         }
 
         let out = '=== CURRENT PROOF STATE ===\n\n';
+        out += `=== ACTIVE FOCUSED GOAL ===\n\n`;
         out += `Number of goals: ${state.goals.length}\n\n`;
         state.goals.forEach((goal, index) => {
             out += `--- Goal ${index + 1} ---\n`;
@@ -37,8 +38,40 @@ function formatGoalState(client: ProverClient, editor: vscode.TextEditor): Promi
             }
             out += '\n';
         });
-        if (state.error) out += `\n=== ERROR ===\n${state.error}\n`;
-        if (state.messages.length > 0) out += `\n=== MESSAGES ===\n${state.messages.join('\n')}\n`;
+
+        // Check for sibling and shelved goals in document diagnostics
+        try {
+            const diags = vscode.languages.getDiagnostics(editor.document.uri);
+            const siblingGoals: string[] = [];
+            const shelvedGoals: string[] = [];
+            const activeGoalSummary = state.goals.map((g) => g.type).join(' ');
+
+            for (const d of diags) {
+                if (d.message.includes('unsolved goals')) {
+                    const u = d.message.replace(/^unsolved goals\n?/, '').trim();
+                    if (!u || activeGoalSummary.includes(u)) continue;
+                    if (u.startsWith('case ')) {
+                        if (!siblingGoals.includes(u)) siblingGoals.push(u);
+                    } else {
+                        if (!shelvedGoals.includes(u)) shelvedGoals.push(u);
+                    }
+                }
+            }
+
+            if (siblingGoals.length > 0) {
+                out += `=== SIBLING GOALS (Parallel Unclosed Cases) ===\n\n`;
+                out += siblingGoals.join('\n\n---\n\n') + '\n\n';
+            }
+            if (shelvedGoals.length > 0) {
+                out += `=== SHELVED GOALS (Parent Proof / Awaiting Subproof) ===\n\n`;
+                out += shelvedGoals.join('\n\n---\n\n') + '\n\n';
+            }
+        } catch {
+            // ignore if diagnostics unavailable
+        }
+
+        if (state.error) out += `=== ERROR ===\n${state.error}\n`;
+        if (state.messages.length > 0) out += `=== MESSAGES ===\n${state.messages.join('\n')}\n`;
         return out;
     });
 }
@@ -138,6 +171,14 @@ export interface LeanProverToolsOptions {
     editorGuard?: EditorBufferGuard;
 }
 
+function cleanLeanProposedAddition(raw: string): string {
+    let text = raw
+        .replace(/```(?:lean|lean4)?/gi, '')
+        .replace(/```/g, '');
+    text = text.replace(/^[ \t]*\r?\n+/, '');
+    return text.trimEnd();
+}
+
 export function createLeanProverTools(
     getClient: () => ProverClient | undefined,
     editor: vscode.TextEditor,
@@ -161,7 +202,8 @@ export function createLeanProverTools(
                 desiredValue?: string;
                 proposedAddition?: string;
             }) => {
-                const addition = (args?.proposedAddition ?? '').trim();
+                const rawAddition = args?.proposedAddition ?? '';
+                const addition = cleanLeanProposedAddition(rawAddition);
                 if (!addition) return 'error: proposedAddition is required.';
 
                 try {
@@ -172,7 +214,42 @@ export function createLeanProverTools(
 
                 const client = getCurrentClient(getClient);
                 const pos = editor.selection.active;
-                const textToInsert = addition.endsWith('\n') ? addition : `${addition}\n`;
+
+                // Indentation alignment: if addition starts at column 0, align it with the current or preceding line's indentation
+                let effectiveAddition = addition;
+                const firstLine = addition.split('\n')[0] || '';
+                const firstIndentMatch = firstLine.match(/^(\s*)/);
+                const firstIndent = firstIndentMatch ? firstIndentMatch[1] : '';
+
+                if (firstIndent.length === 0) {
+                    let targetIndent = '';
+                    const curLineText = editor.document.lineAt(pos.line).text;
+                    const curIndentMatch = curLineText.match(/^(\s*)/);
+                    if (pos.character > 0 && curIndentMatch && curIndentMatch[1].length > 0) {
+                        targetIndent = curIndentMatch[1];
+                    } else {
+                        for (let l = pos.line; l >= 0; l--) {
+                            const lineText = editor.document.lineAt(l).text;
+                            if (lineText.trim().length > 0) {
+                                const m = lineText.match(/^(\s*)/);
+                                targetIndent = m ? m[1] : '';
+                                const trimmed = lineText.trimEnd();
+                                if (trimmed.endsWith(':= by') || trimmed.endsWith(' by') || trimmed.endsWith('=>')) {
+                                    targetIndent += '  ';
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    if (targetIndent.length > 0) {
+                        effectiveAddition = addition
+                            .split('\n')
+                            .map((l) => (l.trim().length > 0 ? targetIndent + l : ''))
+                            .join('\n');
+                    }
+                }
+
+                const textToInsert = effectiveAddition.endsWith('\n') ? effectiveAddition : `${effectiveAddition}\n`;
                 const lines = textToInsert.split('\n');
                 const linesAdded = lines.length - 1;
                 const lastLineLen = lines[linesAdded].length;

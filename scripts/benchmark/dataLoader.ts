@@ -5,6 +5,9 @@ export interface StageData {
     stage_id: string;
     prefix_code: string;
     proof_state: string;
+    active_goal?: string;
+    sibling_goals?: string[];
+    shelved_goals?: string[];
     tactic?: string;
 }
 
@@ -17,6 +20,12 @@ export interface BenchmarkTask {
     prefixCode: string;
     initialState: string;
     desiredState: string;
+    initialActiveGoal?: string;
+    initialSiblingGoals?: string[];
+    initialShelvedGoals?: string[];
+    desiredActiveGoal?: string;
+    desiredSiblingGoals?: string[];
+    desiredShelvedGoals?: string[];
     editDistance: number;
     isCompletion: boolean;
     tier: 'step1' | 'multistep' | 'completion';
@@ -98,6 +107,12 @@ export function generatePairsForTheorem(
                 prefixCode: so.prefix_code,
                 initialState: so.proof_state,
                 desiredState: sk.proof_state,
+                initialActiveGoal: so.active_goal,
+                initialSiblingGoals: so.sibling_goals,
+                initialShelvedGoals: so.shelved_goals,
+                desiredActiveGoal: sk.active_goal,
+                desiredSiblingGoals: sk.sibling_goals,
+                desiredShelvedGoals: sk.shelved_goals,
                 editDistance,
                 isCompletion,
                 tier,

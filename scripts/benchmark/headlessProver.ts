@@ -33,6 +33,50 @@ export function isProofCompleteState(state: string): boolean {
     );
 }
 
+/** Formats active, sibling, and shelved goals into standardized sections. */
+export function formatCategorizedProofState(
+    activeGoal: string,
+    siblingGoals: string[] = [],
+    shelvedGoals: string[] = []
+): string {
+    const activeClean = activeGoal.trim();
+    if (activeClean === 'No subgoals.' || (siblingGoals.length === 0 && shelvedGoals.length === 0)) {
+        return activeClean;
+    }
+
+    const parts: string[] = [];
+    if (activeClean) {
+        parts.push(`=== ACTIVE FOCUSED GOAL ===\n${activeClean}`);
+    }
+
+    if (siblingGoals.length > 0) {
+        const siblingsStr = siblingGoals.map((s) => s.trim()).filter(Boolean).join('\n---\n');
+        if (siblingsStr) {
+            parts.push(`=== SIBLING GOALS (Parallel Unclosed Cases) ===\n${siblingsStr}`);
+        }
+    }
+
+    if (shelvedGoals.length > 0) {
+        const shelvedStr = shelvedGoals.map((s) => s.trim()).filter(Boolean).join('\n---\n');
+        if (shelvedStr) {
+            parts.push(`=== SHELVED GOALS (Parent Proof / Awaiting Subproof) ===\n${shelvedStr}`);
+        }
+    }
+
+    return parts.join('\n\n');
+}
+
+/** Extracts the active goal portion if the state contains categorized headers. */
+export function extractActiveGoalFromTarget(targetState: string): string {
+    if (targetState.includes('=== ACTIVE FOCUSED GOAL ===')) {
+        const match = targetState.match(/=== ACTIVE FOCUSED GOAL ===\s*([\s\S]*?)(?=\n\n===|$)/);
+        if (match && match[1]) {
+            return match[1].trim();
+        }
+    }
+    return targetState.trim();
+}
+
 /**
  * Headless Rocq / Coq compiler verification using `coqtop`.
  */
@@ -82,6 +126,8 @@ export function verifyRocqTransition(
 
         const normTarget = normalizeState(targetState);
         const normStdout = normalizeState(stdout);
+        const activeTarget = extractActiveGoalFromTarget(targetState);
+        const normActiveTarget = normalizeState(activeTarget);
 
         if (isProofCompleteState(normTarget)) {
             if (isProofCompleteState(normStdout)) {
@@ -94,7 +140,12 @@ export function verifyRocqTransition(
             };
         }
 
-        if (normStdout.includes(normTarget)) {
+        if (
+            normStdout.includes(normTarget) ||
+            normTarget.includes(normStdout) ||
+            normStdout.includes(normActiveTarget) ||
+            normActiveTarget.includes(normStdout)
+        ) {
             return { success: true, resultingState: targetState };
         }
 
@@ -115,22 +166,93 @@ export function verifyRocqTransition(
 /**
  * Headless Lean 4 compiler verification using `lake exe repl`.
  */
-export function verifyLeanTransition(
-    prefixCode: string,
-    proposedAddition: string,
-    targetState: string,
-    workspaceRoot?: string,
-    timeoutMs: number = 20000
-): VerificationResult {
-    const rootDir =
-        workspaceRoot ||
-        path.resolve(__dirname, '../../../outputdirected_benchmarking');
-
-    const cleanAddition = proposedAddition
+/**
+ * Sanitizes proposed Lean code by removing markdown fences,
+ * leading blank newlines, and trailing whitespace, while preserving
+ * indentation on the first non-empty line.
+ */
+export function cleanLeanProposedAddition(raw: string): string {
+    let text = raw
         .replace(/```(?:lean|lean4)?/gi, '')
-        .replace(/```/g, '')
-        .trim();
+        .replace(/```/g, '');
+    // Strip leading blank lines only (preserve spaces on first code line)
+    text = text.replace(/^[ \t]*\r?\n+/, '');
+    return text.trimEnd();
+}
 
+/**
+ * Computes the expected indentation for tactics at the cursor.
+ */
+export function detectCursorIndentation(prefixCode: string): string {
+    const lines = prefixCode.split('\n');
+    const lastNonEmpty = [...lines].reverse().find((l) => l.trim().length > 0) || '';
+    if (!lastNonEmpty) return '  ';
+
+    const match = lastNonEmpty.match(/^(\s*)/);
+    const base = match ? match[1] : '';
+    const trimmed = lastNonEmpty.trimEnd();
+
+    if (trimmed.endsWith(':= by') || trimmed.endsWith(' by') || trimmed.endsWith('=>')) {
+        return base + '  ';
+    }
+    return base;
+}
+
+/**
+ * Produces candidate strings for verification:
+ * 1. If proposed addition has no leading indentation on line 1, auto-aligns it by cursor indent.
+ * 2. If proposed addition already has leading indentation on line 1, uses it as-is.
+ * Also provides an alternative fallback if needed.
+ */
+export function getLeanAdditionCandidates(prefixCode: string, proposedAddition: string): string[] {
+    const clean = cleanLeanProposedAddition(proposedAddition);
+    if (!clean) return [''];
+
+    const firstLine = clean.split('\n')[0] || '';
+    const firstIndentMatch = firstLine.match(/^(\s*)/);
+    const firstIndent = firstIndentMatch ? firstIndentMatch[1] : '';
+    const cursorIndent = detectCursorIndentation(prefixCode);
+
+    const candidates: string[] = [];
+    if (firstIndent.length === 0 && cursorIndent.length > 0) {
+        // Candidate 1: Auto-aligned to cursor indentation
+        const aligned = clean
+            .split('\n')
+            .map((line) => (line.trim().length > 0 ? cursorIndent + line : ''))
+            .join('\n');
+        candidates.push(aligned);
+        // Candidate 2: Raw as-is (in case column 0 was intended)
+        candidates.push(clean);
+    } else {
+        // Candidate 1: As-is with preserved indentation
+        candidates.push(clean);
+        // Candidate 2: If it had indent, try re-aligning to cursor indent
+        if (firstIndent.length > 0 && cursorIndent.length > 0 && firstIndent !== cursorIndent) {
+            const reindented = clean
+                .split('\n')
+                .map((line) => {
+                    if (!line.trim().length) return '';
+                    return line.startsWith(firstIndent)
+                        ? cursorIndent + line.slice(firstIndent.length)
+                        : line;
+                })
+                .join('\n');
+            candidates.push(reindented);
+        }
+    }
+    return candidates;
+}
+
+/**
+ * Executes a single Lean 4 verification run with a specific addition string.
+ */
+function runSingleLeanVerification(
+    prefixCode: string,
+    cleanAddition: string,
+    targetState: string,
+    rootDir: string,
+    timeoutMs: number
+): VerificationResult {
     const normTarget = normalizeState(targetState);
     const isCompletion = isProofCompleteState(normTarget);
 
@@ -187,9 +309,11 @@ export function verifyLeanTransition(
             return { success: false, error: firstErr };
         }
 
-        const otherErrors = errors.filter((e) => !e.includes('No goals to be solved'));
-        if (otherErrors.length > 0) {
-            return { success: false, error: otherErrors[0] };
+        const fatalErrors = errors.filter(
+            (e) => !e.includes('No goals to be solved') && !e.includes('unsolved goals')
+        );
+        if (fatalErrors.length > 0) {
+            return { success: false, error: fatalErrors[0] };
         }
 
         // Find the goal state of the sorry tactic
@@ -197,14 +321,45 @@ export function verifyLeanTransition(
         const sorryTactic = tactics.find((t) => t.pos?.line === sorryLine);
 
         if (sorryTactic && sorryTactic.goals) {
-            const normGoals = normalizeState(sorryTactic.goals);
-            if (normGoals.includes(normTarget) || normTarget.includes(normGoals)) {
-                return { success: true, resultingState: sorryTactic.goals };
+            const activeGoal = sorryTactic.goals;
+            const siblingGoals: string[] = [];
+            const shelvedGoals: string[] = [];
+            const normActive = normalizeState(activeGoal);
+
+            for (const m of res.messages || []) {
+                if (m.severity === 'error' && m.data?.includes('unsolved goals')) {
+                    const u = m.data.replace(/^unsolved goals\n?/, '').trim();
+                    const normU = normalizeState(u);
+                    if (normU && normU !== normActive) {
+                        if (u.startsWith('case ')) {
+                            if (!siblingGoals.includes(u)) siblingGoals.push(u);
+                        } else {
+                            if (!shelvedGoals.includes(u)) shelvedGoals.push(u);
+                        }
+                    }
+                }
+            }
+
+            const fullResultingState = formatCategorizedProofState(activeGoal, siblingGoals, shelvedGoals);
+            const normFull = normalizeState(fullResultingState);
+            const normGoals = normalizeState(activeGoal);
+            const activeTarget = extractActiveGoalFromTarget(targetState);
+            const normActiveTarget = normalizeState(activeTarget);
+
+            if (
+                normFull.includes(normTarget) ||
+                normTarget.includes(normFull) ||
+                normGoals.includes(normTarget) ||
+                normTarget.includes(normGoals) ||
+                normGoals.includes(normActiveTarget) ||
+                normActiveTarget.includes(normGoals)
+            ) {
+                return { success: true, resultingState: fullResultingState };
             }
             return {
                 success: false,
                 error: 'Resulting Lean state does not match target state.',
-                resultingState: sorryTactic.goals,
+                resultingState: fullResultingState,
             };
         }
 
@@ -220,6 +375,35 @@ export function verifyLeanTransition(
             }
         }
     }
+}
+
+/**
+ * Headless Lean 4 compiler verification using `lake exe repl`.
+ * Evaluates candidate additions (preserving explicit indentation or auto-aligning to cursor).
+ */
+export function verifyLeanTransition(
+    prefixCode: string,
+    proposedAddition: string,
+    targetState: string,
+    workspaceRoot?: string,
+    timeoutMs: number = 20000
+): VerificationResult {
+    const rootDir =
+        workspaceRoot ||
+        path.resolve(__dirname, '../../../outputdirected_benchmarking');
+
+    const candidates = getLeanAdditionCandidates(prefixCode, proposedAddition);
+    let lastResult: VerificationResult | null = null;
+
+    for (const cand of candidates) {
+        const res = runSingleLeanVerification(prefixCode, cand, targetState, rootDir, timeoutMs);
+        if (res.success) {
+            return res;
+        }
+        lastResult = res;
+    }
+
+    return lastResult || { success: false, error: 'Verification failed' };
 }
 
 export interface ToolCallRecord {
