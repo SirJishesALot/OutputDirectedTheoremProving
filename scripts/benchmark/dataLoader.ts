@@ -162,7 +162,9 @@ export function loadBenchmarkSuite(options: {
     const provers: Array<'rocq' | 'lean'> =
         proverChoice === 'both' ? ['rocq', 'lean'] : [proverChoice];
 
-    const theorems = options.theorem ? [options.theorem] : THEOREM_NAMES;
+    const theorems = options.theorem
+        ? options.theorem.split(',').map((t) => t.trim()).filter(Boolean)
+        : THEOREM_NAMES;
     const allTasks: BenchmarkTask[] = [];
 
     for (const p of provers) {

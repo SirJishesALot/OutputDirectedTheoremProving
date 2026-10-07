@@ -63,6 +63,7 @@ interface CliOptions {
     task2Dir?: string;
     seed?: number;
     verbose: boolean;
+    taskIds?: string[];
 }
 
 function parseCliArgs(): CliOptions {
@@ -84,6 +85,8 @@ function parseCliArgs(): CliOptions {
             else if (val === 'both') options.prover = 'both';
         } else if (arg === '--theorem' && i + 1 < args.length) {
             options.theorem = args[++i];
+        } else if ((arg === '--tasks' || arg === '--task-ids' || arg === '--task') && i + 1 < args.length) {
+            options.taskIds = args[++i].split(',').map((s) => s.trim()).filter(Boolean);
         } else if (arg === '--mode' && i + 1 < args.length) {
             const val = args[++i].toLowerCase();
             if (val === 'mini' || val === 'full') options.mode = val;
@@ -318,6 +321,12 @@ export async function main() {
         theorem: opts.theorem,
         task2Dir: opts.task2Dir,
     });
+
+    if (opts.taskIds && opts.taskIds.length > 0) {
+        allTasks = allTasks.filter((t) =>
+            opts.taskIds!.some((id) => t.id === id || t.id.includes(id))
+        );
+    }
 
     const rng = createRng(opts.seed);
     if (opts.limit && opts.limit > 0) {

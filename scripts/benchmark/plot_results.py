@@ -61,7 +61,7 @@ def load_dataset(
     for tid, a in agent_results.items():
         b = baseline_results.get(tid, {})
         agent_pass = bool(a.get("success", False))
-        baseline_pass = bool(b.get("baselineSuccess", False))
+        baseline_pass = bool(b.get("baselineSuccess", b.get("success", False)))
 
         # Outcome category
         if agent_pass and not baseline_pass:
@@ -87,7 +87,7 @@ def load_dataset(
                 "agentAttempts": a.get("validationAttempts", 1),
                 "recovered": a.get("recoveredFromError", False),
                 "agentDuration": a.get("durationMs", 0) / 1000.0,
-                "baselineDuration": b.get("durationSeconds", 0.0),
+                "baselineDuration": b.get("durationSeconds", b.get("durationMs", 0) / 1000.0),
                 "outcome": outcome,
             }
         )
@@ -129,7 +129,7 @@ def plot_pass_rate_by_prover(df: pd.DataFrame, output_dir: str):
         x + width / 2,
         baseline_rates,
         width,
-        label="1-Shot Baseline (Gemini 3.1 Pro)",
+        label="Zero-Shot Baseline (Task 1)",
         color=COLOR_BASELINE,
         edgecolor="black",
         linewidth=0.8,
@@ -137,11 +137,11 @@ def plot_pass_rate_by_prover(df: pd.DataFrame, output_dir: str):
     )
 
     ax.set_ylabel("Pass Rate (%)", fontsize=13, fontweight="bold")
-    ax.set_title("Pass Rate Comparison: Agent vs. 1-Shot Baseline", fontsize=14, fontweight="bold", pad=15)
+    ax.set_title("Pass Rate Comparison: Multi-Turn Agent vs. Zero-Shot Baseline", fontsize=14, fontweight="bold", pad=28)
     ax.set_xticks(x)
     ax.set_xticklabels(groups, fontsize=12, fontweight="bold")
-    ax.set_ylim(0, 115)
-    ax.legend(frameon=True, facecolor="white", edgecolor="#cccccc", loc="upper right")
+    ax.set_ylim(0, 125)
+    ax.legend(frameon=True, facecolor="white", edgecolor="#cccccc", loc="upper center", bbox_to_anchor=(0.5, 1.08), ncol=2)
 
     # Add numeric labels and delta
     for i in range(len(groups)):
@@ -219,7 +219,7 @@ def plot_pass_rate_by_tier(df: pd.DataFrame, output_dir: str):
         x + width / 2,
         baseline_rates,
         width,
-        label="1-Shot Baseline",
+        label="Zero-Shot Baseline (Task 1)",
         color=COLOR_BASELINE,
         edgecolor="black",
         linewidth=0.8,
@@ -227,12 +227,12 @@ def plot_pass_rate_by_tier(df: pd.DataFrame, output_dir: str):
     )
 
     ax.set_ylabel("Pass Rate (%)", fontsize=13, fontweight="bold")
-    ax.set_title("Pass Rate by Transition Difficulty Tier", fontsize=14, fontweight="bold", pad=15)
+    ax.set_title("Pass Rate by Transition Difficulty Tier", fontsize=14, fontweight="bold", pad=28)
     ax.set_xticks(x)
     formatted_labels = [f"{lbl}\n(N={cnt})" for lbl, cnt in zip(tier_labels, counts)]
     ax.set_xticklabels(formatted_labels, fontsize=11, fontweight="bold")
-    ax.set_ylim(0, 115)
-    ax.legend(frameon=True, facecolor="white", edgecolor="#cccccc", loc="upper right")
+    ax.set_ylim(0, 125)
+    ax.legend(frameon=True, facecolor="white", edgecolor="#cccccc", loc="upper center", bbox_to_anchor=(0.5, 1.08), ncol=2)
 
     for i in range(len(tier_order)):
         ar = agent_rates[i]
@@ -301,7 +301,7 @@ def plot_head_to_head_outcomes(df: pd.DataFrame, output_dir: str):
 
     ax.set_yticks(y)
     ax.set_yticklabels(categories, fontsize=11, fontweight="bold")
-    ax.set_xlabel("Number of Tasks (out of 20)", fontsize=12, fontweight="bold")
+    ax.set_xlabel(f"Number of Tasks (out of {total})", fontsize=12, fontweight="bold")
     ax.set_title("Head-to-Head Outcome Breakdown", fontsize=14, fontweight="bold", pad=15)
     ax.set_xlim(0, max(counts) + 3)
     ax.invert_yaxis()
@@ -372,7 +372,7 @@ def plot_agent_attempt_distribution(df: pd.DataFrame, output_dir: str):
 def plot_summary_dashboard(df: pd.DataFrame, output_dir: str):
     """Creates a consolidated 2x2 multi-panel publication dashboard."""
     fig, axs = plt.subplots(2, 2, figsize=(15, 11), dpi=300)
-    fig.suptitle("Output-Directed Theorem Proving: Agent vs 1-Shot Baseline", fontsize=18, fontweight="bold", y=0.98)
+    fig.suptitle("Output-Directed Theorem Proving: Agent vs. Zero-Shot Baseline (Task 1)", fontsize=18, fontweight="bold", y=0.98)
 
     # Panel A: By Prover
     ax = axs[0, 0]
@@ -389,14 +389,13 @@ def plot_summary_dashboard(df: pd.DataFrame, output_dir: str):
     ]
     x = np.arange(len(groups))
     width = 0.32
-    ax.bar(x - width / 2, agent_rates, width, label="Multi-Turn Agent", color=COLOR_AGENT, edgecolor="black", linewidth=0.8, zorder=3)
-    ax.bar(x + width / 2, baseline_rates, width, label="1-Shot Baseline", color=COLOR_BASELINE, edgecolor="black", linewidth=0.8, zorder=3)
+    ax.bar(x - width / 2, agent_rates, width, label="Multi-Turn Agent (Ours)", color=COLOR_AGENT, edgecolor="black", linewidth=0.8, zorder=3)
+    ax.bar(x + width / 2, baseline_rates, width, label="Zero-Shot Baseline (Task 1)", color=COLOR_BASELINE, edgecolor="black", linewidth=0.8, zorder=3)
     ax.set_ylabel("Pass Rate (%)", fontweight="bold")
-    ax.set_title("(A) Pass Rate by Prover Backend", fontweight="bold", pad=10)
+    ax.set_title("(A) Pass Rate by Prover Backend", fontweight="bold", pad=12)
     ax.set_xticks(x)
     ax.set_xticklabels(groups, fontweight="bold")
-    ax.set_ylim(0, 115)
-    ax.legend(frameon=True, loc="upper right")
+    ax.set_ylim(0, 128)
     for i in range(len(groups)):
         ar, br = agent_rates[i], baseline_rates[i]
         ax.annotate(f"{ar:.0f}%", xy=(x[i] - width / 2, ar + 1.5), ha="center", fontsize=9.5, fontweight="bold", color="#1E3A8A")
@@ -411,17 +410,20 @@ def plot_summary_dashboard(df: pd.DataFrame, output_dir: str):
     t_agent = [df[df["tier"] == t]["agentSuccess"].mean() * 100 for t in tier_order]
     t_base = [df[df["tier"] == t]["baselineSuccess"].mean() * 100 for t in tier_order]
     x = np.arange(len(tier_order))
-    ax.bar(x - width / 2, t_agent, width, label="Multi-Turn Agent", color=COLOR_AGENT, edgecolor="black", linewidth=0.8, zorder=3)
-    ax.bar(x + width / 2, t_base, width, label="1-Shot Baseline", color=COLOR_BASELINE, edgecolor="black", linewidth=0.8, zorder=3)
+    ax.bar(x - width / 2, t_agent, width, label="Multi-Turn Agent (Ours)", color=COLOR_AGENT, edgecolor="black", linewidth=0.8, zorder=3)
+    ax.bar(x + width / 2, t_base, width, label="Zero-Shot Baseline (Task 1)", color=COLOR_BASELINE, edgecolor="black", linewidth=0.8, zorder=3)
     ax.set_ylabel("Pass Rate (%)", fontweight="bold")
-    ax.set_title("(B) Pass Rate by Difficulty Tier", fontweight="bold", pad=10)
+    ax.set_title("(B) Pass Rate by Difficulty Tier", fontweight="bold", pad=12)
     ax.set_xticks(x)
     ax.set_xticklabels(tier_labels, fontweight="bold")
-    ax.set_ylim(0, 115)
+    ax.set_ylim(0, 128)
     for i in range(len(tier_order)):
         ar, br = t_agent[i], t_base[i]
+        delta = ar - br
         ax.annotate(f"{ar:.0f}%", xy=(x[i] - width / 2, ar + 1.5), ha="center", fontsize=9.5, fontweight="bold", color="#1E3A8A")
         ax.annotate(f"{br:.0f}%", xy=(x[i] + width / 2, br + 1.5), ha="center", fontsize=9.5, fontweight="bold", color="#475569")
+        ax.annotate(f"Δ +{delta:.0f}%", xy=(x[i], max(ar, br) + 7), ha="center", fontsize=9, fontweight="bold", color="#047857",
+                    bbox=dict(boxstyle="round,pad=0.2", facecolor="#D1FAE5", edgecolor="#10B981", alpha=0.9))
 
     # Panel C: Head to Head Attribution
     ax = axs[1, 0]
@@ -462,7 +464,21 @@ def plot_summary_dashboard(df: pd.DataFrame, output_dir: str):
         ax.annotate(f"{c} ({c/len(df)*100:.0f}%)", xy=(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.2),
                     ha="center", fontsize=10, fontweight="bold")
 
-    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    # Shared Legend at top
+    handles, labels = axs[0, 0].get_legend_handles_labels()
+    fig.legend(
+        handles,
+        labels,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.945),
+        ncol=2,
+        frameon=True,
+        facecolor="white",
+        edgecolor="#cccccc",
+        fontsize=12,
+    )
+
+    plt.tight_layout(rect=[0, 0, 1, 0.91])
     out_file = os.path.join(output_dir, "summary_dashboard.png")
     plt.savefig(out_file, bbox_inches="tight")
     plt.close()
@@ -474,13 +490,13 @@ def main():
     default_agent = os.path.abspath(
         os.path.join(
             os.path.dirname(__file__),
-            "../../benchmark_results/latest_mini.json",
+            "../../benchmark_results/agent_20_tasks_updated.json",
         )
     )
     default_baseline = os.path.abspath(
         os.path.join(
             os.path.dirname(__file__),
-            "../../../outputdirected_benchmarking/task2/results_mini_task2_agy_gemini-3.1-pro-high.json",
+            "../../benchmark_results/baseline_task1_fresh.json",
         )
     )
     default_out_dir = os.path.abspath(
