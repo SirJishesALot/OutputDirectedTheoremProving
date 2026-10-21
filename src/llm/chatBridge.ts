@@ -386,6 +386,12 @@ After calling get_edit_history, you can then call other tools as needed (get_cur
 
     const systemPrompt = `You are an automated ${proverName} assistant with access to tools that can inspect the proof state and suggest edits.
 
+RESTRICTED ENVIRONMENT CONSTRAINTS:
+- You are operating inside a restricted theorem proving extension bridge.
+- You do NOT have access to any host tools, bash/terminal commands, filesystem access, web browsing, or workspace tools (such as run_command, read_file, edit_file, or search_web).
+- You MUST NOT attempt to use any tools other than the virtual tools explicitly listed below.
+- All tool calls MUST strictly be formatted as JSON blocks matching the specification below.
+
 You have access to the following tools:
 ${toolDescriptions}
 ${editHistoryRequirement}
@@ -741,6 +747,12 @@ export async function runProverAgent(
     ).join('\n');
 
     const systemPrompt = `You are a prover agent that edits ${proverName} proof scripts to achieve desired proof states.
+
+RESTRICTED ENVIRONMENT CONSTRAINTS:
+- You are operating inside a restricted theorem proving extension bridge.
+- You do NOT have access to any host tools, bash/terminal commands, filesystem access, web browsing, or workspace tools (such as run_command, read_file, edit_file, or search_web).
+- You MUST NOT attempt to use any tools other than the virtual tools explicitly listed below.
+- All tool calls MUST strictly be formatted as JSON blocks matching the specification below.
 
 You have access to the following tools:
 ${toolDescriptions}

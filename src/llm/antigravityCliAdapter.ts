@@ -181,12 +181,56 @@ export interface AntigravityCliAdapter {
 }
 
 /**
+ * Ensures that a restricted custom agent profile ('odtp-prover') with zero host tools (tools: [])
+ * exists in both global and workspace agent directories. This strictly prevents `agy` from
+ * exposing native developer tools (e.g. run_command, read_file, edit_file) to the model.
+ */
+function ensureOdtpAgentConfig(): void {
+    const agentContent = `---
+name: odtp-prover
+description: Output Directed Theorem Prover assistant with no host tools.
+mainAgent: true
+tools: []
+---
+
+You are an automated theorem proving assistant for Coq and Lean.
+You do not have access to any external system tools, shell/terminal execution, or filesystem access.
+All tool interactions must occur strictly through the JSON tool call formats defined in the prompt.
+`;
+    try {
+        const homeAgentDir = path.join(os.homedir(), '.gemini', 'antigravity-cli', 'agents');
+        if (!fs.existsSync(homeAgentDir)) {
+            fs.mkdirSync(homeAgentDir, { recursive: true });
+        }
+        const homeAgentPath = path.join(homeAgentDir, 'odtp-prover.md');
+        if (!fs.existsSync(homeAgentPath)) {
+            fs.writeFileSync(homeAgentPath, agentContent, 'utf8');
+        }
+
+        const wsFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (wsFolder) {
+            const wsAgentDir = path.join(wsFolder, '.agents', 'agents');
+            if (!fs.existsSync(wsAgentDir)) {
+                fs.mkdirSync(wsAgentDir, { recursive: true });
+            }
+            const wsAgentPath = path.join(wsAgentDir, 'odtp-prover.md');
+            if (!fs.existsSync(wsAgentPath)) {
+                fs.writeFileSync(wsAgentPath, agentContent, 'utf8');
+            }
+        }
+    } catch (e) {
+        OutputLogger.warn('LLM:Antigravity', 'Could not ensure odtp-prover agent config file:', e);
+    }
+}
+
+/**
  * Creates an LLM adapter backed by the local Antigravity CLI (`agy`).
  */
 export function createAntigravityCliAdapter(
     modelId?: string,
     binaryPath?: string
 ): AntigravityCliAdapter {
+    ensureOdtpAgentConfig();
     const agyBin = binaryPath || findAgyBinaryPath();
     const effectiveModel =
         modelId ||
@@ -212,11 +256,13 @@ export function createAntigravityCliAdapter(
             const targetModel = opts?.model || effectiveModel;
             const conversationId = opts?.conversationId?.trim();
 
+            // Strictly restricted session: no host tools, no dangerous auto-permissions
             const args = [
                 '--output-format',
                 'stream-json',
-                '--dangerously-skip-permissions',
                 '--disable-slash-commands',
+                '--agent',
+                'odtp-prover',
             ];
 
             let prompt = '';
@@ -304,6 +350,8 @@ export function createAntigravityCliAdapter(
                         const parsed = JSON.parse(trimmed);
                         if (parsed.event === 'init' && parsed.conversation_id) {
                             opts?.onConversationId?.(parsed.conversation_id);
+                        } else if (parsed.event === 'step_update' && parsed.step_update?.step_type === 'tool') {
+                            OutputLogger.warn('LLM:Antigravity', `Unapproved host tool attempted in agy: ${parsed.step_update?.tool_name}`);
                         } else if (parsed.event === 'step_update' && parsed.step_update?.text_delta) {
                             receivedDeltas = true;
                             pushItem({ delta: parsed.step_update.text_delta });
