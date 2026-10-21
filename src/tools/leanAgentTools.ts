@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { AgentTool } from '../llm/chatBridge';
 import { ProverClient } from '../prover/ProverClient';
 import { EditorBufferGuard } from './editorBufferGuard';
+import { compareStateWithTarget } from './stateComparator';
 
 type EditHistory = {
     edits: Array<{ lhs: string; rhs: string; timestamp?: number }>;
@@ -275,10 +276,21 @@ export function createLeanProverTools(
                         return `error: Proposed tactic produced Lean errors and was rolled back:\n${errMsg}`;
                     }
 
+                    const formatted = await formatGoalState(client, editor);
+                    const desiredValue = args?.desiredValue?.trim();
+                    if (desiredValue) {
+                        const compResult = await compareStateWithTarget(formatted, desiredValue, false, {
+                            prover: 'lean',
+                        });
+                        if (!compResult.success) {
+                            await editor.edit((b) => b.delete(insertedRange));
+                            return `error: Proposed tactic compiled, but ${compResult.error || 'resulting state does not match desired state.'}\n\nCurrent state after proposed addition:\n${formatted}`;
+                        }
+                    }
+
                     // 3. Success: retain edit and apply suggestion decoration
                     options.onSuggestedEditApplied?.(editor, insertedRange, '');
-                    const formatted = await formatGoalState(client, editor);
-                    return `valid: Proposed addition compiles in Lean 4.\n\n${formatted}`;
+                    return `valid: Proposed addition compiles in Lean 4 and brings the proof state to the desired state.\n\n${formatted}`;
                 } catch (e) {
                     // Ensure rollback if goal state query threw
                     await editor.edit((b) => b.delete(insertedRange));

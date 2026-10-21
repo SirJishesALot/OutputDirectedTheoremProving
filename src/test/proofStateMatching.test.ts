@@ -59,4 +59,11 @@ y = 1`;
         assert.strictEqual(goals![0].ty, 'x = 0');
         assert.strictEqual(goals![1].ty, 'y = 1');
     });
+
+    test('normalizes redundant parentheses around atomic identifiers', () => {
+        assert.strictEqual(normalizeProofState('(n) * 1 = n'), 'n * 1 = n');
+        assert.strictEqual(normalizeProofState('((n)) * 1 = n'), 'n * 1 = n');
+        assert.strictEqual(normalizeProofState('(n) * 1 = (n)'), 'n * 1 = n');
+        assert.strictEqual(normalizeProofState('(n + 0) * 1 = n'), '(n + 0) * 1 = n');
+    });
 });

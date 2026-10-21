@@ -15964,6 +15964,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
           setSynthesizingIndicator(true);
           break;
         case "proverAgentDone":
+        case "proofSuggestionApplied":
           setSynthesizingIndicator(false);
           break;
         default:

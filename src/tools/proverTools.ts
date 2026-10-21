@@ -6,6 +6,7 @@ import { AgentTool } from '../llm/chatBridge';
 import { parseCoqFile } from '../parser/parseCoqFile';
 import { hypToString } from '../core/exposedCompletionGeneratorUtils';
 import { EditorBufferGuard } from './editorBufferGuard';
+import { compareStateWithTarget } from './stateComparator';
 
 /** Decoration used to highlight a suggested proof edit (green) so the user can Keep or Revert. */
 const suggestedEditDecorationType = vscode.window.createTextEditorDecorationType({
@@ -53,7 +54,7 @@ function serializeGoalsToPanelFormat(goals: ProofGoal[]): string {
 
 /** Normalize whitespace and logical symbols for robust comparison across Coq syntax variations. */
 export function normalizeProofState(s: string): string {
-    return s
+    let result = s
         .trim()
         // Canonicalize Unicode & ASCII logic operators
         .replace(/\\forall\b|∀/g, 'forall')
@@ -68,6 +69,14 @@ export function normalizeProofState(s: string): string {
         .replace(/\(\s+/g, '(')
         .replace(/\s+\)/g, ')')
         .replace(/\s*,\s*/g, ', ');
+
+    // Strip redundant parentheses around single identifiers/tokens (e.g. "(n)" -> "n", "( 0 )" -> "0")
+    let prev = '';
+    while (prev !== result) {
+        prev = result;
+        result = result.replace(/\(\s*([a-zA-Z0-9_']+)\s*\)/g, '$1');
+    }
+    return result;
 }
 
 /**
@@ -449,9 +458,15 @@ Args: originalValue (full proof state before the change), desiredValue (full pro
                                 : '(no remaining goals)';
                             const parsedDesired = parsePanelFormatToGoals(desiredValue);
                             if (!goals || goals.length === 0) {
-                                const match =
+                                let match =
                                     parsedDesired?.length === 0 ||
                                     stateMatchesDesired(stateStr, desiredValue);
+                                if (!match) {
+                                    const compResult = await compareStateWithTarget(stateStr, desiredValue, true, {
+                                        prover: 'rocq',
+                                    });
+                                    if (compResult.success) match = true;
+                                }
                                 if (match) return { verified: true, applied: true };
                                 return {
                                     verified: false,
@@ -471,11 +486,29 @@ Args: originalValue (full proof state before the change), desiredValue (full pro
                                 parsedDesired !== null &&
                                 parsedDesired.length === 1 &&
                                 desiredGoalInResult(parsedResult, parsedDesired);
-                            const match = exactMatch || desiredInResult;
+                            let match = exactMatch || desiredInResult;
+
+                            let semanticError: string | undefined;
+                            if (!match) {
+                                // Tier 2 fallback: Evaluate semantic match with Jev comparator (same as Task 3 benchmark)
+                                const thmMatch = fullProofScript.match(/\b(?:Theorem|Lemma|Definition|Example|Fixpoint)\s+([a-zA-Z0-9_']+)/);
+                                const theoremName = thmMatch ? thmMatch[1] : undefined;
+                                const compResult = await compareStateWithTarget(stateStr, desiredValue, false, {
+                                    prover: 'rocq',
+                                    theoremName,
+                                    userIntent: 'Advance proof toward the desired state.',
+                                });
+                                if (compResult.success) {
+                                    match = true;
+                                } else if (compResult.error) {
+                                    semanticError = compResult.error;
+                                }
+                            }
+
                             if (match) return { verified: true, applied: true, state: stateStr };
                             return {
                                 verified: false,
-                                error: 'Proof state after proposed addition does not match desired state.',
+                                error: semanticError || 'Proof state after proposed addition does not match desired state.',
                                 state: stateStr,
                             };
                         }

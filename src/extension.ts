@@ -281,6 +281,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (editor) clearSuggestedEditDecoration(editor);
         
         suggestionManager.clearSuggestion();
+        ProofStatePanel.currentPanel?.onSuggestionResolved();
     }));
 
     // 3. Register the Reject Command
@@ -300,6 +301,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
         
         suggestionManager.clearSuggestion();
+        ProofStatePanel.currentPanel?.onSuggestionResolved();
     }));
     // -----------------------------------------------
 

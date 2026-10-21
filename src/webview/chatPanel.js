@@ -102,6 +102,7 @@ if (vscode) {
                 setSynthesizingIndicator(true);
                 break;
             case 'proverAgentDone':
+            case 'proofSuggestionApplied':
                 setSynthesizingIndicator(false);
                 break;
             default:

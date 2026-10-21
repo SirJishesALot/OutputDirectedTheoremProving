@@ -603,6 +603,10 @@ window.addEventListener('message', (event) => {
             updateWebviewStatus('');
             setSynthesizingIndicator(false);
             return;
+        case 'proofSuggestionApplied':
+            updateWebviewStatus('');
+            setSynthesizingIndicator(false);
+            return;
         case 'suggestion':
             handleSuggestion(msg.suggestion);
             return;

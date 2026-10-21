@@ -31756,6 +31756,10 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         updateWebviewStatus("");
         setSynthesizingIndicator(false);
         return;
+      case "proofSuggestionApplied":
+        updateWebviewStatus("");
+        setSynthesizingIndicator(false);
+        return;
       case "suggestion":
         handleSuggestion(msg.suggestion);
         return;

@@ -54,6 +54,7 @@ export class ProofStatePanel {
     private savedCursorPosition: { line: number; character: number } | undefined;
     private editHistory: EditHistory = { edits: [] };
     private conversationHistory: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [];
+    private chatConversationId: string | undefined = undefined;
     /** When the prover applies a suggested edit, we store the editor so Keep/Revert can clear the decoration and optionally undo. */
     private pendingSuggestedEditor: vscode.TextEditor | undefined;
     /** Cancellation for the current chat/agent run. Cancel when user clicks Stop. */
@@ -196,6 +197,7 @@ export class ProofStatePanel {
 
     public setActiveProver(kind: ActiveProverKind) {
         this.proofStateUpdateGeneration++;
+        this.chatConversationId = undefined;
         this.panel.webview.postMessage({ type: 'activeProverChanged', prover: kind });
     }
 
@@ -313,6 +315,18 @@ export class ProofStatePanel {
     /** Call this to refresh the proof state at the current editor cursor (e.g. from a keybinding or toolbar). */
     public async requestProofStateUpdate(): Promise<void> {
         this.scheduleProofStateUpdate('manual');
+    }
+
+    public onSuggestionResolved(): void {
+        this.panel.webview.postMessage({ type: 'proverAgentDone' });
+        if (this.chatPanel) {
+            this.chatPanel.webview.postMessage({ type: 'proverAgentDone' });
+        }
+        if (this.chatCancelSource) {
+            this.chatCancelSource.cancel();
+            this.chatCancelSource.dispose();
+            this.chatCancelSource = undefined;
+        }
     }
 
     public dispose() {
@@ -570,7 +584,11 @@ export class ProofStatePanel {
                         this.conversationHistory, // conversation history
                         handleHistoryUpdate, // onHistoryUpdate callback
                         this.editHistory, // edit history
-                        activeProver
+                        activeProver,
+                        this.chatConversationId,
+                        (newId: string) => {
+                            this.chatConversationId = newId;
+                        }
                     );
                 } catch (e) {
                     OutputLogger.error('Agent:Chat', 'Stream chat response failed:', e);
@@ -688,6 +706,17 @@ export class ProofStatePanel {
                 globalSuggestionManager.setSuggestion(ed.document.uri, range, oldText);
             }
             this.panel.webview.postMessage({ type: 'proofSuggestionApplied' });
+            if (this.chatPanel) {
+                this.chatPanel.webview.postMessage({ type: 'proofSuggestionApplied' });
+            }
+            const tacticText = ed.document.getText(range).trim();
+            if (tacticText) {
+                this.conversationHistory.push({
+                    role: 'assistant',
+                    content: `[Synthesized Change] Applied tactic at cursor:\n\`\`\`\n${tacticText}\n\`\`\``
+                });
+                this.chatConversationId = undefined;
+            }
         };
         const guard = new EditorBufferGuard(editor, this.savedCursorPosition);
         const proverTools = activeProver === 'Lean'
@@ -899,6 +928,9 @@ export class ProofStatePanel {
                 this.panel.webview.postMessage({ type: 'noDocument' });
                 return;
             }
+            if (this.currentDocumentUri?.toString() !== editor.document.uri.toString()) {
+                this.chatConversationId = undefined;
+            }
             this.currentDocumentUri = editor.document.uri;
             const position = currentMatches
                 ? editor.selection.active
@@ -959,6 +991,9 @@ export class ProofStatePanel {
                 return;
             }
 
+            if (this.currentDocumentUri?.toString() !== editor.document.uri.toString()) {
+                this.chatConversationId = undefined;
+            }
             this.currentDocumentUri = editor.document.uri;
             // Use current cursor when Coq had focus; use saved position when we fell back to saved document (e.g. user clicked panel)
             const position = currentMatches

@@ -12,12 +12,12 @@ export interface AntigravityModelInfo {
 }
 
 export const POPULAR_ANTIGRAVITY_MODELS: AntigravityModelInfo[] = [
-    { id: 'gemini-3.1-pro-high', description: 'Gemini 3.1 Pro mathematical reasoning (Recommended)' },
-    { id: 'gemini-3.1-pro-low', description: 'Gemini 3.1 Pro low reasoning' },
-    { id: 'gemini-3.8-flash-low', description: 'Fast, lightweight & responsive' },
-    { id: 'gemini-3.8-flash-medium', description: 'Balanced reasoning speed and depth' },
-    { id: 'gemini-3.8-flash-high', description: 'Deep reasoning effort with thinking tokens' },
-    { id: 'gemini-3.7-flash-high', description: 'Gemini 3.7 Flash with high reasoning' },
+    { id: 'gemini-3.8-flash-low', description: 'Gemini 3.8 Flash (Low reasoning) - Fast & responsive (Recommended)' },
+    { id: 'gemini-3.8-flash-medium', description: 'Gemini 3.8 Flash (Medium reasoning)' },
+    { id: 'gemini-3.8-flash-high', description: 'Gemini 3.8 Flash (High reasoning)' },
+    { id: 'gemini-4-argon-low', description: 'Gemini 4 Argon (Low reasoning)' },
+    { id: 'gemini-4-argon-medium', description: 'Gemini 4 Argon (Medium reasoning) - Frontier reasoning' },
+    { id: 'gemini-4-argon-high', description: 'Gemini 4 Argon (High reasoning)' },
     { id: 'claude-sonnet-5-5-high', description: 'Claude Sonnet 5.5 (High reasoning)' },
     { id: 'claude-opus-5-5-high', description: 'Claude Opus 5.5 (High reasoning)' },
 ];
@@ -169,7 +169,13 @@ export interface AntigravityCliAdapter {
     binaryPath: string;
     sendRequest: (
         messages: any[],
-        opts?: { maxTokens?: number; temperature?: number; model?: string },
+        opts?: {
+            maxTokens?: number;
+            temperature?: number;
+            model?: string;
+            conversationId?: string;
+            onConversationId?: (id: string) => void;
+        },
         token?: vscode.CancellationToken
     ) => Promise<{ text: AsyncIterable<string> }>;
 }
@@ -186,31 +192,60 @@ export function createAntigravityCliAdapter(
         modelId ||
         vscode.workspace
             .getConfiguration()
-            .get<string>('myExtension.defaultAntigravityModel', 'gemini-3.1-pro-high');
+            .get<string>('myExtension.defaultAntigravityModel', 'gemini-3.8-flash-low');
 
     return {
         backend: 'antigravity-cli',
         model: effectiveModel,
         binaryPath: agyBin,
-        sendRequest: async (messages: any[], opts?: any, token?: vscode.CancellationToken) => {
-            const prompt = formatMessagesForAgy(messages);
+        sendRequest: async (
+            messages: any[],
+            opts?: {
+                maxTokens?: number;
+                temperature?: number;
+                model?: string;
+                conversationId?: string;
+                onConversationId?: (id: string) => void;
+            },
+            token?: vscode.CancellationToken
+        ) => {
             const targetModel = opts?.model || effectiveModel;
+            const conversationId = opts?.conversationId?.trim();
 
             const args = [
-                '-p',
-                prompt,
-                '--model',
-                targetModel,
                 '--output-format',
                 'stream-json',
                 '--dangerously-skip-permissions',
                 '--disable-slash-commands',
             ];
 
-            OutputLogger.info(
-                'LLM:Antigravity',
-                `Spawning agy (binary: ${agyBin}, model: ${targetModel}, prompt length: ${prompt.length} chars)`
-            );
+            let prompt = '';
+            if (conversationId) {
+                // Continuation turn in an active conversation: only pass the newest message
+                const lastMsg = Array.isArray(messages) && messages.length > 0 ? messages[messages.length - 1] : '';
+                if (typeof lastMsg === 'string') {
+                    prompt = lastMsg.trim();
+                } else if (lastMsg && typeof lastMsg.content === 'string') {
+                    prompt = lastMsg.content.trim();
+                } else if (lastMsg && typeof lastMsg.text === 'string') {
+                    prompt = lastMsg.text.trim();
+                } else {
+                    prompt = formatMessagesForAgy(messages);
+                }
+                args.push('-p', prompt, '--conversation', conversationId);
+                OutputLogger.info(
+                    'LLM:Antigravity',
+                    `Resuming agy conversation (binary: ${agyBin}, conversationId: ${conversationId}, prompt length: ${prompt.length} chars)`
+                );
+            } else {
+                // Initial turn: send the formatted conversation with system prompt and model
+                prompt = formatMessagesForAgy(messages);
+                args.push('-p', prompt, '--model', targetModel);
+                OutputLogger.info(
+                    'LLM:Antigravity',
+                    `Starting new agy conversation (binary: ${agyBin}, model: ${targetModel}, prompt length: ${prompt.length} chars)`
+                );
+            }
 
             // Channel queue to yield chunks asynchronously as they arrive from stdout
             type StreamItem = { delta?: string; done?: boolean; error?: Error };
@@ -267,7 +302,9 @@ export function createAntigravityCliAdapter(
                     if (!trimmed) return;
                     try {
                         const parsed = JSON.parse(trimmed);
-                        if (parsed.event === 'step_update' && parsed.step_update?.text_delta) {
+                        if (parsed.event === 'init' && parsed.conversation_id) {
+                            opts?.onConversationId?.(parsed.conversation_id);
+                        } else if (parsed.event === 'step_update' && parsed.step_update?.text_delta) {
                             receivedDeltas = true;
                             pushItem({ delta: parsed.step_update.text_delta });
                         } else if (parsed.event === 'result' && parsed.result?.response) {

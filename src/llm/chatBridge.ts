@@ -79,12 +79,20 @@ function extractToolCallJson(text: string): string | null {
 
 async function invokeModel(
     messages: Array<{ role: string; content: string }>,
-    model: { sendRequest: (messages: unknown, options: { maxTokens: number }, token?: vscode.CancellationToken) => Promise<{ text: AsyncIterable<string> }> },
-    token?: vscode.CancellationToken
+    model: any,
+    token?: vscode.CancellationToken,
+    opts?: {
+        conversationId?: string;
+        onConversationId?: (id: string) => void;
+    }
 ): Promise<string> {
     const normalized = normalizeMessagesAlternating(messages);
     let fullResponseText = '';
-    const responseStream = await model.sendRequest(normalized, { maxTokens: 2048 }, token);
+    const responseStream = await model.sendRequest(
+        normalized,
+        { maxTokens: 2048, ...opts },
+        token
+    );
     for await (const chunk of responseStream.text) {
         fullResponseText += chunk;
     }
@@ -93,11 +101,12 @@ async function invokeModel(
 
 async function finalizeAgentAnswerIfNeeded(
     messages: Array<{ role: string; content: string }>,
-    model: { sendRequest: (messages: unknown, options: { maxTokens: number }, token?: vscode.CancellationToken) => Promise<{ text: AsyncIterable<string> }> },
+    model: any,
     token: vscode.CancellationToken | undefined,
     onUpdate: (text: string) => void,
     emitTool: (activity: AgentToolActivity) => void,
-    userGotSubstantialText: boolean
+    userGotSubstantialText: boolean,
+    conversationId?: string
 ): Promise<void> {
     if (userGotSubstantialText || !anyToolExecutedInMessages(messages) || token?.isCancellationRequested) {
         return;
@@ -108,7 +117,7 @@ async function finalizeAgentAnswerIfNeeded(
         detail: 'No complete answer yet — summarizing from tool results…',
     });
     messages.push({ role: 'user', content: FINALIZE_ANSWER_NUDGE });
-    const fullResponseText = await invokeModel(messages, model, token);
+    const fullResponseText = await invokeModel(messages, model, token, conversationId ? { conversationId } : undefined);
     messages.push({ role: 'assistant', content: fullResponseText });
 
     const parseResult = extractAllToolCalls(fullResponseText);
@@ -176,11 +185,12 @@ const PROVER_FINALIZE_NUDGE =
 
 async function finalizeProverAgentAnswerIfNeeded(
     messages: Array<{ role: string; content: string }>,
-    model: { sendRequest: (messages: unknown, options: { maxTokens: number }, token?: vscode.CancellationToken) => Promise<{ text: AsyncIterable<string> }> },
+    model: any,
     token: vscode.CancellationToken | undefined,
     emitProverAgentText: (text: string) => void,
     emitTool: (activity: AgentToolActivity) => void,
-    showedUserFacingText: boolean
+    showedUserFacingText: boolean,
+    conversationId?: string
 ): Promise<void> {
     if (showedUserFacingText || token?.isCancellationRequested) {
         return;
@@ -194,7 +204,7 @@ async function finalizeProverAgentAnswerIfNeeded(
         detail: 'No user-facing summary yet — asking the model to summarize tool results…',
     });
     messages.push({ role: 'user', content: PROVER_FINALIZE_NUDGE });
-    const fullResponseText = await invokeModel(messages, model, token);
+    const fullResponseText = await invokeModel(messages, model, token, conversationId ? { conversationId } : undefined);
     messages.push({ role: 'assistant', content: fullResponseText });
 
     const parseResult = extractAllToolCalls(fullResponseText);
@@ -337,8 +347,11 @@ export async function runCoqAgent(
     conversationHistory?: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
     onHistoryUpdate?: ConversationHistoryCallback,
     editHistory?: { edits: Array<{ lhs: string; rhs: string; timestamp?: number }> },
-    proverKind: 'Coq' | 'Lean' = 'Coq'
+    proverKind: 'Coq' | 'Lean' = 'Coq',
+    conversationId?: string,
+    onConversationId?: (id: string) => void
 ) {
+    let currentConversationId = conversationId;
     const emitTool = (activity: AgentToolActivity) => {
         onToolActivity?.({
             ...activity,
@@ -451,7 +464,15 @@ When you receive a tool result, either call another tool OR give a complete text
                 injectAnswerOnlyNudge();
             }
 
-            const fullResponseText = await invokeModel(messages, model, token);
+            const modelOpts = currentConversationId
+                ? { conversationId: currentConversationId }
+                : {
+                      onConversationId: (id: string) => {
+                          currentConversationId = id;
+                          onConversationId?.(id);
+                      },
+                  };
+            const fullResponseText = await invokeModel(messages, model, token, modelOpts);
             messages.push({ role: 'assistant', content: fullResponseText });
             OutputLogger.trace('Agent:Chat', `Model response (turn ${turn}):\n${fullResponseText}`);
 
@@ -665,7 +686,8 @@ When you receive a tool result, either call another tool OR give a complete text
             token,
             onUpdate,
             emitTool,
-            userGotSubstantialText
+            userGotSubstantialText,
+            currentConversationId
         );
     } catch (e) {
         OutputLogger.error('Agent:Chat', 'runCoqAgent top-level error:', e);
@@ -785,6 +807,7 @@ Then call validate_proof_state_change with originalValue, desiredValue, and prop
     let emptyAfterInspectionNudgeSent = false;
     let showedUserFacingText = false;
     const executedToolSignatures: string[] = [];
+    let proverConversationId: string | undefined = undefined;
 
     const emitProverAgentText = (text: string) => {
         if (text.trim()) {
@@ -802,7 +825,14 @@ Then call validate_proof_state_change with originalValue, desiredValue, and prop
             }
             OutputLogger.debug('Agent:Prover', `Turn ${turn}/${MAX_TURNS}: invoking model...`);
 
-            const fullResponseText = await invokeModel(messages, model, token);
+            const modelOpts = proverConversationId
+                ? { conversationId: proverConversationId }
+                : {
+                      onConversationId: (id: string) => {
+                          proverConversationId = id;
+                      },
+                  };
+            const fullResponseText = await invokeModel(messages, model, token, modelOpts);
             messages.push({ role: 'assistant', content: fullResponseText });
             OutputLogger.trace('Agent:Prover', `Model response (turn ${turn}):\n${fullResponseText}`);
 
@@ -984,6 +1014,9 @@ Then call validate_proof_state_change with originalValue, desiredValue, and prop
                         }
                     } else {
                         OutputLogger.info('Agent:Prover', 'validate_proof_state_change: Success! Proposed tactic verified and applied.');
+                        const appliedTactic = addition || String(toolArgs?.proposedAddition ?? '').trim();
+                        emitProverAgentText(`Successfully synthesized and applied tactic: \`${appliedTactic}\`\n\nYou can keep or revert the change in the editor.`);
+                        break;
                     }
                 }
 
@@ -1003,7 +1036,8 @@ Then call validate_proof_state_change with originalValue, desiredValue, and prop
             token,
             emitProverAgentText,
             emitTool,
-            showedUserFacingText
+            showedUserFacingText,
+            proverConversationId
         );
     } catch (e) {
         OutputLogger.error('Agent:Prover', 'runProverAgent top-level error:', e);

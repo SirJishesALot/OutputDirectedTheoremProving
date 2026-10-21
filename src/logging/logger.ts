@@ -9,6 +9,7 @@ export type LogCategory =
     | 'Webview'
     | 'Config'
     | 'LSP'
+    | 'Comparator:Jev'
     | 'LLM:Antigravity'
     | 'LLM:Portkey';
 
