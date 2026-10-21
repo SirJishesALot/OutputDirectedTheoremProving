@@ -371,18 +371,13 @@ export async function runCoqAgent(
         `- ${t.name}: ${t.description}. Input: JSON arguments.`
     ).join('\n');
 
-    const hasEditHistory = editHistory && editHistory.edits && editHistory.edits.length > 0;
-    const editHistoryRequirement = hasEditHistory 
-        ? `\n\n⚠️ MANDATORY FIRST STEP - EDIT HISTORY EXISTS:
-
-Edit history is populated with ${editHistory.edits.length} edit(s). 
-
-You MUST call get_edit_history FIRST before doing anything else - this is not optional.
-The edit history shows what transformations have already been attempted and is essential context for ALL your responses.
-You cannot suggest edits, answer questions about the proof state, or provide any assistance without first checking the edit history.
-
-After calling get_edit_history, you can then call other tools as needed (get_current_proof_state, get_current_proof_script, get_proof_context, etc.).`
-        : '';
+    let editHistoryContext = '';
+    if (editHistory && editHistory.edits && editHistory.edits.length > 0) {
+        editHistoryContext = `\n\n--- RECENT PROOF STATE EDITS IN THIS SESSION ---\n` +
+            `The user has made or attempted the following proof state edits:\n` +
+            editHistory.edits.map((e, idx) => `Edit ${idx + 1}: Changed "${e.lhs}" to "${e.rhs}"`).join('\n') +
+            `\nUse this history to avoid repeating failed directions and to understand the user's intent.\n-------------------------------------------------\n`;
+    }
 
     const systemPrompt = `You are an automated ${proverName} assistant with access to tools that can inspect the proof state and suggest edits.
 
@@ -394,17 +389,18 @@ RESTRICTED ENVIRONMENT CONSTRAINTS:
 
 You have access to the following tools:
 ${toolDescriptions}
-${editHistoryRequirement}
+${editHistoryContext}
 
 IMPORTANT: When the user asks questions about:
 - The current proof state, goals, or hypotheses → use get_current_proof_state
-- What tactic to use → use get_current_proof_state to see what needs to be proved
+- What tactic to use or next steps → use get_current_proof_state to see what needs to be proved
+- Testing a tactic in a shadow buffer without altering the editor → use try_tactic
+- Searching library lemmas/theorems by name or pattern → use search_theorems
 - The proof script, what tactics have been used, or the theorem name → use get_current_proof_script
 - Questions like "what theorem am I working on?" or "what's the name of the theorem?" → use get_current_proof_script
 - Suggesting edits or transformations → you MUST call suggest_proof_state_edit after get_current_proof_state (and get_proof_context if needed). Do not only respond in text; always submit the suggestion via the tool so the user sees it in the UI.
 - Available theorems or context → use get_proof_context
 - Validating terms → use check_term_validity
-- Edit history → use get_edit_history to see what edits have been made
 
 MULTIPLE TOOL CALLS: You may output multiple tool calls in a single turn if you need several pieces of information (e.g. get_current_proof_state and get_current_proof_script). They will all be executed and returned to you.
 When you have gathered enough information, respond with prose only (no JSON).
@@ -509,29 +505,29 @@ When you receive a tool result, either call another tool OR give a complete text
                     nudgeSent = true;
                     const content = anyToolExecuted
                         ? 'You did not give a sufficient text answer. Use the tool results already in the conversation. Respond with a complete text explanation for the user. Do NOT call any tools.'
-                        : 'You did not respond with a tool call or sufficient text. You must call at least one tool. If edit history exists, call get_edit_history first; otherwise call get_current_proof_state to see the proof state. Reply with ONLY a JSON block, e.g. {"tool": "get_edit_history", "args": {}} or {"tool": "get_current_proof_state", "args": {}}.';
+                        : 'You did not respond with a tool call or sufficient text. Please provide a clear text response, or call get_current_proof_state if you need to inspect the proof state.';
                     OutputLogger.warn('Agent:Chat', `Empty/short response nudge sent (turn ${turn}): ${content}`);
                     messages.push({ role: 'user', content });
                     emitTool({
                         kind: 'status',
                         detail: anyToolExecuted
                             ? 'The model returned almost no response. Asking for a text answer using tool results.'
-                            : 'The model returned almost no response. Asking it to call a tool and try again.',
+                            : 'The model returned almost no response. Asking it to respond.',
                     });
                     if (anyToolExecuted) injectAnswerOnlyNudge();
                     continue;
                 }
 
-                if (turn === 1 && !anyToolExecuted && !nudgeSent) {
+                if (turn === 1 && !anyToolExecuted && !nudgeSent && userAskedForSuggestion) {
                     nudgeSent = true;
-                    OutputLogger.warn('Agent:Chat', 'Turn 1 nudge: no tool was called, asking for tool call.');
+                    OutputLogger.warn('Agent:Chat', 'Turn 1 nudge: suggestion requested, asking for proof state inspection.');
                     messages.push({
                         role: 'user',
-                        content: 'You must call at least one tool. If edit history exists, call get_edit_history first; otherwise call get_current_proof_state to see the proof state. Reply with ONLY a JSON block (e.g. {"tool": "get_edit_history", "args": {}} or {"tool": "get_current_proof_state", "args": {}}).',
+                        content: 'To suggest an edit, please inspect the current proof state first using get_current_proof_state. Reply with ONLY a JSON block: {"tool": "get_current_proof_state", "args": {}}.',
                     });
                     emitTool({
                         kind: 'status',
-                        detail: 'No tool was called. Asking the agent to call get_edit_history or get_current_proof_state first.',
+                        detail: 'Asking the agent to inspect the proof state first before suggesting an edit.',
                     });
                     continue;
                 }
@@ -711,6 +707,7 @@ export type ProverProofStateChange = {
     desiredValue: string;
     validationLhs?: string;
     validationRhs?: string;
+    proofScript?: string;
 };
 
 export async function runProverAgent(
@@ -746,7 +743,11 @@ export async function runProverAgent(
         `- ${t.name}: ${t.description}. Input: JSON arguments.`
     ).join('\n');
 
-    const systemPrompt = `You are a prover agent that edits ${proverName} proof scripts to achieve desired proof states.
+    const proofScriptSection = proofStateChange.proofScript
+        ? `\nCurrent Proof Script (up to cursor):\n\`\`\`${proverKind === 'Lean' ? 'lean' : 'coq'}\n${proofStateChange.proofScript}\n\`\`\`\n`
+        : '';
+
+    const systemPrompt = `You are a prover agent that synthesizes tactics to achieve desired proof states in ${proverName}.
 
 RESTRICTED ENVIRONMENT CONSTRAINTS:
 - You are operating inside a restricted theorem proving extension bridge.
@@ -760,16 +761,20 @@ ${toolDescriptions}
 ${tacticGuidance}
 
 CRITICAL: How validate_proof_state_change works
-1. It takes the current theorem and proof script (from the editor) and your proposedAddition (tactics to add at the user's cursor).
+1. It takes the current theorem and proof script and your proposedAddition (tactics to add at the user's cursor).
 2. It builds: existing proof script + your proposed addition at the cursor, then verifies that with the prover.
 3. If it compiles and the resulting proof state matches or is close to the desired state, it applies the edit and returns success.
-4. If not (compile error or state mismatch), it returns an error and the current state so you can try again with a different proposedAddition.
+4. If not (compile error or state mismatch), it returns an error and the resulting state so you can try again with a different proposedAddition.
 
 WORKFLOW:
-1. Call get_current_proof_script to see the theorem and where the proof stands.
-2. Call get_current_proof_state to see the current goals and hypotheses at the cursor. Check "Number of goals: N" at the top.
-3. If the current state matches the Original state, call validate_proof_state_change with args: originalValue, desiredValue, proposedAddition.
-4. When validate_proof_state_change returns success, the edit has already been applied; tell the user they can undo or keep it.
+1. You ALREADY have the current proof state (Original state), desired state, and proof script below.
+2. If you need to find relevant library lemmas or theorems, call search_theorems.
+3. Your primary goal is to call validate_proof_state_change on Turn 1 with:
+   - originalValue: the Original state
+   - desiredValue: the Desired state
+   - proposedAddition: the tactic (or sequence of tactics) to transition from Original to Desired.
+4. When validate_proof_state_change returns success, the edit has been applied to the editor; conclude your answer.
+5. If validate_proof_state_change returns an error, inspect the error message and the resulting state, adjust your tactic, and call validate_proof_state_change again.
 
 Original state:
 \`\`\`
@@ -780,6 +785,7 @@ Desired state:
 \`\`\`
 ${proofStateChange.desiredValue}
 \`\`\`
+${proofScriptSection}
 
 To use a tool, respond with ONLY a JSON block:
 \`\`\`json
@@ -797,8 +803,10 @@ When you STOP without calling a tool, reply in plain text with a clear, specific
         : '';
 
     const userRequest = `The user wants to go from the current proof state to the desired state.
-Your first response MUST be a tool call—reply with a JSON block calling get_current_proof_script or get_current_proof_state.
-Then call validate_proof_state_change with originalValue, desiredValue, and proposedAddition.${addHypNote}`;
+The current proof state, desired state, and proof script are already provided in the context above.
+Your first response MUST be a tool call:
+- Call validate_proof_state_change with originalValue, desiredValue, and your proposedAddition (the tactic to transition between them).
+- Or, if you need to find a specific library lemma first, call search_theorems.${addHypNote}`;
 
     const messages: any[] = [
         { role: 'system', content: systemPrompt },
@@ -812,8 +820,6 @@ Then call validate_proof_state_change with originalValue, desiredValue, and prop
     let validateFailureCount = 0;
     let validateRetriesExhausted = false;
     const proposedAdditionsTried: string[] = [];
-    let gotProofScript = false;
-    let gotProofState = false;
     let validateAttempted = false;
     let scriptEditAttempted = false;
     let emptyAfterInspectionNudgeSent = false;
@@ -871,31 +877,30 @@ Then call validate_proof_state_change with originalValue, desiredValue, and prop
 
                 if (!anyToolExecuted && !nudgeSent) {
                     nudgeSent = true;
-                    OutputLogger.warn('Agent:Prover', 'Turn 1 nudge: no tool called, asking for inspection tools.');
+                    OutputLogger.warn('Agent:Prover', 'Turn 1 nudge: no tool called, asking for validate_proof_state_change.');
                     messages.push({
                         role: 'user',
-                        content: 'You must call at least one tool. Start with get_current_proof_script and get_current_proof_state to see the current state, then call validate_proof_state_change with originalValue and desiredValue.',
+                        content: 'You must call validate_proof_state_change (or search_theorems). Provide your synthesized tactic in proposedAddition. Reply with ONLY a JSON tool call block.',
                     });
                     emitTool({
                         kind: 'status',
-                        detail: 'No tool was called. Asking the prover to call inspection tools first.',
+                        detail: 'No tool was called. Asking the prover to call validate_proof_state_change.',
                     });
                     continue;
                 }
 
                 if (!fullResponseText.trim()) {
-                    const inspectionDone = gotProofScript && gotProofState;
                     const actionAttempted = validateAttempted || scriptEditAttempted;
-                    if (inspectionDone && !actionAttempted && !emptyAfterInspectionNudgeSent) {
+                    if (!actionAttempted && !emptyAfterInspectionNudgeSent) {
                         emptyAfterInspectionNudgeSent = true;
-                        OutputLogger.warn('Agent:Prover', 'Nudge: inspection finished without action or summary.');
+                        OutputLogger.warn('Agent:Prover', 'Nudge: no validation attempted yet.');
                         messages.push({
                             role: 'user',
-                            content: 'Inspection finished. Call validate_proof_state_change with a concrete proposedAddition, or reply in plain text summarizing what you learned.',
+                            content: 'Call validate_proof_state_change with a concrete proposedAddition, or reply in plain text explaining why this change cannot be made.',
                         });
                         emitTool({
                             kind: 'status',
-                            detail: 'Inspection finished without validation or explanation — asking the prover to act or summarize.',
+                            detail: 'No validation attempted yet — asking the prover to validate or explain.',
                         });
                         continue;
                     }
@@ -961,8 +966,6 @@ Then call validate_proof_state_change with originalValue, desiredValue, and prop
                 OutputLogger.trace('Agent:Prover', `Tool "${toolName}" result:\n${result}`);
 
                 anyToolExecuted = true;
-                if (toolName === 'get_current_proof_script') gotProofScript = true;
-                if (toolName === 'get_current_proof_state') gotProofState = true;
                 if (toolName === 'validate_proof_state_change') validateAttempted = true;
                 if (toolName === 'suggest_proof_script_edit') scriptEditAttempted = true;
 

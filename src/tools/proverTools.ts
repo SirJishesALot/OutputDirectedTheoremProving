@@ -42,7 +42,7 @@ export interface ProofScriptEdit {
 }
 
 /** Serialize goals to the same format as the proof state panel (so we can compare to desired state from webview). */
-function serializeGoalsToPanelFormat(goals: ProofGoal[]): string {
+export function serializeGoalsToPanelFormat(goals: ProofGoal[]): string {
     return goals
         .map((g) => {
             const hypLines = g.hyps.map((h) => hypToString(h));
@@ -247,7 +247,7 @@ function desiredGoalInResult(parsedResult: ParsedGoal[], parsedDesired: ParsedGo
 }
 
 /** Extract the theorem/lemma (or definition) and its proof script from full content, for the proof block containing cursorLine. */
-function extractTheoremAndProofScript(content: string, cursorLine: number): string {
+export function extractTheoremAndProofScript(content: string, cursorLine: number): string {
     const lines = content.split('\n');
     const block = findProofBlockContainingLine(lines, cursorLine);
     if (!block) return '(Proof block containing this line not found.)';
@@ -550,95 +550,52 @@ Args: originalValue (full proof state before the change), desiredValue (full pro
             }
         },
         {
-            name: 'get_current_proof_script',
-            description: `Gets the complete proof script for the current proof that the cursor is in.
-Returns:
-- The theorem/lemma name
-- The theorem/lemma statement
-- The full proof script from "Proof." to "Qed." (or "Defined." or "Admitted.")
-- Line numbers for each proof step
-This includes all tactics and proof steps that have been written so far.
-Use this to understand what tactics have been used, the structure of the current proof, and where to insert new tactics.`,
-            execute: async (args: {}) => {
+            name: 'search_theorems',
+            description: `Searches available lemmas and theorems in Coq/Rocq matching a pattern or query.
+Examples: "(_ + 0 = _)", "(_ * 1 = _)", "Nat.add", "Nat.mul", "le_trans".
+Returns matching lemmas and their types. Use this to find the exact lemma name needed for your tactic.`,
+            execute: async (args: { query: string }) => {
                 try {
                     const client = await clientReady;
                     const docUri = Uri.fromVscodeUri(editor.document.uri);
                     const version = editor.document.version;
                     const position = getPosition();
-                    const content = editor.document.getText();
-                    const textLines = content.split('\n');
+                    let rawQuery = (args.query ?? '').trim();
+                    if (!rawQuery) return 'error: query argument is required.';
 
-                    // Use current buffer so LSP has latest content when parsing
-                    let theorems: Awaited<ReturnType<typeof parseCoqFile>> = [];
-                    await client.withTextDocument({ uri: docUri, version, content }, async () => {
-                        theorems = await parseCoqFile(
-                            docUri,
-                            client,
-                            new AbortController().signal,
-                            false // don't extract initial goals
+                    let command = rawQuery;
+                    if (!command.toLowerCase().startsWith('search')) {
+                        command = `Search ${command}`;
+                    }
+                    if (!command.endsWith('.')) {
+                        command += '.';
+                    }
+
+                    let output = '';
+                    await client.withTextDocument({ uri: docUri, version }, async () => {
+                        const goalsResult = await client.getGoalsAtPoint(
+                            position as any,
+                            docUri as any,
+                            version,
+                            command
                         );
+                        if (!goalsResult.ok) {
+                            const err = goalsResult.val;
+                            output = `Search error: ${err instanceof Error ? err.message : String(err)}`;
+                            return;
+                        }
+                        const goalsWithMessages = goalsResult.val as GoalsWithMessages;
+                        const messages = goalsWithMessages.messages || [];
+                        if (messages.length === 0) {
+                            output = `No theorems found matching query: ${rawQuery}`;
+                        } else {
+                            const top = messages.slice(0, 25);
+                            output = `Found ${messages.length} theorem(s) matching "${rawQuery}" (showing top ${top.length}):\n\n${top.join('\n')}`;
+                        }
                     });
-
-                    // Find the theorem/proof that contains the cursor position (allow proofs with 0 steps, e.g. just "Proof.")
-                    let currentProof = null;
-                    for (const thm of theorems) {
-                        if (!thm.proof) continue;
-                        const proofStart = thm.proof.proof_steps.length > 0
-                            ? thm.proof.proof_steps[0].range.start
-                            : { line: thm.statement_range.end.line + 1, character: 0 };
-                        const proofEnd = thm.proof.end_pos.end;
-                        if (position.line >= proofStart.line && position.line <= proofEnd.line) {
-                            if (position.line === proofStart.line && position.character < proofStart.character) continue;
-                            if (position.line === proofEnd.line && position.character > proofEnd.character) continue;
-                            currentProof = thm;
-                            break;
-                        }
-                    }
-
-                    if (!currentProof || !currentProof.proof) {
-                        const block = findProofBlockContainingLine(textLines, position.line);
-                        if (block) {
-                            const segment = textLines.slice(block.startLine, block.endLine + 1).join('\n');
-                            const ver = client.getServerVersion?.();
-                            let result = `=== CURRENT PROOF SCRIPT (from document scan) ===\n\n`;
-                            if (ver) result += `Coq: ${ver.coq} | coq-lsp: ${ver.coq_lsp}\n\n`;
-                            result += `Cursor is inside a proof block (lines ${block.startLine + 1}--${block.endLine + 1}).\n\n`;
-                            result += `--- Proof block text ---\n${segment}\n\n--- End ---\n`;
-                            return result;
-                        }
-                        const lineNum = position.line;
-                        const colNum = position.character;
-                        const lineContent = textLines[lineNum] ?? '(no such line)';
-                        const docLines = textLines.length;
-                        return (
-                            `No proof found at the current cursor position. Make sure you are inside a proof block (between "Proof." and "Qed."/ "Defined."/ "Admitted.").\n\n` +
-                            `**Position used:** line ${lineNum + 1} (0-based: ${lineNum}), column ${colNum + 1} (0-based: ${colNum}). Document has ${docLines} lines.\n\n` +
-                            `**Line at cursor:**\n${JSON.stringify(lineContent)}\n\n` +
-                            `(If this position is wrong, click inside the proof in the Coq file so the proof state panel updates, then try Synthesize again.)`
-                        );
-                    }
-
-                    const ver = client.getServerVersion?.();
-                    let result = `=== CURRENT PROOF SCRIPT ===\n\n`;
-                    if (ver) result += `Coq: ${ver.coq} | coq-lsp: ${ver.coq_lsp}\n\n`;
-                    result += `Theorem/Lemma: ${currentProof.name}\n`;
-                    result += `Statement: ${currentProof.statement}\n\n`;
-                    result += `--- Full proof (theorem + Proof. ... Qed.) ---\n`;
-                    result += currentProof.onlyText();
-                    result += `\n\n--- Proof steps (with line numbers) ---\n`;
-                    if (currentProof.proof.proof_steps.length > 0) {
-                        currentProof.proof.proof_steps.forEach((step) => {
-                            const stepText = textLines.slice(step.range.start.line, step.range.end.line + 1).join('\n');
-                            result += `Line ${step.range.start.line + 1}: ${stepText}\n`;
-                        });
-                    } else {
-                        result += `(no tactics yet)\n`;
-                    }
-                    result += `\n--- End of Proof ---\n`;
-
-                    return result;
+                    return output || `No theorems found matching "${rawQuery}".`;
                 } catch (e) {
-                    return `Error getting proof script: ${e instanceof Error ? e.message : String(e)}`;
+                    return `error: ${e instanceof Error ? e.message : String(e)}`;
                 }
             }
         },
@@ -795,92 +752,6 @@ Call this with your proposed edit; if you get an error back, try again with a di
                     }
                 } catch (e) {
                     return `error: ${e instanceof Error ? e.message : String(e)}`;
-                }
-            }
-        },
-        {
-            name: 'get_current_proof_state',
-            description: `Gets the current proof state at the cursor position, including all goals, hypotheses, and their types.
-Returns a formatted string with:
-- Current goal(s) and their types
-- All hypotheses with their names and types
-- Any error messages from Coq
-Use this to understand the current state before planning edits.`,
-            execute: async (args: {}) => {
-                try {
-                    const client = await clientReady;
-                    const docUri = Uri.fromVscodeUri(editor.document.uri);
-                    const version = editor.document.version;
-                    const position = getPosition();
-                    const content = editor.document.getText();
-
-                    let result: string = '';
-
-                    await client.withTextDocument({ uri: docUri, version, content }, async () => {
-                        const goalsResult = await client.getGoalsAtPoint(
-                            position as any,
-                            docUri as any,
-                            version
-                        );
-
-                        if (!goalsResult.ok) {
-                            result = `Error: ${goalsResult.val.message || 'Failed to get goals'}`;
-                            return;
-                        }
-
-                        const goalsWithMessages = goalsResult.val;
-                        const goals = goalsWithMessages.goals;
-                        const messages = goalsWithMessages.messages || [];
-                        const error = goalsWithMessages.error;
-
-                        if (!goals || goals.length === 0) {
-                            result = 'No active goals at this position.';
-                            if (error) {
-                                result += `\n\n=== ERROR ===\n${error}`;
-                            }
-                            if (messages.length > 0) {
-                                result += `\n\n=== MESSAGES ===\n${messages.join('\n')}`;
-                            }
-                            return;
-                        }
-
-                        result = '=== CURRENT PROOF STATE ===\n\n';
-                        result += `Number of goals: ${goals.length}\n\n`;
-                        const ver = client.getServerVersion?.();
-                        if (ver) result += `Coq: ${ver.coq} | coq-lsp: ${ver.coq_lsp}\n\n`;
-                        goals.forEach((goal: ProofGoal, index: number) => {
-                            result += `--- Goal ${index + 1} ---\n`;
-                            result += `Goal Type: ${goal.ty}\n\n`;
-                            
-                            if (goal.hyps && goal.hyps.length > 0) {
-                                result += 'Hypotheses:\n';
-                                goal.hyps.forEach((hyp: Hyp<PpString>) => {
-                                    const hypStr = hypToString(hyp);
-                                    result += `  ${hypStr}\n`;
-                                });
-                            } else {
-                                result += 'No hypotheses.\n';
-                            }
-                            result += '\n';
-                        });
-
-                        if (error) {
-                            result += '\n=== ERROR ===\n';
-                            result += error;
-                            result += '\n';
-                        }
-
-                        if (messages.length > 0) {
-                            result += '\n=== MESSAGES ===\n';
-                            messages.forEach(msg => {
-                                result += `${msg}\n`;
-                            });
-                        }
-                    });
-
-                    return result || 'No proof state available.';
-                } catch (e) {
-                    return `Error getting proof state: ${e instanceof Error ? e.message : String(e)}`;
                 }
             }
         }

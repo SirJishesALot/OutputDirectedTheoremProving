@@ -382,6 +382,8 @@ export function isReadOnlyTool(toolName: string): boolean {
         'get_proof_context',
         'get_edit_history',
         'check_term_validity',
+        'try_tactic',
+        'search_theorems',
     ]);
     return readOnlyTools.has(toolName);
 }

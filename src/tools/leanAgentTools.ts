@@ -85,7 +85,7 @@ function getCurrentClient(getClient: () => ProverClient | undefined): ProverClie
     return client;
 }
 
-function getLeanProofScript(editor: vscode.TextEditor): string {
+export function getLeanProofScript(editor: vscode.TextEditor): string {
     const lines = editor.document.getText().split('\n');
     const cur = editor.selection.active.line;
     const start = Math.max(0, cur - 40);
@@ -129,13 +129,50 @@ export function createLeanAutoformaliserTools(
             execute: async () => `=== CURRENT PROOF SCRIPT ===\n\n${getLeanProofScript(editor)}`
         },
         {
-            name: 'get_edit_history',
-            description: 'Gets edit history for proof state suggestions.',
-            execute: async () => {
-                if (editHistory.edits.length === 0) return 'No edits have been made yet.';
-                return editHistory.edits
-                    .map((e, i) => `${i + 1}. "${e.lhs}" -> "${e.rhs}"`)
-                    .join('\n');
+            name: 'try_tactic',
+            description: 'Tests a Lean tactic at the cursor position without persisting changes. Returns resulting goals or error.',
+            execute: async (args: { tactic: string }) => {
+                const tactic = (args?.tactic ?? '').trim();
+                if (!tactic) return 'error: tactic is required.';
+                const client = getCurrentClient(getClient);
+                const pos = editor.selection.active;
+                const textToInsert = tactic.endsWith('\n') ? tactic : `${tactic}\n`;
+                const lines = textToInsert.split('\n');
+                const linesAdded = lines.length - 1;
+                const lastLineLen = lines[linesAdded].length;
+                const ok = await editor.edit((b) => b.insert(pos, textToInsert));
+                if (!ok) return 'error: failed to apply test tactic.';
+                const endPos = new vscode.Position(pos.line + linesAdded, lastLineLen);
+                const insertedRange = new vscode.Range(pos, endPos);
+                try {
+                    const goalState = await client.getGoalState(editor.document, endPos);
+                    await editor.edit((b) => b.delete(insertedRange));
+                    if (goalState.error) {
+                        return `error: Tactic failed: ${goalState.error}`;
+                    }
+                    const goals = goalState.goals || [];
+                    if (goals.length === 0) {
+                        return 'success: Tactic solved all remaining goals! (0 goals remaining)';
+                    }
+                    return `success: Tactic succeeded. Resulting proof state (${goals.length} goal(s)):\n\n${goals.join('\n\n')}`;
+                } catch (e) {
+                    await editor.edit((b) => b.delete(insertedRange));
+                    return `error: ${e instanceof Error ? e.message : String(e)}`;
+                }
+            }
+        },
+        {
+            name: 'search_theorems',
+            description: 'Searches available Lean definitions, theorems, and lemmas matching a pattern or query.',
+            execute: async (args: { query: string }) => {
+                const query = (args?.query ?? '').trim();
+                if (!query) return 'error: query is required.';
+                const content = editor.document.getText().split('\n');
+                const matched = content.filter(l => l.includes(query) && /\b(theorem|lemma|def)\b/.test(l));
+                if (matched.length > 0) {
+                    return `Matching declarations in current file:\n${matched.join('\n')}`;
+                }
+                return `No local declarations found matching "${query}". Try standard Mathlib lemmas or exact? / apply?.`;
             }
         },
         {
@@ -299,9 +336,18 @@ export function createLeanProverTools(
             }
         },
         {
-            name: 'get_current_proof_script',
-            description: 'Gets current Lean proof script snippet around cursor.',
-            execute: async () => `=== CURRENT PROOF SCRIPT ===\n\n${getLeanProofScript(editor)}`
+            name: 'search_theorems',
+            description: 'Searches available Lean definitions, theorems, and lemmas matching a pattern or query.',
+            execute: async (args: { query: string }) => {
+                const query = (args?.query ?? '').trim();
+                if (!query) return 'error: query is required.';
+                const content = editor.document.getText().split('\n');
+                const matched = content.filter(l => l.includes(query) && /\b(theorem|lemma|def)\b/.test(l));
+                if (matched.length > 0) {
+                    return `Matching declarations in current file:\n${matched.join('\n')}`;
+                }
+                return `No local declarations found matching "${query}". Try standard Mathlib lemmas or exact? / apply?.`;
+            }
         },
         {
             name: 'suggest_proof_script_edit',
@@ -321,17 +367,6 @@ export function createLeanProverTools(
                 if (!ok) return 'error: failed to apply edit.';
                 options.onSuggestedEditApplied?.(editor, new vscode.Range(start, new vscode.Position(start.line, start.character + (args.newText ?? '').length)), args.oldText ?? '');
                 return '=== PROOF SCRIPT EDIT APPLIED ===';
-            }
-        },
-        {
-            name: 'get_current_proof_state',
-            description: 'Gets current Lean proof state.',
-            execute: async () => {
-                try {
-                    return await formatGoalState(getCurrentClient(getClient), editor);
-                } catch (e) {
-                    return `Error getting proof state: ${e instanceof Error ? e.message : String(e)}`;
-                }
             }
         }
     ];

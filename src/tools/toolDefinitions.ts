@@ -65,6 +65,22 @@ export const toolSchemas: Record<string, Record<string, unknown>> = {
         required: ['line', 'character', 'oldText', 'newText'],
         additionalProperties: true,
     },
+    try_tactic: {
+        type: 'object',
+        properties: {
+            tactic: { type: 'string', minLength: 1 },
+        },
+        required: ['tactic'],
+        additionalProperties: true,
+    },
+    search_theorems: {
+        type: 'object',
+        properties: {
+            query: { type: 'string', minLength: 1 },
+        },
+        required: ['query'],
+        additionalProperties: true,
+    },
 };
 
 /**

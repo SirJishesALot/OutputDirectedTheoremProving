@@ -4,9 +4,9 @@ import { Uri } from '../utils/uri';
 import { runCoqAgent, AgentTool, streamCoqChat, SuggestionCallback, ConversationHistoryCallback } from '../llm/chatBridge';
 import { CoqTools } from '../tools/coqTools';
 import { createAutoformaliserTools, EditHistory } from '../tools/autoformaliserTools';
-import { createProverTools, clearSuggestedEditDecoration } from '../tools/proverTools';
+import { createProverTools, clearSuggestedEditDecoration, extractTheoremAndProofScript } from '../tools/proverTools';
 import { runProverAgent } from '../llm/chatBridge';
-import { createLeanAutoformaliserTools, createLeanProverTools } from '../tools/leanAgentTools';
+import { createLeanAutoformaliserTools, createLeanProverTools, getLeanProofScript } from '../tools/leanAgentTools';
 import { convertToString, ProofGoal, Hyp, PpString, GoalsWithMessages } from '../lsp/coqLspTypes';
 import { isCoqDocumentLanguage } from '../utils/coqUtils'; 
 import {
@@ -741,6 +741,10 @@ export class ProofStatePanel {
             text: `_Prover Agent: Attempting to achieve proof state change_\n${summary}\n\n` 
         });
 
+        const proofScript = activeProver === 'Lean'
+            ? getLeanProofScript(editor)
+            : extractTheoremAndProofScript(editor.document.getText(), this.savedCursorPosition.line);
+
         try {
             OutputLogger.debug('Agent:Prover', 'Calling runProverAgent...');
             await runProverAgent(
@@ -751,6 +755,7 @@ export class ProofStatePanel {
                     desiredValue,
                     validationLhs: lhs || undefined,
                     validationRhs: rhs || undefined,
+                    proofScript,
                 },
                 proverTools,
                 (chunk: string) => {
