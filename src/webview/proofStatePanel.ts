@@ -414,7 +414,7 @@ export class ProofStatePanel {
       <button id="popBackChat">Pop back</button>
     </div>
     <div id="synthesizingIndicator" class="synthesizing-indicator" aria-hidden="true">Synthesizing proof...</div>
-    <div id="chatLog" style="flex: 1 1 auto; min-height: 0; overflow: auto;"></div>
+    <div id="chatLog"></div>
     <div id="chatTypingIndicator" class="chat-typing-indicator" aria-hidden="true">Model is typing...</div>
     <div style="display: flex; flex-direction: row; align-items: center; gap: 6px;">
       <input id="chatInput" type="text" placeholder="Consult the assistant." />

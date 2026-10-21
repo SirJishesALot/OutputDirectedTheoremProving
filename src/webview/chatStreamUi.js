@@ -80,8 +80,8 @@ function updateToolSummary() {
         return;
     }
     const n = toolCallCount;
-    toolSummaryElem.textContent =
-        n === 0 ? 'Tool activity' : n === 1 ? '1 tool call' : `${n} tool calls`;
+    const label = n === 0 ? 'Tool activity' : n === 1 ? '1 tool call' : `${n} tool calls`;
+    toolSummaryElem.innerHTML = `<span class="tool-summary-icon">⚙</span> <span class="tool-summary-label">${label}</span>`;
 }
 
 function ensureAssistantTurn() {
@@ -92,6 +92,16 @@ function ensureAssistantTurn() {
         setTypingIndicator(true);
         currentTurnElem = document.createElement('div');
         currentTurnElem.className = 'chatMessage assistant streaming';
+
+        const header = document.createElement('div');
+        header.className = 'chat-message-header assistant-header';
+        const role = document.createElement('span');
+        role.className = 'chat-role-badge assistant-badge';
+        role.textContent = 'Assistant';
+        header.appendChild(role);
+
+        const body = document.createElement('div');
+        body.className = 'chat-message-body assistant-body';
 
         mainResponseElem = document.createElement('div');
         mainResponseElem.className = 'chat-response-main';
@@ -105,8 +115,11 @@ function ensureAssistantTurn() {
 
         toolDetailsElem.appendChild(toolSummaryElem);
         toolDetailsElem.appendChild(toolLogElem);
-        currentTurnElem.appendChild(mainResponseElem);
-        currentTurnElem.appendChild(toolDetailsElem);
+        body.appendChild(mainResponseElem);
+        body.appendChild(toolDetailsElem);
+
+        currentTurnElem.appendChild(header);
+        currentTurnElem.appendChild(body);
 
         chatLog.appendChild(currentTurnElem);
         streamBuffer = '';
@@ -137,7 +150,31 @@ export function appendChatMessage(text, cls = 'assistant') {
     }
     const el = document.createElement('div');
     el.className = 'chatMessage ' + cls;
-    el.innerHTML = renderMarkdownWithMath(text);
+
+    const isUser = cls === 'user';
+    const header = document.createElement('div');
+    header.className = `chat-message-header ${isUser ? 'user-header' : 'assistant-header'}`;
+
+    const role = document.createElement('span');
+    role.className = `chat-role-badge ${isUser ? 'user-badge' : 'assistant-badge'}`;
+    if (isUser) {
+        role.textContent = 'You';
+    } else if (text.startsWith('Suggestion:')) {
+        role.textContent = 'Suggestion';
+    } else if (text.includes('Prover Agent:')) {
+        role.textContent = 'Prover Agent';
+    } else {
+        role.textContent = 'Assistant';
+    }
+    header.appendChild(role);
+
+    const contentElem = document.createElement('div');
+    contentElem.className = isUser ? 'chat-message-bubble user-bubble' : 'chat-message-body assistant-body';
+    contentElem.innerHTML = renderMarkdownWithMath(text);
+
+    el.appendChild(header);
+    el.appendChild(contentElem);
+
     chatLog.appendChild(el);
     scrollChatToBottom();
     return el;
@@ -149,6 +186,12 @@ export function appendChatStreamPart(text) {
     }
     ensureAssistantTurn();
     streamBuffer += text;
+    if (currentTurnElem && streamBuffer.includes('Prover Agent:')) {
+        const badge = currentTurnElem.querySelector('.assistant-badge');
+        if (badge && badge.textContent !== 'Prover Agent') {
+            badge.textContent = 'Prover Agent';
+        }
+    }
     if (mainResponseElem) {
         mainResponseElem.innerHTML = renderMarkdownWithMath(streamBuffer);
     }
