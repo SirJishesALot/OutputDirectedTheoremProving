@@ -144,21 +144,26 @@ export function createLeanAutoformaliserTools(
                 if (!ok) return 'error: failed to apply test tactic.';
                 const endPos = new vscode.Position(pos.line + linesAdded, lastLineLen);
                 const insertedRange = new vscode.Range(pos, endPos);
+                let goalState: any = null;
+                let execError: any = null;
                 try {
-                    const goalState = await client.getGoalState(editor.document, endPos);
-                    await editor.edit((b) => b.delete(insertedRange));
-                    if (goalState.error) {
-                        return `error: Tactic failed: ${goalState.error}`;
-                    }
-                    const goals = goalState.goals || [];
-                    if (goals.length === 0) {
-                        return 'success: Tactic solved all remaining goals! (0 goals remaining)';
-                    }
-                    return `success: Tactic succeeded. Resulting proof state (${goals.length} goal(s)):\n\n${goals.join('\n\n')}`;
+                    goalState = await client.getGoalState(editor.document, endPos);
                 } catch (e) {
-                    await editor.edit((b) => b.delete(insertedRange));
-                    return `error: ${e instanceof Error ? e.message : String(e)}`;
+                    execError = e;
+                } finally {
+                    await editor.edit((b) => b.delete(insertedRange), { undoStopBefore: false, undoStopAfter: false });
                 }
+                if (execError) {
+                    return `error: ${execError instanceof Error ? execError.message : String(execError)}`;
+                }
+                if (goalState?.error) {
+                    return `error: Tactic failed: ${goalState.error}`;
+                }
+                const goals = goalState?.goals || [];
+                if (goals.length === 0) {
+                    return 'success: Tactic solved all remaining goals! (0 goals remaining)';
+                }
+                return `success: Tactic succeeded. Resulting proof state (${goals.length} goal(s)):\n\n${goals.join('\n\n')}`;
             }
         },
         {
