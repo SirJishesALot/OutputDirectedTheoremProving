@@ -703,10 +703,38 @@ When you receive a tool result, either call another tool OR give a complete text
         onUpdate(`Agent error: ${e}`);
     } finally {
         if (onHistoryUpdate) {
-            onHistoryUpdate(messages);
+            onHistoryUpdate(condenseHistoryForNextTurn(messages));
         }
         onDone?.();
     }
+}
+
+function condenseHistoryForNextTurn(
+    messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
+): Array<{ role: 'user' | 'assistant' | 'system'; content: string }> {
+    const condensed: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [];
+    for (const msg of messages) {
+        if (!msg || !msg.content) continue;
+        if (msg.role === 'system') continue;
+        if (msg.role === 'user') {
+            if (msg.content.startsWith('TOOL RESULT (')) continue;
+            if (msg.content === ANSWER_ONLY_AFTER_TOOLS_NUDGE) continue;
+            if (msg.content.includes('To suggest an edit, please inspect')) continue;
+            if (msg.content.includes('Your tool call JSON was malformed')) continue;
+            if (msg.content.includes('You did not give a sufficient text answer')) continue;
+            condensed.push(msg);
+            continue;
+        }
+        if (msg.role === 'assistant') {
+            const parsed = extractAllToolCalls(msg.content);
+            if (parsed.prose && isSubstantialUserFacingText(parsed.prose)) {
+                condensed.push({ role: 'assistant', content: parsed.prose });
+            }
+            continue;
+        }
+        condensed.push(msg);
+    }
+    return condensed;
 }
 
 export type ProverProofStateChange = {

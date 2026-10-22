@@ -40677,6 +40677,14 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
       case "getChatLogContent":
         vscode.postMessage({ type: "chatLogContent", content: (document.getElementById("chatLog") || {}).innerHTML || "" });
         return;
+      case "setChatLogContent": {
+        const chatLog2 = document.getElementById("chatLog");
+        if (chatLog2 && msg.content != null) {
+          chatLog2.innerHTML = msg.content;
+          chatLog2.scrollTop = chatLog2.scrollHeight;
+        }
+        return;
+      }
       case "setChatVisible":
         const chatEl = document.getElementById("chat");
         if (chatEl) chatEl.style.display = msg.visible !== false ? "" : "none";
@@ -40688,6 +40696,15 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
           view.dispatch(view.state.tr);
         }
         return;
+      case "activeModelChanged": {
+        const label = document.getElementById("activeModelLabel");
+        if (label) {
+          const provider = msg.provider || "AI";
+          const model = msg.model || "Default";
+          label.textContent = `Model: ${model} (${provider})`;
+        }
+        return;
+      }
       case "setProofStateMode":
         setProofStateModeUi(msg.mode);
         return;
@@ -40708,6 +40725,7 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
         return;
       case "chatResponseDone":
         finalizeChatStream();
+        vscode.postMessage({ type: "chatLogContent", content: (document.getElementById("chatLog") || {}).innerHTML || "" });
         return;
       case "proverAgentStarted":
         updateWebviewStatus("Synthesizing proof\u2026");
@@ -40959,6 +40977,7 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
       chatInput.value = "";
       resetChatStream();
       vscode.postMessage({ command: "chat", prompt });
+      vscode.postMessage({ type: "chatLogContent", content: (document.getElementById("chatLog") || {}).innerHTML || "" });
     });
   }
   if (chatInput) {
@@ -40973,6 +40992,12 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
   if (popOutChatBtn) {
     popOutChatBtn.addEventListener("click", () => {
       vscode.postMessage({ command: "popOutChat" });
+    });
+  }
+  var activeModelBadge = document.getElementById("activeModelBadge");
+  if (activeModelBadge) {
+    activeModelBadge.addEventListener("click", () => {
+      vscode.postMessage({ command: "changeModel" });
     });
   }
   var chatStopBtn = document.getElementById("chatStop");

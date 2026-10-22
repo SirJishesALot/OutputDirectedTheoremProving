@@ -38,6 +38,7 @@ if (chatSend && chatInput && vscode) {
         chatInput.value = '';
         resetChatStream();
         vscode.postMessage({ command: 'chat', prompt });
+        vscode.postMessage({ type: 'chatLogContent', content: (document.getElementById('chatLog') || {}).innerHTML || '' });
     });
 }
 
@@ -56,6 +57,13 @@ if (popBackBtn && vscode) {
     });
 }
 
+const activeModelBadgeChat = document.getElementById('activeModelBadgeChat');
+if (activeModelBadgeChat && vscode) {
+    activeModelBadgeChat.addEventListener('click', () => {
+        vscode.postMessage({ command: 'changeModel' });
+    });
+}
+
 if (chatStop && vscode) {
     chatStop.addEventListener('click', () => {
         vscode.postMessage({ command: 'stopGeneration' });
@@ -67,11 +75,21 @@ if (vscode) {
         const msg = event.data;
         if (!msg || !msg.type) return;
         switch (msg.type) {
-            case 'initialChatLogContent': {
+            case 'initialChatLogContent':
+            case 'setChatLogContent': {
                 const chatLog = document.getElementById('chatLog');
                 if (chatLog && msg.content != null) {
                     chatLog.innerHTML = msg.content;
                     chatLog.scrollTop = chatLog.scrollHeight;
+                }
+                break;
+            }
+            case 'activeModelChanged': {
+                const label = document.getElementById('activeModelLabelChat');
+                if (label) {
+                    const provider = msg.provider || 'AI';
+                    const model = msg.model || 'Default';
+                    label.textContent = `Model: ${model} (${provider})`;
                 }
                 break;
             }
@@ -83,6 +101,7 @@ if (vscode) {
                 break;
             case 'chatResponseDone':
                 finalizeChatStream();
+                vscode.postMessage({ type: 'chatLogContent', content: (document.getElementById('chatLog') || {}).innerHTML || '' });
                 break;
             case 'suggestionNotice':
             case 'suggestion': {

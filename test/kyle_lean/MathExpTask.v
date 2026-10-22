@@ -11,12 +11,17 @@ Open Scope R_scope.
 Theorem expand_thm : forall a b : R,
   (a + b) ^ 2 = a ^ 2 + 2 * a * b + b ^ 2.
 Proof.
-  
+  intros a b. 
+  ring_simplify ((a + b) ^ 2). 
+  reflexivity. 
+
+
   Admitted.
 
 Theorem quadratic_gt_zero : forall a b : R, 
   0 <= a ^ 2 + 2 * a * b + b ^ 2.
 Proof.
+
   Admitted.
 
 Close Scope R_scope.

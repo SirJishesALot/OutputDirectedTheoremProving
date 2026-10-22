@@ -26844,6 +26844,7 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
       chatInput.value = "";
       resetChatStream();
       vscode.postMessage({ command: "chat", prompt });
+      vscode.postMessage({ type: "chatLogContent", content: (document.getElementById("chatLog") || {}).innerHTML || "" });
     });
   }
   if (chatInput && chatSend) {
@@ -26859,6 +26860,12 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
       vscode.postMessage({ command: "popBackChat" });
     });
   }
+  var activeModelBadgeChat = document.getElementById("activeModelBadgeChat");
+  if (activeModelBadgeChat && vscode) {
+    activeModelBadgeChat.addEventListener("click", () => {
+      vscode.postMessage({ command: "changeModel" });
+    });
+  }
   if (chatStop && vscode) {
     chatStop.addEventListener("click", () => {
       vscode.postMessage({ command: "stopGeneration" });
@@ -26869,11 +26876,21 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
       const msg = event.data;
       if (!msg || !msg.type) return;
       switch (msg.type) {
-        case "initialChatLogContent": {
+        case "initialChatLogContent":
+        case "setChatLogContent": {
           const chatLog2 = document.getElementById("chatLog");
           if (chatLog2 && msg.content != null) {
             chatLog2.innerHTML = msg.content;
             chatLog2.scrollTop = chatLog2.scrollHeight;
+          }
+          break;
+        }
+        case "activeModelChanged": {
+          const label = document.getElementById("activeModelLabelChat");
+          if (label) {
+            const provider = msg.provider || "AI";
+            const model = msg.model || "Default";
+            label.textContent = `Model: ${model} (${provider})`;
           }
           break;
         }
@@ -26885,6 +26902,7 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
           break;
         case "chatResponseDone":
           finalizeChatStream();
+          vscode.postMessage({ type: "chatLogContent", content: (document.getElementById("chatLog") || {}).innerHTML || "" });
           break;
         case "suggestionNotice":
         case "suggestion": {

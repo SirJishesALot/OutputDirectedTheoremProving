@@ -9,7 +9,7 @@ import { EditorBufferGuard } from './editorBufferGuard';
 import { compareStateWithTarget } from './stateComparator';
 
 /** Decoration used to highlight a suggested proof edit (green) so the user can Keep or Revert. */
-const suggestedEditDecorationType = vscode.window.createTextEditorDecorationType({
+export const suggestedEditDecorationType = vscode.window.createTextEditorDecorationType({
     backgroundColor: 'rgba(46, 160, 67, 0.25)',
     borderRadius: '2px',
 });

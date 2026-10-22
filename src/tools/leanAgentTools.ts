@@ -3,6 +3,7 @@ import { AgentTool } from '../llm/chatBridge';
 import { ProverClient } from '../prover/ProverClient';
 import { EditorBufferGuard } from './editorBufferGuard';
 import { compareStateWithTarget } from './stateComparator';
+import { suggestedEditDecorationType } from './proverTools';
 
 type EditHistory = {
     edits: Array<{ lhs: string; rhs: string; timestamp?: number }>;
@@ -342,7 +343,8 @@ export function createLeanProverTools(
                         }
                     }
 
-                    // 3. Success: retain edit and apply suggestion decoration
+                    // 3. Success: retain edit and apply suggestion decoration (green highlight)
+                    editor.setDecorations(suggestedEditDecorationType, [insertedRange]);
                     options.onSuggestedEditApplied?.(editor, insertedRange, '');
                     return `valid: Proposed addition compiles in Lean 4 and brings the proof state to the desired state.\n\n${formatted}`;
                 } catch (e) {
@@ -382,7 +384,9 @@ export function createLeanProverTools(
                 const range = new vscode.Range(start, end);
                 const ok = await editor.edit((b) => b.replace(range, args.newText ?? ''));
                 if (!ok) return 'error: failed to apply edit.';
-                options.onSuggestedEditApplied?.(editor, new vscode.Range(start, new vscode.Position(start.line, start.character + (args.newText ?? '').length)), args.oldText ?? '');
+                const appliedRange = new vscode.Range(start, new vscode.Position(start.line, start.character + (args.newText ?? '').length));
+                editor.setDecorations(suggestedEditDecorationType, [appliedRange]);
+                options.onSuggestedEditApplied?.(editor, appliedRange, args.oldText ?? '');
                 return '=== PROOF SCRIPT EDIT APPLIED ===';
             }
         }
