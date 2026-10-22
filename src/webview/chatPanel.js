@@ -90,11 +90,17 @@ if (vscode) {
                 if (!s || s.suggestedValue == null || s.suggestedValue === '') {
                     break;
                 }
-                const isAdd =
-                    s.originalValue == null || String(s.originalValue).trim() === '';
+                const hypName = (s.hypothesisName || '').trim();
+                const isGoal = ['goal', '⊢', '|-'].includes(hypName.toLowerCase()) || hypName === '⊢' || hypName === '|-';
+                const origVal = (s.originalValue != null && String(s.originalValue).trim() !== '' && String(s.originalValue).trim() !== 'undefined')
+                    ? String(s.originalValue).trim()
+                    : '';
+                const isAdd = !isGoal && origVal === '';
                 const text = isAdd
                     ? `Suggestion: Add hypothesis "${s.hypothesisName} : ${s.suggestedValue}"${s.reason ? ` (${s.reason})` : ''}`
-                    : `Suggestion: Replace "${s.originalValue}" with "${s.suggestedValue}" in hypothesis "${s.hypothesisName || 'Goal'}"${s.reason ? ` (${s.reason})` : ''}`;
+                    : (isGoal && !origVal)
+                        ? `Suggestion: Update goal to "${s.suggestedValue}"${s.reason ? ` (${s.reason})` : ''}`
+                        : `Suggestion: Replace "${origVal || 'current value'}" with "${s.suggestedValue}" in hypothesis "${s.hypothesisName || 'Goal'}"${s.reason ? ` (${s.reason})` : ''}`;
                 appendChatMessage(text, 'assistant');
                 break;
             }

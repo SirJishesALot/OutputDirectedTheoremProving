@@ -7,7 +7,9 @@ html, body {
 }
 
 body {
-    font-family: system-ui, -apple-system, sans-serif;
+    background-color: var(--vscode-editor-background);
+    color: var(--vscode-editor-foreground);
+    font-family: var(--vscode-editor-font-family, system-ui, -apple-system, sans-serif);
     padding: 12px;
     box-sizing: border-box;
 }
@@ -106,9 +108,10 @@ h2 {
 
 .ProseMirror {
     outline: none;
-    font-family: "JuliaMono", monospace;
+    font-family: var(--vscode-editor-font-family, monospace);
     white-space: pre-wrap;
     padding: 4px;
+    color: var(--vscode-editor-foreground);
 }
 
 /* ProseMirror plugin styles */
@@ -142,38 +145,54 @@ span[data-type="modification"][data-mod-type="replace"] {
 
 
 .goal {
-    border: 1px solid #ddd;
-    padding: 8px;
+    border: 1px solid var(--vscode-editorWidget-border, rgba(127, 127, 127, 0.25));
+    border-radius: 6px;
+    background-color: var(--vscode-editor-background);
+    padding: 10px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.hyps {
     margin-bottom: 8px;
-    border-radius: 4px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--vscode-editorWidget-border, rgba(127, 127, 127, 0.2));
 }
 
 .hypothesis {
-    padding: 2px 4px;
+    padding: 3px 6px;
     margin: 2px 0;
-    border-radius: 2px;
+    border-radius: 3px;
     white-space: pre-wrap;
-    font-family: "JuliaMono", monospace;
-    margin: 0;
+    font-family: var(--vscode-editor-font-family, monospace);
+    color: var(--vscode-editor-foreground);
     word-wrap: break-word;
     overflow-wrap: break-word;
     max-width: 100%;
     overflow-x: auto;
+    line-height: 1.5;
+}
+
+.hypothesis:hover {
+    background: var(--vscode-list-hoverBackground, rgba(127, 127, 127, 0.08));
 }
 
 .goalType {
-    background: #f7f7f7;
-    padding: 6px;
-    border-radius: 4px;
+    background: var(--vscode-textCodeBlock-background, rgba(127, 127, 127, 0.08));
+    border-left: 3px solid var(--vscode-focusBorder, #007acc);
+    border-radius: 0 4px 4px 0;
+    padding: 8px 10px;
     margin-top: 6px;
-    color: black;
+    color: var(--vscode-editor-foreground);
+    font-weight: 600;
     white-space: pre-wrap;
-    font-family: "JuliaMono", monospace;
+    font-family: var(--vscode-editor-font-family, monospace);
     margin: 0;
     word-wrap: break-word;
     overflow-wrap: break-word;
     max-width: 100%;
     overflow-x: auto;
+    line-height: 1.5;
 }
 
 .error {
@@ -675,35 +694,12 @@ span[data-type="modification"][data-mod-type="replace"] {
     background-color: #b62324;
 }
 
-.hljs-keyword,
-.hljs-built_in {
-    color: #cf222e; 
-    font-weight: bold;
+/* Syntax Highlighting */
+.syntax-token {
+    font-family: var(--vscode-editor-font-family, monospace);
 }
 
-.hljs-type,
-.hljs-title {
-    color: #953800; 
-}
-
-.hljs-string {
-    color: #0a3069; 
-}
-
-.hljs-number {
-    color: #0550ae; 
-}
-
-.hljs-comment {
-    color: #6e7781;
-    font-style: italic;
-}
-
-.hljs-operator,
-.hljs-punctuation {
-    color: #24292f; 
-}
-
-.hljs-variable {
-    color: #24292f;
+.hypothesis, .goalType {
+    font-family: var(--vscode-editor-font-family, monospace);
+    line-height: 1.45;
 }

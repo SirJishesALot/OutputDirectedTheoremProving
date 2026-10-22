@@ -455,7 +455,7 @@ One call = one edit.`,
                     if (!args.hypothesisName || args.suggestedValue === undefined || args.suggestedValue === null) {
                         return 'error: hypothesisName and suggestedValue are required.';
                     }
-                    const isAdd = args.originalValue === undefined || args.originalValue === null || String(args.originalValue).trim() === '';
+                    const isAdd = args.originalValue === undefined || args.originalValue === null || String(args.originalValue).trim() === '' || String(args.originalValue).trim() === 'undefined';
                     if (!isAdd && !args.originalValue) {
                         return 'error: originalValue is required for replace (use "" only for add new hypothesis).';
                     }
@@ -463,7 +463,7 @@ One call = one edit.`,
                     // Format the suggestion (goalIndex passed through for UI targeting). For "add", originalValue is "".
                     const suggestion: ProofStateEdit & { goalIndex?: number } = {
                         hypothesisName: args.hypothesisName,
-                        originalValue: (args.originalValue !== undefined && args.originalValue !== null) ? args.originalValue : '',
+                        originalValue: (args.originalValue !== undefined && args.originalValue !== null && String(args.originalValue) !== 'undefined') ? args.originalValue : '',
                         suggestedValue: args.suggestedValue,
                         reason: args.reason,
                         ...(args.goalIndex !== undefined && args.goalIndex !== null && { goalIndex: args.goalIndex }),

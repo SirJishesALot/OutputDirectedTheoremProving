@@ -633,10 +633,17 @@ When you receive a tool result, either call another tool OR give a complete text
                     if (toolName === 'suggest_proof_state_edit' && onSuggestion) {
                         suggestionMade = true;
                         try {
+                            const rawOrig = toolArgs?.originalValue;
+                            const origVal =
+                                rawOrig != null &&
+                                String(rawOrig).trim() !== '' &&
+                                String(rawOrig).trim() !== 'undefined'
+                                    ? String(rawOrig)
+                                    : '';
                             onSuggestion({
-                                hypothesisName: String(toolArgs.hypothesisName),
-                                originalValue: String(toolArgs.originalValue),
-                                suggestedValue: String(toolArgs.suggestedValue),
+                                hypothesisName: String(toolArgs?.hypothesisName ?? ''),
+                                originalValue: origVal,
+                                suggestedValue: String(toolArgs?.suggestedValue ?? ''),
                                 reason: toolArgs.reason != null ? String(toolArgs.reason) : undefined,
                                 ...(toolArgs.goalIndex !== undefined &&
                                     toolArgs.goalIndex !== null && {

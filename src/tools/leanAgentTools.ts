@@ -187,7 +187,18 @@ export function createLeanAutoformaliserTools(
         },
         {
             name: 'suggest_proof_state_edit',
-            description: 'Suggests a Lean proof-state edit for the panel.',
+            description: `Suggests an edit to the Lean proof state that appears in the proof state panel. The user can then click "Implement changes" to run the prover agent to achieve that edit.
+
+Two modes:
+1) REPLACE (existing goal or hypothesis): originalValue = EXACT current text from the proof state. suggestedValue = DESIRED text. hypothesisName = "Goal" or "⊢" for goal type, or the hypothesis name.
+2) ADD NEW HYPOTHESIS: Use when the proof needs an extra hypothesis that is not currently in the state (e.g. introducing variables or premises via intro). Set originalValue to "" (empty string). suggestedValue = the desired type or the full hypothesis (e.g. "accepts r₁ s" or "h : accepts r₁ s"). hypothesisName = the new hypothesis name (e.g. "h"). Use reason to explain.
+
+- originalValue: For replace, EXACT current text. For add, use "".
+- suggestedValue: DESIRED proof state text only. No tactics or prose.
+- hypothesisName: "Goal" or "⊢" when editing the goal type; otherwise the hypothesis name (existing or new).
+- goalIndex (optional): 1-based goal index when multiple goals. Omit for single goal.
+- reason (optional): human-readable explanation.
+One call = one edit.`,
             execute: async (args: {
                 hypothesisName: string;
                 originalValue?: string;
@@ -198,8 +209,9 @@ export function createLeanAutoformaliserTools(
                 if (!args.hypothesisName || args.suggestedValue === undefined || args.suggestedValue === null) {
                     return 'error: hypothesisName and suggestedValue are required.';
                 }
+                const isAdd = args.originalValue === undefined || args.originalValue === null || String(args.originalValue).trim() === '' || String(args.originalValue).trim() === 'undefined';
                 let out = `=== SUGGESTED EDIT ===\n\nHypothesis: ${args.hypothesisName}\n`;
-                out += args.originalValue ? `Original: ${args.originalValue}\n` : '(Add new hypothesis)\n';
+                out += isAdd ? '(Add new hypothesis)\n' : `Original: ${args.originalValue}\n`;
                 out += `Suggested: ${args.suggestedValue}\n`;
                 if (args.goalIndex !== undefined) out += `Goal Index: ${args.goalIndex}\n`;
                 if (args.reason) out += `Reason: ${args.reason}\n`;

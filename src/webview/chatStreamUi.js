@@ -3,6 +3,20 @@
  */
 import { marked } from 'marked';
 import katex from 'katex';
+import { highlightCodeHtml, getHighlighter } from './syntaxHighlighter.js';
+
+// Pre-initialize highlighter for code blocks
+getHighlighter().catch(() => {});
+
+marked.use({
+    renderer: {
+        code({ text, lang }) {
+            const cleanLang = (lang || '').trim().toLowerCase();
+            const highlighted = highlightCodeHtml(text, cleanLang);
+            return `<pre><code class="language-${cleanLang || 'text'}">${highlighted}</code></pre>`;
+        }
+    }
+});
 
 let chatLog = null;
 let chatTypingIndicator = null;
