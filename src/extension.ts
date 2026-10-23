@@ -675,12 +675,14 @@ export function activate(context: vscode.ExtensionContext) {
             }
 
             const modelOptions = [
-                { label: '@GCP-public-dataset-integration/gemini-3.1-pro-preview', description: 'Recommended reasoning model for theorem proving' },
-                { label: '@GCP-public-dataset-integration/gemini-2.5-pro', description: 'High-performance reasoning model' },
-                { label: '@GCP-public-dataset-integration/gemini-2.5-flash', description: 'Recommended Flash model: stable, fast, reliable tool use' },
-                { label: '@GCP-public-dataset-integration/gemini-2.5-flash-lite', description: 'Ultra-fast lightweight flash model' },
-                { label: '@GCP-public-dataset-integration/gemini-3-flash-preview', description: 'Experimental preview (prone to hallucinated tool outputs)' },
-                { label: '@GCP-public-dataset-integration/kimi-k2-thinking-maas', description: 'Thinking model via MaaS' },
+                { label: '@gcp-public-dataset-integration-anthropic/anthropic.claude-sonnet-5', description: 'Recommended: Claude Sonnet 5 (Flawless theorem proving & tool use)' },
+                { label: '@gcp-public-dataset-integration-anthropic/anthropic.claude-opus-4-8', description: 'Claude Opus 4.8 (Maximum reasoning depth for complex proofs)' },
+                { label: '@gcp-public-dataset-integration-anthropic/anthropic.claude-haiku-4-5@20251001', description: 'Claude Haiku 4.5 (Fast, concise, precise tool calling)' },
+                { label: '@aws-public-dataset-integration-openai/openai.gpt-5.5', description: 'OpenAI GPT-5.5 (Frontier reasoning)' },
+                { label: '@azure-foundry-oss-public-dataset-integration/DeepSeek-V4-Pro', description: 'DeepSeek V4 Pro (Strong mathematical reasoning)' },
+                { label: '@azure-foundry-oss-public-dataset-integration/DeepSeek-V4-Flash', description: 'DeepSeek V4 Flash (Fast lightweight DeepSeek)' },
+                { label: '@gcp-public-dataset-integration/gemini-2.5-pro', description: 'Gemini 2.5 Pro (Google Frontier Pro model)' },
+                { label: '@gcp-public-dataset-integration/gemini-3.1-pro-preview', description: 'Gemini 3.1 Pro Preview' },
                 { label: 'Custom...', description: 'Specify a custom model slug' },
             ];
             const picked = await vscode.window.showQuickPick(modelOptions, { placeHolder: 'Select Portkey model to use' });
