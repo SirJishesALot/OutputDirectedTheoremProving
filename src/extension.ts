@@ -596,22 +596,16 @@ export function activate(context: vscode.ExtensionContext) {
                 return cached;
             }
         }
-        // List all available LLM services and return an adapter for each.
-        const { PredefinedProofsService } = require('./llm/llmServices/predefinedProofs/predefinedProofsService');
-        const { OpenAiService } = require('./llm/llmServices/openai/openAiService');
-        const { LMStudioService } = require('./llm/llmServices/lmStudio/lmStudioService');
-        const { GrazieService } = require('./llm/llmServices/grazie/grazieService');
-        const { DeepSeekService } = require('./llm/llmServices/deepSeek/deepSeekService');
         const services = [
-            { label: 'Antigravity CLI (agy)', description: 'Google Gemini 3.8 / Claude via local agy CLI (no API key required)', instance: null },
-            { label: 'Portkey (Gemini / Claude / Kimi)', description: 'Google Gemini & frontier models via Portkey AI Gateway', instance: null },
-            { label: 'PredefinedProofs', description: 'Offline fallback using simple tactics', instance: new PredefinedProofsService() },
-            { label: 'OpenAI', description: 'OpenAI GPT models (requires API key)', instance: new OpenAiService() },
-            { label: 'Gemini (Vertex AI)', description: 'Google Gemini models via Vertex AI (legacy GCP project)', instance: null },
-            { label: 'LMStudio', description: 'Local LMStudio server', instance: new LMStudioService() },
-            { label: 'Grazie', description: 'JetBrains Grazie AI', instance: new GrazieService() },
-            { label: 'DeepSeek', description: 'DeepSeek AI', instance: new DeepSeekService() },
-            { label: 'Open Chat view', description: 'Open the built-in Chat view to configure a model', instance: null },
+            { label: 'Portkey (Gemini / Claude / Kimi)', description: 'Google Gemini & frontier models via Portkey AI Gateway' },
+            { label: 'Antigravity CLI (agy)', description: 'Google Gemini 3.8 / Claude via local agy CLI (no API key required)' },
+            { label: 'OpenAI', description: 'OpenAI GPT models (requires API key)' },
+            { label: 'PredefinedProofs', description: 'Offline fallback using simple tactics' },
+            { label: 'Gemini (Vertex AI)', description: 'Google Gemini models via Vertex AI (legacy GCP project)' },
+            { label: 'LMStudio', description: 'Local LMStudio server' },
+            { label: 'Grazie', description: 'JetBrains Grazie AI' },
+            { label: 'DeepSeek', description: 'DeepSeek AI' },
+            { label: 'Open Chat view', description: 'Open the built-in Chat view to configure a model' },
         ];
         const choice = await vscode.window.showQuickPick(services, { placeHolder: 'Select an LLM service for the proof-state panel' });
         if (!choice) { return null; }
@@ -654,6 +648,7 @@ export function activate(context: vscode.ExtensionContext) {
                 defaultChatAdapter = adapter;
                 await vscode.workspace.getConfiguration().update('myExtension.llmBackend', 'antigravity-cli', vscode.ConfigurationTarget.Global);
                 await vscode.workspace.getConfiguration().update('myExtension.defaultAntigravityModel', selectedModel, vscode.ConfigurationTarget.Global);
+                void ProofStatePanel.currentPanel?.updateActiveModelBadge();
                 vscode.window.showInformationMessage(`Active LLM model set to Antigravity CLI (${selectedModel})`);
                 return adapter;
             } catch (e: any) {
@@ -711,6 +706,7 @@ export function activate(context: vscode.ExtensionContext) {
                 defaultChatAdapter = adapter;
                 await vscode.workspace.getConfiguration().update('myExtension.llmBackend', 'portkey', vscode.ConfigurationTarget.Global);
                 await vscode.workspace.getConfiguration().update('myExtension.defaultPortkeyModel', selectedModel, vscode.ConfigurationTarget.Global);
+                void ProofStatePanel.currentPanel?.updateActiveModelBadge();
                 vscode.window.showInformationMessage(`Active LLM model set to Portkey (${selectedModel})`);
                 return adapter;
             } catch (e: any) {
@@ -832,9 +828,6 @@ export function activate(context: vscode.ExtensionContext) {
             return adapter;
         }
 
-        // ...existing code for other services...
-        const service = choice.instance;
-        if (!service) { return null; }
         const adapter = {
             sendRequest: async (messages: any[], opts: any, token?: vscode.CancellationToken) => {
                 const content = `Service ${choice.label} is not yet configured. Please set up credentials in settings.`;
