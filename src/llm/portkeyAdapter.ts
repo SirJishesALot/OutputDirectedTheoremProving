@@ -77,14 +77,36 @@ export async function createPortkeyAdapter(
 
             OutputLogger.info('LLM:Portkey', `Sending request to Portkey Gateway (model: ${targetModel})`);
 
+            const requestPayload: any = {
+                model: targetModel,
+                messages: chatMessages,
+                stream: true,
+                max_tokens: Math.max(opts?.maxTokens ?? 4096, 4096),
+            };
+
+            const isNoTemperatureModel = /claude|thinking|reasoning|o1|o3/i.test(targetModel);
+            if (!isNoTemperatureModel) {
+                requestPayload.temperature = opts?.temperature ?? 0.2;
+            }
+
             try {
-                const stream = await client.chat.completions.create({
-                    model: targetModel,
-                    messages: chatMessages,
-                    max_tokens: Math.max(opts?.maxTokens ?? 4096, 4096),
-                    temperature: opts?.temperature ?? 0.2,
-                    stream: true,
-                });
+                let stream;
+                try {
+                    stream = await client.chat.completions.create(requestPayload);
+                } catch (firstErr: any) {
+                    const msg = (firstErr && firstErr.message) ? String(firstErr.message).toLowerCase() : '';
+                    if (msg.includes('temperature') && (msg.includes('deprecated') || msg.includes('not supported') || msg.includes('unsupported'))) {
+                        delete requestPayload.temperature;
+                        stream = await client.chat.completions.create(requestPayload);
+                    } else if (msg.includes('max_tokens') && msg.includes('max_completion_tokens')) {
+                        requestPayload.max_completion_tokens = requestPayload.max_tokens;
+                        delete requestPayload.max_tokens;
+                        delete requestPayload.temperature;
+                        stream = await client.chat.completions.create(requestPayload);
+                    } else {
+                        throw firstErr;
+                    }
+                }
 
                 return {
                     text: (async function* () {
