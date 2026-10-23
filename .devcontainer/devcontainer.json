@@ -13,8 +13,8 @@
         }
     },
     "remoteEnv": {
-        "PATH": "${containerEnv:HOME}/.elan/bin:${containerEnv:HOME}/.opam/rocq-9.0/bin:${containerEnv:PATH}",
-        "COQ_LSP_PATH": "${containerEnv:HOME}/.opam/rocq-9.0/bin/coq-lsp"
+        "PATH": "/home/vscode/.elan/bin:/home/vscode/.opam/rocq-9.0/bin:${containerEnv:PATH}",
+        "COQ_LSP_PATH": "/home/vscode/.opam/rocq-9.0/bin/coq-lsp"
     },
     "remoteUser": "vscode",
     "postCreateCommand": "bash .devcontainer/setup.sh"

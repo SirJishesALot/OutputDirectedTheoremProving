@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as os from 'os';
 import { CoqLspClient } from './lsp/coqLspClient';
 import { ProofStatePanel } from './webview/proofStatePanel';
 import * as dotenv from 'dotenv';
@@ -245,6 +247,22 @@ function detectProverFromEditor(editor: vscode.TextEditor | undefined): ProverKi
     return undefined;
 }
 
+function resolveCoqLspPath(): string {
+    const envPath = process.env.COQ_LSP_PATH;
+    if (envPath && fs.existsSync(envPath)) {
+        return envPath;
+    }
+    const homeOpamPath = path.join(os.homedir(), '.opam', 'rocq-9.0', 'bin', 'coq-lsp');
+    if (fs.existsSync(homeOpamPath)) {
+        return homeOpamPath;
+    }
+    const vscodePath = '/home/vscode/.opam/rocq-9.0/bin/coq-lsp';
+    if (fs.existsSync(vscodePath)) {
+        return vscodePath;
+    }
+    return (envPath && !envPath.startsWith('/.opam')) ? envPath : 'coq-lsp';
+}
+
 export function activate(context: vscode.ExtensionContext) {
     extensionContext = context;
     initProofStateLogger(context);
@@ -317,7 +335,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }
 
-    const coqLspPath = process.env.COQ_LSP_PATH || '/home/vscode/.opam/rocq-9.0/bin/coq-lsp';
+    const coqLspPath = resolveCoqLspPath();
     proverManager = new ProverManager(coqLspPath);
     context.subscriptions.push(proverManager);
 
@@ -885,7 +903,7 @@ export function activate(context: vscode.ExtensionContext) {
                 const openAiConfigured = extensionContext ? !!(await extensionContext.secrets.get(OPENAI_SECRET_KEY)) : false;
                 const geminiProject = await getStoredGeminiProjectId();
                 const geminiModel = getConfiguredGeminiModel();
-                const coqLspPath = process.env.COQ_LSP_PATH || '/home/vscode/.opam/rocq-9.0/bin/coq-lsp';
+                const coqLspPath = resolveCoqLspPath();
                 
                 let report = `### Output Directed Theorem Proving - Diagnostic Report\n\n`;
                 report += `- **Timestamp:** ${new Date().toISOString()}\n`;
