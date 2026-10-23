@@ -111,7 +111,7 @@
             "openai",
             "vertex"
           ],
-          "default": "antigravity-cli",
+          "default": "portkey",
           "description": "Select the primary LLM backend for proof assistance and suggestions (Antigravity CLI or Portkey)."
         },
         "myExtension.antigravityCliPath": {
@@ -140,7 +140,7 @@
         },
         "myExtension.defaultPortkeyModel": {
           "type": "string",
-          "default": "@GCP-public-dataset-integration/gemini-3.1-pro-preview",
+          "default": "anthropic.claude-sonnet-5",
           "description": "Default Portkey model slug used for AI assistant and theorem proving agent."
         },
         "myExtension.portkeyProviderSlug": {

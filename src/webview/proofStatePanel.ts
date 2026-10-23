@@ -229,7 +229,7 @@ export class ProofStatePanel {
     public getActiveModelInfo(): { provider: string; model: string } {
         const backend = vscode.workspace
             .getConfiguration()
-            .get<string>('myExtension.llmBackend', 'antigravity-cli');
+            .get<string>('myExtension.llmBackend', 'portkey');
 
         if (backend === 'antigravity-cli') {
             const model = vscode.workspace

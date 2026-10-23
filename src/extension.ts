@@ -62,8 +62,8 @@ function getConfiguredLlmBackend(): 'antigravity-cli' | 'portkey' | 'openai' | '
     return (
         vscode.workspace
             .getConfiguration()
-            .get<'antigravity-cli' | 'portkey' | 'openai' | 'vertex'>('myExtension.llmBackend', 'antigravity-cli') ||
-        'antigravity-cli'
+            .get<'antigravity-cli' | 'portkey' | 'openai' | 'vertex'>('myExtension.llmBackend', 'portkey') ||
+        'portkey'
     );
 }
 
