@@ -34,6 +34,7 @@
     "onCommand:outputdirectedtheoremproving.copyDiagnosticReport",
     "onCommand:outputdirectedtheoremproving.acceptSuggestion",
     "onCommand:outputdirectedtheoremproving.rejectSuggestion",
+    "onCommand:outputdirectedtheoremproving.clearChat",
     "onLanguage:coq",
     "onLanguage:rocq",
     "onLanguage:lean",
@@ -93,6 +94,10 @@
       {
         "command": "outputdirectedtheoremproving.switchLlmBackend",
         "title": "Switch LLM Backend (Antigravity CLI / Portkey)"
+      },
+      {
+        "command": "outputdirectedtheoremproving.clearChat",
+        "title": "Clear Chat History for Current Document"
       }
     ],
     "configuration": {
@@ -158,6 +163,11 @@
           "default": 15000,
           "minimum": 1000,
           "description": "Max milliseconds to wait for a coq-lsp proof/goals response before showing a timeout error in the proof state panel."
+        },
+        "myExtension.typesafeApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for TypeSafe Jev semantic judge (falls back to TYPESAFE_API_KEY in .env)."
         }
       }
     },
@@ -220,6 +230,9 @@
     "compile-webview:production": "esbuild ./src/webview/main.js --bundle --outfile=src/webview/proofState.js --platform=browser --external:vscode --minify",
     "benchmark": "ts-node scripts/benchmark/runBenchmark.ts",
     "benchmark:mini": "ts-node scripts/benchmark/runBenchmark.ts --mode mini",
+    "benchmark:user-agent": "ts-node scripts/benchmark/runUserAgentBenchmark.ts",
+    "benchmark:user-agent:plot": "/Users/jishnuraychaudhuri/miniconda3/envs/ml/bin/python scripts/benchmark/plot_task3_results.py",
+    "benchmark:rollout": "ts-node scripts/benchmark/runUserAgentBenchmark.ts --mode completion",
     "benchmark:compare": "ts-node scripts/benchmark/compareWithBaseline.ts",
     "benchmark:plot": "/Users/jishnuraychaudhuri/miniconda3/envs/ml/bin/python scripts/benchmark/plot_results.py"
   },
@@ -255,6 +268,7 @@
     "prosemirror-state": "^1.4.4",
     "prosemirror-transform": "^1.10.4",
     "prosemirror-view": "^1.41.3",
+    "shiki": "^4.5.0",
     "tiktoken": "^1.0.22",
     "tmp": "^0.2.5",
     "ts-results": "npm:ts-results-es@^3.6.0",

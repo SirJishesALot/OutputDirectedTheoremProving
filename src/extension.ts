@@ -644,10 +644,11 @@ export function activate(context: vscode.ExtensionContext) {
             }
 
             const modelOptions = [
-                { label: '@GCP-public-dataset-integration/gemini-3.1-pro-preview', description: 'Default & recommended reasoning model for theorem proving' },
+                { label: '@GCP-public-dataset-integration/gemini-3.1-pro-preview', description: 'Recommended reasoning model for theorem proving' },
                 { label: '@GCP-public-dataset-integration/gemini-2.5-pro', description: 'High-performance reasoning model' },
-                { label: '@GCP-public-dataset-integration/gemini-2.5-flash', description: 'Fast and lightweight model' },
-                { label: '@GCP-public-dataset-integration/gemini-3-flash-preview', description: 'Next-gen fast preview model' },
+                { label: '@GCP-public-dataset-integration/gemini-2.5-flash', description: 'Recommended Flash model: stable, fast, reliable tool use' },
+                { label: '@GCP-public-dataset-integration/gemini-2.5-flash-lite', description: 'Ultra-fast lightweight flash model' },
+                { label: '@GCP-public-dataset-integration/gemini-3-flash-preview', description: 'Experimental preview (prone to hallucinated tool outputs)' },
                 { label: '@GCP-public-dataset-integration/kimi-k2-thinking-maas', description: 'Thinking model via MaaS' },
                 { label: 'Custom...', description: 'Specify a custom model slug' },
             ];
@@ -914,6 +915,16 @@ export function activate(context: vscode.ExtensionContext) {
         }
     );
     context.subscriptions.push(copyDiagnosticReportCmd);
+
+    const clearChatCmd = vscode.commands.registerCommand(
+        'outputdirectedtheoremproving.clearChat',
+        () => {
+            if (ProofStatePanel.currentPanel) {
+                ProofStatePanel.currentPanel.clearCurrentDocumentChat();
+            }
+        }
+    );
+    context.subscriptions.push(clearChatCmd);
 
     const disposable = vscode.commands.registerCommand('outputdirectedtheoremproving.helloWorld', () => {
         vscode.window.showInformationMessage('Hello World from OutputDirectedTheoremProving!');

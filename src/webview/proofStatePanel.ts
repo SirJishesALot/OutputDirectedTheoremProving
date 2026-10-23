@@ -4,9 +4,9 @@ import { Uri } from '../utils/uri';
 import { runCoqAgent, AgentTool, streamCoqChat, SuggestionCallback, ConversationHistoryCallback } from '../llm/chatBridge';
 import { CoqTools } from '../tools/coqTools';
 import { createAutoformaliserTools, EditHistory } from '../tools/autoformaliserTools';
-import { createProverTools, clearSuggestedEditDecoration } from '../tools/proverTools';
+import { createProverTools, clearSuggestedEditDecoration, extractTheoremAndProofScript } from '../tools/proverTools';
 import { runProverAgent } from '../llm/chatBridge';
-import { createLeanAutoformaliserTools, createLeanProverTools } from '../tools/leanAgentTools';
+import { createLeanAutoformaliserTools, createLeanProverTools, getLeanProofScript } from '../tools/leanAgentTools';
 import { convertToString, ProofGoal, Hyp, PpString, GoalsWithMessages } from '../lsp/coqLspTypes';
 import { isCoqDocumentLanguage } from '../utils/coqUtils'; 
 import {
@@ -36,6 +36,13 @@ type GenericProofStateProvider = (
 ) => Promise<GenericProofState>;
 type ActiveClientProvider = () => ProverClient | undefined;
 
+interface DocumentChatState {
+    conversationHistory: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
+    chatHtml: string;
+    chatConversationId?: string;
+    editHistory: EditHistory;
+}
+
 export class ProofStatePanel {
     public static currentPanel: ProofStatePanel | undefined;
     private readonly panel: vscode.WebviewPanel;
@@ -55,6 +62,8 @@ export class ProofStatePanel {
     private editHistory: EditHistory = { edits: [] };
     private conversationHistory: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [];
     private chatConversationId: string | undefined = undefined;
+    private documentChatStates = new Map<string, DocumentChatState>();
+    private currentChatHtml = '';
     /** When the prover applies a suggested edit, we store the editor so Keep/Revert can clear the decoration and optionally undo. */
     private pendingSuggestedEditor: vscode.TextEditor | undefined;
     /** Cancellation for the current chat/agent run. Cancel when user clicks Stop. */
@@ -141,6 +150,22 @@ export class ProofStatePanel {
         this.panel.webview.html = this.getHtmlForWebview(this.panel.webview);
         this.setActiveProver(this.getActiveProver());
         this.panel.webview.postMessage({ type: 'setProofStateMode', mode: this.proofStateMode });
+        void this.updateActiveModelBadge();
+
+        vscode.workspace.onDidChangeConfiguration(
+            async (e) => {
+                if (
+                    e.affectsConfiguration('myExtension.llmBackend') ||
+                    e.affectsConfiguration('myExtension.defaultAntigravityModel') ||
+                    e.affectsConfiguration('myExtension.defaultPortkeyModel') ||
+                    e.affectsConfiguration('myExtension.defaultGeminiModel')
+                ) {
+                    await this.updateActiveModelBadge();
+                }
+            },
+            null,
+            this.disposables
+        );
 
         vscode.window.onDidChangeTextEditorSelection(
             () => {
@@ -199,6 +224,62 @@ export class ProofStatePanel {
         this.proofStateUpdateGeneration++;
         this.chatConversationId = undefined;
         this.panel.webview.postMessage({ type: 'activeProverChanged', prover: kind });
+    }
+
+    public getActiveModelInfo(): { provider: string; model: string } {
+        const backend = vscode.workspace
+            .getConfiguration()
+            .get<string>('myExtension.llmBackend', 'antigravity-cli');
+
+        if (backend === 'antigravity-cli') {
+            const model = vscode.workspace
+                .getConfiguration()
+                .get<string>('myExtension.defaultAntigravityModel', 'gemini-3.1-pro-high');
+            return {
+                provider: 'agy',
+                model,
+            };
+        }
+        if (backend === 'portkey') {
+            const model = vscode.workspace
+                .getConfiguration()
+                .get<string>('myExtension.defaultPortkeyModel', '@GCP-public-dataset-integration/gemini-3.1-pro-preview');
+            const cleanModel = model.includes('/') ? model.split('/').pop()! : model;
+            return {
+                provider: 'Portkey',
+                model: cleanModel,
+            };
+        }
+        if (backend === 'openai') {
+            return {
+                provider: 'OpenAI',
+                model: 'GPT-4o',
+            };
+        }
+        if (backend === 'vertex') {
+            const model = vscode.workspace
+                .getConfiguration()
+                .get<string>('myExtension.defaultGeminiModel', 'gemini-2.5-pro');
+            return {
+                provider: 'Vertex AI',
+                model,
+            };
+        }
+        return {
+            provider: backend || 'AI',
+            model: 'Default',
+        };
+    }
+
+    public async updateActiveModelBadge(): Promise<void> {
+        const info = this.getActiveModelInfo();
+        const msg = {
+            type: 'activeModelChanged',
+            provider: info.provider,
+            model: info.model,
+        };
+        this.panel.webview.postMessage(msg);
+        this.chatPanel?.webview.postMessage(msg);
     }
 
     public async setProofStateMode(mode: 'auto' | 'manual'): Promise<void> {
@@ -329,6 +410,33 @@ export class ProofStatePanel {
         }
     }
 
+    public clearCurrentDocumentChat(): void {
+        if (this.chatCancelSource) {
+            this.chatCancelSource.cancel();
+            this.chatCancelSource.dispose();
+            this.chatCancelSource = undefined;
+        }
+        this.conversationHistory = [];
+        this.currentChatHtml = '';
+        this.chatConversationId = undefined;
+        this.editHistory = { edits: [] };
+        if (this.currentDocumentUri) {
+            this.documentChatStates.delete(this.currentDocumentUri.toString());
+        }
+        this.panel.webview.postMessage({
+            type: 'setChatLogContent',
+            content: '',
+        });
+        this.chatPanel?.webview.postMessage({
+            type: 'setChatLogContent',
+            content: '',
+        });
+        OutputLogger.info(
+            'ProofState',
+            `Chat history cleared for document: ${this.currentDocumentUri?.toString() ?? 'unknown'}`
+        );
+    }
+
     public dispose() {
         if (this.selectionDebounceTimer !== undefined) {
             clearTimeout(this.selectionDebounceTimer);
@@ -394,6 +502,8 @@ export class ProofStatePanel {
         const katexCssUri = webview.asWebviewUri(vscode.Uri.joinPath(
             this.extensionUri, 'node_modules', 'katex', 'dist', 'katex.min.css'
         ));
+        const info = this.getActiveModelInfo();
+        const initialModelLabel = `${info.model} (${info.provider})`;
         return `<!doctype html>
 <html lang="en">
 <head>
@@ -410,16 +520,20 @@ export class ProofStatePanel {
 </head>
 <body>
   <div class="controls" style="display: flex; flex-direction: column; height: 100%; padding: 12px; box-sizing: border-box;">
-    <div style="flex: 0 0 auto; display: flex; justify-content: flex-end;">
+    <div style="flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <button id="activeModelBadgeChat" class="header-badge active-model-badge" type="button" title="Click to change LLM model or provider">
+        <span id="activeModelLabelChat">Model: ${initialModelLabel}</span>
+      </button>
       <button id="popBackChat">Pop back</button>
     </div>
     <div id="synthesizingIndicator" class="synthesizing-indicator" aria-hidden="true">Synthesizing proof...</div>
-    <div id="chatLog" style="flex: 1 1 auto; min-height: 0; overflow: auto;"></div>
+    <div id="chatLog"></div>
     <div id="chatTypingIndicator" class="chat-typing-indicator" aria-hidden="true">Model is typing...</div>
     <div style="display: flex; flex-direction: row; align-items: center; gap: 6px;">
       <input id="chatInput" type="text" placeholder="Consult the assistant." />
       <button id="chatSend">Send</button>
       <button id="chatStop" type="button">Stop</button>
+      <button id="chatClear" type="button" title="Clear conversation history for this document">Clear</button>
     </div>
   </div>
   <script src="${scriptUri}"></script>
@@ -432,9 +546,20 @@ export class ProofStatePanel {
         const msgType = message.type;
         const isMain = fromWebview === this.panel.webview;
 
-        if (isMain && msgType === 'chatLogContent') {
+        if (msgType === 'chatLogContent') {
             const content = message.content as string | undefined;
-            this.openChatPanel(content ?? '');
+            if (content !== undefined) {
+                this.currentChatHtml = content;
+                if (this.currentDocumentUri) {
+                    const existing = this.documentChatStates.get(this.currentDocumentUri.toString());
+                    if (existing) {
+                        existing.chatHtml = content;
+                    }
+                }
+            }
+            if (isMain && message.forPopOut) {
+                this.openChatPanel(content ?? '');
+            }
             return;
         }
 
@@ -457,9 +582,22 @@ export class ProofStatePanel {
             return;
         }
 
+        if (cmd === 'clearChat') {
+            this.clearCurrentDocumentChat();
+            return;
+        }
+
+        if (cmd === 'changeModel') {
+            await vscode.commands.executeCommand('outputdirectedtheoremproving.changeLLMModel');
+            await this.updateActiveModelBadge();
+            return;
+        }
+
         if (cmd === 'requestUpdate') {
             if (!isMain) return;
             this.scheduleProofStateUpdate('manual');
+            void this.updateActiveModelBadge();
+            return;
         } else if (cmd === 'setProofStateMode') {
             const mode = message.mode === 'manual' ? 'manual' : 'auto';
             await this.setProofStateMode(mode);
@@ -541,22 +679,32 @@ export class ProofStatePanel {
                     // Enhance the prompt to encourage tool use for proof-related questions
                     const enhancedPrompt = this.enhancePromptForTools(prompt);
 
+                    let suggestionChain = Promise.resolve();
+                    let hasSyncedForCurrentTurn = false;
+
                     // Callback to handle suggestions from the agent
                     const handleSuggestion: SuggestionCallback = (suggestion) => {
                         const msg = { type: 'suggestion' as const, suggestion };
-                        // Refresh proof state, then apply the suggestion once on the main panel
-                        // (do not also post to getChatWebview() — when chat is inline that is the same webview).
-                        void (async () => {
-                            await this.updateProofStateForSuggestion();
-                            await new Promise((r) => setTimeout(r, 150));
-                            this.panel.webview.postMessage(msg);
-                            if (this.chatPanel) {
-                                this.chatPanel.webview.postMessage({
-                                    type: 'suggestionNotice',
-                                    suggestion,
-                                });
-                            }
-                        })();
+                        suggestionChain = suggestionChain
+                            .then(async () => {
+                                // Only sync the proof state once before the FIRST suggestion of this turn.
+                                // Subsequent suggestions in the same turn accumulate on top of the document.
+                                if (!hasSyncedForCurrentTurn) {
+                                    hasSyncedForCurrentTurn = true;
+                                    await this.updateProofStateForSuggestion();
+                                    await new Promise((r) => setTimeout(r, 150));
+                                }
+                                this.panel.webview.postMessage(msg);
+                                if (this.chatPanel) {
+                                    this.chatPanel.webview.postMessage({
+                                        type: 'suggestionNotice',
+                                        suggestion,
+                                    });
+                                }
+                            })
+                            .catch((err) => {
+                                OutputLogger.error('ProofState', 'Error applying suggestion:', err);
+                            });
                     };
 
                     // Callback to update conversation history
@@ -741,6 +889,10 @@ export class ProofStatePanel {
             text: `_Prover Agent: Attempting to achieve proof state change_\n${summary}\n\n` 
         });
 
+        const proofScript = activeProver === 'Lean'
+            ? getLeanProofScript(editor)
+            : extractTheoremAndProofScript(editor.document.getText(), this.savedCursorPosition.line);
+
         try {
             OutputLogger.debug('Agent:Prover', 'Calling runProverAgent...');
             await runProverAgent(
@@ -751,6 +903,7 @@ export class ProofStatePanel {
                     desiredValue,
                     validationLhs: lhs || undefined,
                     validationRhs: rhs || undefined,
+                    proofScript,
                 },
                 proverTools,
                 (chunk: string) => {
@@ -928,8 +1081,47 @@ export class ProofStatePanel {
                 this.panel.webview.postMessage({ type: 'noDocument' });
                 return;
             }
-            if (this.currentDocumentUri?.toString() !== editor.document.uri.toString()) {
-                this.chatConversationId = undefined;
+            const newDocUri = editor.document.uri.toString();
+            const oldDocUri = this.currentDocumentUri?.toString();
+
+            if (oldDocUri && oldDocUri !== newDocUri) {
+                // Save old document's session state
+                this.documentChatStates.set(oldDocUri, {
+                    conversationHistory: this.conversationHistory,
+                    chatHtml: this.currentChatHtml,
+                    chatConversationId: this.chatConversationId,
+                    editHistory: this.editHistory,
+                });
+
+                // Restore state for new document, or start fresh if document is new to this session
+                const existingState = this.documentChatStates.get(newDocUri);
+                if (existingState) {
+                    this.conversationHistory = existingState.conversationHistory;
+                    this.currentChatHtml = existingState.chatHtml;
+                    this.chatConversationId = existingState.chatConversationId;
+                    this.editHistory = existingState.editHistory;
+                    this.panel.webview.postMessage({
+                        type: 'setChatLogContent',
+                        content: existingState.chatHtml,
+                    });
+                    this.chatPanel?.webview.postMessage({
+                        type: 'setChatLogContent',
+                        content: existingState.chatHtml,
+                    });
+                } else {
+                    this.conversationHistory = [];
+                    this.currentChatHtml = '';
+                    this.chatConversationId = undefined;
+                    this.editHistory = { edits: [] };
+                    this.panel.webview.postMessage({
+                        type: 'setChatLogContent',
+                        content: '',
+                    });
+                    this.chatPanel?.webview.postMessage({
+                        type: 'setChatLogContent',
+                        content: '',
+                    });
+                }
             }
             this.currentDocumentUri = editor.document.uri;
             const position = currentMatches
@@ -991,8 +1183,47 @@ export class ProofStatePanel {
                 return;
             }
 
-            if (this.currentDocumentUri?.toString() !== editor.document.uri.toString()) {
-                this.chatConversationId = undefined;
+            const newDocUri = editor.document.uri.toString();
+            const oldDocUri = this.currentDocumentUri?.toString();
+
+            if (oldDocUri && oldDocUri !== newDocUri) {
+                // Save old document's session state
+                this.documentChatStates.set(oldDocUri, {
+                    conversationHistory: this.conversationHistory,
+                    chatHtml: this.currentChatHtml,
+                    chatConversationId: this.chatConversationId,
+                    editHistory: this.editHistory,
+                });
+
+                // Restore state for new document, or start fresh if document is new to this session
+                const existingState = this.documentChatStates.get(newDocUri);
+                if (existingState) {
+                    this.conversationHistory = existingState.conversationHistory;
+                    this.currentChatHtml = existingState.chatHtml;
+                    this.chatConversationId = existingState.chatConversationId;
+                    this.editHistory = existingState.editHistory;
+                    this.panel.webview.postMessage({
+                        type: 'setChatLogContent',
+                        content: existingState.chatHtml,
+                    });
+                    this.chatPanel?.webview.postMessage({
+                        type: 'setChatLogContent',
+                        content: existingState.chatHtml,
+                    });
+                } else {
+                    this.conversationHistory = [];
+                    this.currentChatHtml = '';
+                    this.chatConversationId = undefined;
+                    this.editHistory = { edits: [] };
+                    this.panel.webview.postMessage({
+                        type: 'setChatLogContent',
+                        content: '',
+                    });
+                    this.chatPanel?.webview.postMessage({
+                        type: 'setChatLogContent',
+                        content: '',
+                    });
+                }
             }
             this.currentDocumentUri = editor.document.uri;
             // Use current cursor when Coq had focus; use saved position when we fell back to saved document (e.g. user clicked panel)
@@ -1061,6 +1292,9 @@ export class ProofStatePanel {
             this.extensionUri, 'node_modules', 'katex', 'dist', 'katex.min.css'
         ));
 
+        const info = this.getActiveModelInfo();
+        const initialModelLabel = `${info.model} (${info.provider})`;
+
         return `<!doctype html>
 <html lang="en">
 <head>
@@ -1082,7 +1316,12 @@ export class ProofStatePanel {
   <div class="panel-header">
     <div class="header-title-row">
       <h2>Output Directed Theorem Prover</h2>
-      <span id="activeProverLabel" class="active-prover-label" aria-live="polite">Prover: Coq</span>
+      <div class="header-badges">
+        <span id="activeProverLabel" class="header-badge active-prover-label" aria-live="polite">Prover: ${this.getActiveProver()}</span>
+        <button id="activeModelBadge" class="header-badge active-model-badge" type="button" title="Click to change LLM model or provider">
+          <span id="activeModelLabel">Model: ${initialModelLabel}</span>
+        </button>
+      </div>
     </div>
     <div class="header-controls">
       <div class="mode-toggle-group" role="group" aria-label="Proof state evaluation mode">
@@ -1103,6 +1342,7 @@ export class ProofStatePanel {
             <input id="chatInput" type="text" placeholder="Consult the assistant." />
             <button id="chatSend">Send</button>
             <button id="chatStop" type="button">Stop</button>
+            <button id="chatClear" type="button" title="Clear conversation history for this document">Clear</button>
             <button id="popOutChat" type="button">Pop out chat</button>
         </div>
     </div>

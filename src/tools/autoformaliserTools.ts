@@ -1,10 +1,11 @@
 import * as vscode from 'vscode';
 import { CoqLspClient } from '../lsp/coqLspClient';
 import { Uri } from '../utils/uri';
-import { ProofGoal, Hyp, PpString } from '../lsp/coqLspTypes';
+import { ProofGoal, Hyp, PpString, GoalsWithMessages } from '../lsp/coqLspTypes';
 import { AgentTool } from '../llm/chatBridge';
 import { parseCoqFile } from '../parser/parseCoqFile';
 import { hypToString, getTextBeforePosition } from '../core/exposedCompletionGeneratorUtils';
+import { serializeGoalsToPanelFormat } from './proverTools';
 
 /**
  * Tools for the autoformaliser agent that suggests edits to the proof state.
@@ -282,27 +283,112 @@ Use this to understand what tactics have been used, the structure of the current
             }
         },
         {
-            name: 'get_edit_history',
-            description: `Gets the history of edits made to the proof state. 
-Returns a list of all previous edits (lhs -> rhs pairs) that have been made.
-This helps understand what transformations have already been attempted.`,
-            execute: async (args: {}) => {
+            name: 'try_tactic',
+            description: `Tests a tactic in a shadow buffer at the current cursor position without modifying the editor.
+Returns the resulting proof state if the tactic succeeds, or the error message if the tactic fails.
+Use this to test tactics (e.g. "rewrite Nat.add_0_r.", "lia.", "ring.", "induction n.") before recommending them.`,
+            execute: async (args: { tactic: string }) => {
                 try {
-                    if (editHistory.edits.length === 0) {
-                        return 'No edits have been made yet.';
+                    const client = await clientReady;
+                    const docUri = Uri.fromVscodeUri(editor.document.uri);
+                    const version = editor.document.version;
+                    const position = editor.selection.active;
+                    const tactic = (args.tactic ?? '').trim();
+                    if (!tactic) return 'error: tactic argument is required.';
+
+                    const command = tactic.endsWith('.') ? tactic : tactic + '.';
+                    const content = editor.document.getText();
+                    const lines = content.split('\n');
+                    const offset = lines.slice(0, position.line).join('\n').length + position.character;
+                    const charBefore = offset > 0 ? content[offset - 1] : '';
+                    const needsLeadingSpace = charBefore !== '' && !/[\s\n\r]/.test(charBefore);
+                    const textToInsert = (needsLeadingSpace ? ' ' : '') + command + ' \n';
+
+                    const newContent = content.substring(0, offset) + textToInsert + content.substring(offset);
+                    const addLines = textToInsert.split('\n');
+                    const endLine = position.line + addLines.length - 1;
+                    const endChar = addLines.length === 1
+                        ? position.character + textToInsert.length
+                        : addLines[addLines.length - 1].length;
+                    const positionAfterInsert = new vscode.Position(endLine, endChar);
+
+                    let result = '';
+                    await client.withTextDocument(
+                        { uri: docUri, version: version + 1, content: newContent, isShadowContent: true },
+                        async () => {
+                            const goalsResult = await client.getGoalsAtPoint(
+                                positionAfterInsert as any,
+                                docUri as any,
+                                version + 1
+                            );
+                            if (!goalsResult.ok) {
+                                const err = goalsResult.val;
+                                const msg = err instanceof Error ? err.message : String(err);
+                                result = `error: Tactic "${command}" failed: ${msg}`;
+                                return;
+                            }
+                            const goalsWithMessages = goalsResult.val as GoalsWithMessages;
+                            const goals = goalsWithMessages.goals;
+                            if (!goals || goals.length === 0) {
+                                result = `success: Tactic "${command}" solved all remaining goals! (0 goals remaining)`;
+                            } else {
+                                result = `success: Tactic "${command}" succeeded. Resulting proof state (${goals.length} goal(s)):\n\n${serializeGoalsToPanelFormat(goals)}`;
+                            }
+                        }
+                    );
+                    return result || 'error: Tactic execution produced no result.';
+                } catch (e) {
+                    return `error: ${e instanceof Error ? e.message : String(e)}`;
+                }
+            }
+        },
+        {
+            name: 'search_theorems',
+            description: `Searches available lemmas and theorems in Coq/Rocq libraries matching a pattern or query.
+Examples: "(_ + 0 = _)", "(_ * 1 = _)", "Nat.add", "Nat.mul", "le_trans".
+Returns matching lemmas and their types.`,
+            execute: async (args: { query: string }) => {
+                try {
+                    const client = await clientReady;
+                    const docUri = Uri.fromVscodeUri(editor.document.uri);
+                    const version = editor.document.version;
+                    const position = editor.selection.active;
+                    let rawQuery = (args.query ?? '').trim();
+                    if (!rawQuery) return 'error: query argument is required.';
+
+                    let command = rawQuery;
+                    if (!command.toLowerCase().startsWith('search')) {
+                        command = `Search ${command}`;
+                    }
+                    if (!command.endsWith('.')) {
+                        command += '.';
                     }
 
-                    let result = `=== EDIT HISTORY (${editHistory.edits.length} edits) ===\n\n`;
-                    editHistory.edits.forEach((edit, index) => {
-                        result += `${index + 1}. "${edit.lhs}" -> "${edit.rhs}"\n`;
-                        if (edit.timestamp) {
-                            result += `   (at ${new Date(edit.timestamp).toLocaleTimeString()})\n`;
+                    let output = '';
+                    await client.withTextDocument({ uri: docUri, version }, async () => {
+                        const goalsResult = await client.getGoalsAtPoint(
+                            position as any,
+                            docUri as any,
+                            version,
+                            command
+                        );
+                        if (!goalsResult.ok) {
+                            const err = goalsResult.val;
+                            output = `Search error: ${err instanceof Error ? err.message : String(err)}`;
+                            return;
+                        }
+                        const goalsWithMessages = goalsResult.val as GoalsWithMessages;
+                        const messages = goalsWithMessages.messages || [];
+                        if (messages.length === 0) {
+                            output = `No theorems found matching query: ${rawQuery}`;
+                        } else {
+                            const top = messages.slice(0, 25);
+                            output = `Found ${messages.length} theorem(s) matching "${rawQuery}" (showing top ${top.length}):\n\n${top.join('\n')}`;
                         }
                     });
-
-                    return result;
+                    return output || `No theorems found matching "${rawQuery}".`;
                 } catch (e) {
-                    return `Error getting edit history: ${e instanceof Error ? e.message : String(e)}`;
+                    return `error: ${e instanceof Error ? e.message : String(e)}`;
                 }
             }
         },
@@ -369,7 +455,7 @@ One call = one edit.`,
                     if (!args.hypothesisName || args.suggestedValue === undefined || args.suggestedValue === null) {
                         return 'error: hypothesisName and suggestedValue are required.';
                     }
-                    const isAdd = args.originalValue === undefined || args.originalValue === null || String(args.originalValue).trim() === '';
+                    const isAdd = args.originalValue === undefined || args.originalValue === null || String(args.originalValue).trim() === '' || String(args.originalValue).trim() === 'undefined';
                     if (!isAdd && !args.originalValue) {
                         return 'error: originalValue is required for replace (use "" only for add new hypothesis).';
                     }
@@ -377,7 +463,7 @@ One call = one edit.`,
                     // Format the suggestion (goalIndex passed through for UI targeting). For "add", originalValue is "".
                     const suggestion: ProofStateEdit & { goalIndex?: number } = {
                         hypothesisName: args.hypothesisName,
-                        originalValue: (args.originalValue !== undefined && args.originalValue !== null) ? args.originalValue : '',
+                        originalValue: (args.originalValue !== undefined && args.originalValue !== null && String(args.originalValue) !== 'undefined') ? args.originalValue : '',
                         suggestedValue: args.suggestedValue,
                         reason: args.reason,
                         ...(args.goalIndex !== undefined && args.goalIndex !== null && { goalIndex: args.goalIndex }),
@@ -399,66 +485,6 @@ One call = one edit.`,
                     return result;
                 } catch (e) {
                     return `error: ${e instanceof Error ? e.message : String(e)}`;
-                }
-            }
-        },
-        {
-            name: 'get_goal_structure',
-            description: `Gets a structured representation of the current goal(s) including:
-- Goal type broken down by structure
-- Hypothesis dependencies
-- Type information
-Useful for understanding what needs to be proved and what transformations might help.`,
-            execute: async (args: {}) => {
-                try {
-                    const client = await clientReady;
-                    const docUri = Uri.fromVscodeUri(editor.document.uri);
-                    const version = editor.document.version;
-                    const position = editor.selection.active;
-
-                    let result: string = '';
-
-                    await client.withTextDocument({ uri: docUri, version }, async () => {
-                        const goalsResult = await client.getGoalsAtPoint(
-                            position as any,
-                            docUri as any,
-                            version
-                        );
-
-                        if (!goalsResult.ok) {
-                            result = `Error: ${goalsResult.val.message || 'Failed to get goals'}`;
-                            return;
-                        }
-
-                        const goals = goalsResult.val.goals;
-                        if (!goals || goals.length === 0) {
-                            result = 'No active goals at this position.';
-                            return;
-                        }
-
-                        result = '=== GOAL STRUCTURE ===\n\n';
-                        goals.forEach((goal: ProofGoal, index: number) => {
-                            result += `--- Goal ${index + 1} ---\n`;
-                            result += `Type: ${goal.ty}\n`;
-                            result += `Hypothesis Count: ${goal.hyps?.length || 0}\n`;
-                            
-                            if (goal.hyps && goal.hyps.length > 0) {
-                                result += '\nHypothesis Details:\n';
-                                goal.hyps.forEach((hyp: Hyp<PpString>, hypIdx: number) => {
-                                    result += `  [${hypIdx}] Names: ${hyp.names.join(', ')}\n`;
-                                    result += `      Type: ${hyp.ty}\n`;
-                                    if (hyp.def) {
-                                        result += `      Definition: ${hyp.def}\n`;
-                                    }
-                                });
-                            }
-                            result += '\n';
-                        });
-                    });
-
-                    return result || 'No goal structure available.';
-                } catch (e) {
-                    return `Error getting goal structure: ${e instanceof Error ? e.message : String(e)}`;
                 }
             }
         }

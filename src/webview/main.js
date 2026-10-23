@@ -5,7 +5,6 @@ import { schema as basicSchema, marks as basicMarks } from 'prosemirror-schema-b
 import { history, undo, redo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import { baseKeymap } from 'prosemirror-commands';
-import hljs from 'highlight.js/lib/core';
 import {
     initChatStreamUi,
     appendChatMessage,
@@ -14,19 +13,7 @@ import {
     finalizeChatStream,
     resetChatStream,
 } from './chatStreamUi.js'; 
-import coq from 'highlight.js/lib/languages/coq'; 
-
-hljs.registerLanguage('coq', (hljs) => {
-    const lang = coq(hljs);
-    const standardTypes = 'nat list bool string unit option sum prod Z Z0 positive N';
-    
-    if (lang.keywords && lang.keywords.built_in) {
-        lang.keywords.built_in += ' ' + standardTypes;
-    } else if (lang.keywords) {
-        lang.keywords.built_in = standardTypes;
-    }
-    return lang;
-});
+import { getHighlighter, tokenizeCode } from './syntaxHighlighter.js';
 
 import {
     addSuggestionMarks,
@@ -108,10 +95,7 @@ const nodes = {
         code: true,
         defining: true,
         toDOM() { 
-            return ['div', { 
-                class: 'hypothesis', 
-                style: 'margin: 0; white-space: pre-wrap; font-family: var(--vscode-editor-font-family);' 
-            }, 0]; 
+            return ['div', { class: 'hypothesis' }, 0]; 
         },
         parseDOM: [
             { tag: "div.hypothesis", priority: 60, preserveWhitespace: "full" },
@@ -124,10 +108,7 @@ const nodes = {
         code: true, 
         defining: true,
         toDOM() { 
-            return ['div', { 
-                class: 'goalType', 
-                style: 'margin: 0; white-space: pre-wrap; font-weight: bold; font-family: var(--vscode-editor-font-family);' 
-            }, 0]; 
+            return ['div', { class: 'goalType' }, 0]; 
         },
         parseDOM: [
             { tag: "div.goalType", priority: 60, preserveWhitespace: "full" },
@@ -174,45 +155,28 @@ function highlightPlugin() {
 
 function getHighlightDecorations(doc) {
     const decorations = [];
+    const lang = activeProverLabel === 'Lean' ? 'lean4' : 'rocq';
 
     doc.descendants((node, pos) => {
-        // Only highlight specific code blocks
+        // Only highlight hypothesis and goalType code blocks
         if (node.type.name === 'hypothesis' || node.type.name === 'goalType') {
             const textContent = node.textContent;
-            
-            // 1. Run highlight.js on the plain text
-            // value is the HTML string with <span> tags
-            const highlightedHtml = hljs.highlight(textContent, { language: 'coq' }).value;
+            if (!textContent) return;
 
-            // 2. Parse the HTML to find the ranges for each color
-            // We use a temporary DOM element to parse the hljs output
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = highlightedHtml;
-
-            let currentIndex = 0;
-            
-            // Helper to traverse the hljs DOM and create decorations
-            function traverse(domNode) {
-                if (domNode.nodeType === 3) { // Text node
-                    currentIndex += domNode.nodeValue.length;
-                } else if (domNode.nodeType === 1) { // Element node (span)
-                    const start = currentIndex;
-                    // Recursively handle children
-                    domNode.childNodes.forEach(traverse);
-                    const end = currentIndex;
-
-                    // If this was a syntax span, add a decoration
-                    if (domNode.tagName === 'SPAN' && domNode.className.startsWith('hljs-')) {
+            const tokens = tokenizeCode(textContent, lang);
+            if (tokens) {
+                for (let i = 0; i < tokens.length; i++) {
+                    const t = tokens[i];
+                    if (t.start < t.end) {
                         decorations.push(
-                            Decoration.inline(pos + 1 + start, pos + 1 + end, {
-                                class: domNode.className
+                            Decoration.inline(pos + 1 + t.start, pos + 1 + t.end, {
+                                style: `color: ${t.color};${t.fontStyle === 1 ? ' font-style: italic;' : ''}${t.fontStyle === 2 ? ' font-weight: bold;' : ''}`,
+                                class: 'syntax-token'
                             })
                         );
                     }
                 }
             }
-            
-            tempDiv.childNodes.forEach(traverse);
         }
     });
 
@@ -464,7 +428,7 @@ function suggestionNewValueDecorations(doc, schema) {
 const suggestionNewValuePlugin = new Plugin({
     state: {
         init(_, { doc }) { return suggestionNewValueDecorations(doc, schema); },
-        apply(tr, old, _o, state) { return tr.docChanged ? suggestionNewValueDecorations(state.doc, schema) : old; }
+        apply(tr, old, _o, state) { return (tr.docChanged || tr.steps.length > 0) ? suggestionNewValueDecorations(state.doc, schema) : old; }
     },
     props: {
         decorations(state) { return this.getState(state); }
@@ -557,6 +521,25 @@ const view = new EditorView(document.getElementById('editor'), {
     dispatchTransaction: withSuggestChanges(),
 });
 
+// Initialize Shiki highlighter and re-render decorations when ready
+getHighlighter().then(() => {
+    if (view) {
+        view.dispatch(view.state.tr);
+    }
+}).catch((err) => {
+    console.error('Highlighter initialization error:', err);
+});
+
+// Observe VS Code theme class changes on body to re-render token colors
+if (typeof MutationObserver !== 'undefined' && document.body) {
+    const themeObserver = new MutationObserver(() => {
+        if (view) {
+            view.dispatch(view.state.tr);
+        }
+    });
+    themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+}
+
 window.addEventListener('message', (event) => {
     const msg = event.data;
     if (msg && msg.type) updateWebviewStatus('Got: ' + msg.type);
@@ -566,6 +549,17 @@ window.addEventListener('message', (event) => {
         case 'getChatLogContent':
             vscode.postMessage({ type: 'chatLogContent', content: (document.getElementById('chatLog') || {}).innerHTML || '' });
             return;
+        case 'setChatLogContent': {
+            const chatLog = document.getElementById('chatLog');
+            if (chatLog && msg.content != null) {
+                chatLog.innerHTML = msg.content;
+                chatLog.scrollTop = chatLog.scrollHeight;
+                if (!msg.content) {
+                    resetChatStream();
+                }
+            }
+            return;
+        }
         case 'setChatVisible':
             const chatEl = document.getElementById('chat');
             if (chatEl) chatEl.style.display = msg.visible !== false ? '' : 'none';
@@ -573,7 +567,19 @@ window.addEventListener('message', (event) => {
         case 'activeProverChanged':
             activeProverLabel = msg.prover || 'Coq';
             updateActiveProverLabel();
+            if (view) {
+                view.dispatch(view.state.tr);
+            }
             return;
+        case 'activeModelChanged': {
+            const label = document.getElementById('activeModelLabel');
+            if (label) {
+                const provider = msg.provider || 'AI';
+                const model = msg.model || 'Default';
+                label.textContent = `Model: ${model} (${provider})`;
+            }
+            return;
+        }
         case 'setProofStateMode':
             setProofStateModeUi(msg.mode);
             return;
@@ -594,6 +600,7 @@ window.addEventListener('message', (event) => {
             return;
         case 'chatResponseDone':
             finalizeChatStream();
+            vscode.postMessage({ type: 'chatLogContent', content: (document.getElementById('chatLog') || {}).innerHTML || '' });
             return;
         case 'proverAgentStarted':
             updateWebviewStatus('Synthesizing proof…');
@@ -628,7 +635,7 @@ window.addEventListener('message', (event) => {
 });
 
 // Handle suggestions from the agent: show as a visible edit (strikethrough + suggested value) in the proof state panel.
-// Supports both REPLACE (originalValue set) and ADD NEW HYPOTHESIS (originalValue empty).
+// Supports both REPLACE (existing target) and ADD NEW HYPOTHESIS.
 function handleSuggestion(suggestion) {
     if (!suggestion || !suggestion.hypothesisName || suggestion.suggestedValue == null || suggestion.suggestedValue === '') {
         console.warn('Invalid suggestion received:', suggestion);
@@ -636,9 +643,34 @@ function handleSuggestion(suggestion) {
         return;
     }
 
-    const isAddHypothesis = suggestion.originalValue == null || String(suggestion.originalValue).trim() === '';
+    const hypName = (suggestion.hypothesisName || '').trim();
+    const origVal = (suggestion.originalValue != null && String(suggestion.originalValue).trim() !== '' && String(suggestion.originalValue).trim() !== 'undefined')
+        ? String(suggestion.originalValue).trim()
+        : '';
+    const isGoalTarget = ['goal', '⊢', '|-'].includes(hypName.toLowerCase()) || hypName === '⊢' || hypName === '|-';
+
     let state = view.state;
     let doc = state.doc;
+
+    // Check if the hypothesis already exists in the document
+    let existingHypPos = -1;
+    let existingHypNode = null;
+    if (!isGoalTarget && hypName) {
+        const hypPrefixRegex = new RegExp(`^${hypName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`, 'i');
+        doc.descendants((node, pos) => {
+            if (node.type.name === 'hypothesis') {
+                const text = node.textContent;
+                if (hypPrefixRegex.test(text)) {
+                    existingHypPos = pos;
+                    existingHypNode = node;
+                    return false;
+                }
+            }
+            return true;
+        });
+    }
+
+    const isAddHypothesis = !isGoalTarget && !origVal && existingHypPos === -1;
 
     if (isAddHypothesis) {
         const goalIndex = Math.max(1, suggestion.goalIndex || 1);
@@ -654,7 +686,7 @@ function handleSuggestion(suggestion) {
                         if (child.type.name === 'hyps') {
                             hypsNode = child;
                             hypsPos = pos + 1 + off;
-                            // End of hyps content (append here). resolve(hypsPos).end() uses current depth and would give goal end; use hyps node's content size.
+                            // End of hyps content (append here).
                             insertPos = hypsPos + 1 + child.content.size;
                             return false;
                         }
@@ -683,9 +715,17 @@ function handleSuggestion(suggestion) {
                 insertPos = node ? hypsPos + 1 + node.content.size : state.doc.resolve(hypsPos).end();
             }
         }
-        // Use insertion mark (green) for add-hypothesis so it matches user-added hypotheses; modification with empty previousValue would show a grey box.
+
+        // Format hypothesis text to include name if not already present
+        let hypContent = suggestion.suggestedValue.trim();
+        const hypPrefixRegex = new RegExp(`^${hypName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`, 'i');
+        if (!hypPrefixRegex.test(hypContent)) {
+            hypContent = `${hypName} : ${hypContent}`;
+        }
+
+        // Use insertion mark (green) for add-hypothesis so it matches user-added hypotheses
         const insertionMark = schema.marks.insertion.create({ id: suggestionId });
-        const textNode = schema.text(suggestion.suggestedValue, [insertionMark]);
+        const textNode = schema.text(hypContent, [insertionMark]);
         const hypothesisNode = schema.nodes.hypothesis.create(null, [textNode]);
         const tr = state.tr;
         tr.setMeta(suggestChangesKey, { skip: true });
@@ -701,29 +741,99 @@ function handleSuggestion(suggestion) {
             console.warn('Failed to insert add-hypothesis suggestion:', err);
             logToHost('error', 'Failed to insert add-hypothesis suggestion: ' + (err.message || String(err)));
         }
-        appendChatMessage(`Suggestion: Add hypothesis "${suggestion.hypothesisName} : ${suggestion.suggestedValue}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`, 'assistant');
+        appendChatMessage(`Suggestion: Add hypothesis "${hypContent}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`, 'assistant');
         return;
     }
 
     let foundPos = -1;
     let foundLength = 0;
-    doc.descendants((node, pos) => {
-        if (node.isText) {
-            const text = node.text;
-            const searchText = suggestion.originalValue;
-            const index = text.indexOf(searchText);
-            if (index !== -1 && foundPos === -1) {
-                foundPos = pos + index;
-                foundLength = searchText.length;
+    let actualPreviousValue = origVal;
+    let actualSuggestedValue = suggestion.suggestedValue;
+
+    // 1. Try finding exact originalValue if provided
+    if (origVal) {
+        doc.descendants((node, pos) => {
+            if (node.isText) {
+                const text = node.text;
+                const index = text.indexOf(origVal);
+                if (index !== -1 && foundPos === -1) {
+                    foundPos = pos + index;
+                    foundLength = origVal.length;
+                    return false;
+                }
+            }
+            return true;
+        });
+    }
+
+    // 2. If target is Goal and not found yet, target the goalType node
+    if (foundPos === -1 && isGoalTarget) {
+        const goalIndex = Math.max(1, suggestion.goalIndex || 1);
+        let goalCount = 0;
+        doc.descendants((node, pos) => {
+            if (node.type.name === 'goal') {
+                goalCount++;
+                if (goalCount === goalIndex) {
+                    node.forEach((child, off) => {
+                        if (child.type.name === 'goalType') {
+                            const goalTypePos = pos + 1 + off;
+                            child.forEach((textNode, textOff) => {
+                                if (textNode.isText && foundPos === -1) {
+                                    const rawText = textNode.text;
+                                    const textPos = goalTypePos + 1 + textOff;
+                                    if (rawText.startsWith('⊢ ') && !actualSuggestedValue.startsWith('⊢ ')) {
+                                        foundPos = textPos + 2;
+                                        foundLength = rawText.length - 2;
+                                        actualPreviousValue = rawText.slice(2);
+                                    } else {
+                                        foundPos = textPos;
+                                        foundLength = rawText.length;
+                                        actualPreviousValue = rawText;
+                                    }
+                                    return false;
+                                }
+                            });
+                            return false;
+                        }
+                    });
+                    return false;
+                }
+            }
+            return true;
+        });
+    }
+
+    // 3. If target is an existing hypothesis and not found yet, target that hypothesis node
+    if (foundPos === -1 && existingHypPos !== -1 && existingHypNode) {
+        existingHypNode.forEach((textNode, textOff) => {
+            if (textNode.isText && foundPos === -1) {
+                const rawText = textNode.text;
+                const textPos = existingHypPos + 1 + textOff;
+                const colonIndex = rawText.indexOf(':');
+                if (colonIndex !== -1 && !actualSuggestedValue.includes(':')) {
+                    const afterColon = colonIndex + 1;
+                    const leadingSpaces = rawText.slice(afterColon).match(/^\s*/)?.[0]?.length || 0;
+                    const startIdx = afterColon + leadingSpaces;
+                    foundPos = textPos + startIdx;
+                    foundLength = rawText.length - startIdx;
+                    actualPreviousValue = rawText.slice(startIdx);
+                } else {
+                    foundPos = textPos;
+                    foundLength = rawText.length;
+                    actualPreviousValue = rawText;
+                }
                 return false;
             }
-        }
-    });
+        });
+    }
 
     if (foundPos === -1) {
-        console.warn(`Could not find original value "${suggestion.originalValue}" in document`);
-        logToHost('warn', `Could not find original value "${suggestion.originalValue}" in document`);
-        appendChatMessage(`Suggestion: Replace "${suggestion.originalValue}" with "${suggestion.suggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`, 'assistant');
+        console.warn(`Could not find target to edit for suggestion:`, suggestion);
+        logToHost('warn', `Could not find target to edit for ${suggestion.hypothesisName}`);
+        const fallbackMsg = isGoalTarget
+            ? `Suggestion: Update goal to "${suggestion.suggestedValue}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`
+            : `Suggestion: Replace "${origVal || 'current value'}" with "${suggestion.suggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`;
+        appendChatMessage(fallbackMsg, 'assistant');
         return;
     }
 
@@ -738,13 +848,15 @@ function handleSuggestion(suggestion) {
     const modificationMark = schema.marks.modification.create({
         id: suggestionId,
         type: 'replace',
-        previousValue: suggestion.originalValue,
-        newValue: suggestion.suggestedValue
+        previousValue: actualPreviousValue,
+        newValue: actualSuggestedValue
     });
     tr.addMark(foundPos, foundPos + foundLength, modificationMark);
     view.dispatch(tr);
 
-    const suggestionMsg = `Suggestion: Replace "${suggestion.originalValue}" with "${suggestion.suggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`;
+    const suggestionMsg = isGoalTarget
+        ? `Suggestion: Update goal to "${actualSuggestedValue}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`
+        : `Suggestion: Replace "${actualPreviousValue}" with "${actualSuggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`;
     appendChatMessage(suggestionMsg, 'assistant');
 }
 
@@ -776,6 +888,7 @@ if (chatSend) {
 
         resetChatStream();
         vscode.postMessage({ command: 'chat', prompt });
+        vscode.postMessage({ type: 'chatLogContent', content: (document.getElementById('chatLog') || {}).innerHTML || '' });
     });
 }
 
@@ -795,10 +908,24 @@ if (popOutChatBtn) {
     });
 }
 
+const activeModelBadge = document.getElementById('activeModelBadge');
+if (activeModelBadge) {
+    activeModelBadge.addEventListener('click', () => {
+        vscode.postMessage({ command: 'changeModel' });
+    });
+}
+
 const chatStopBtn = document.getElementById('chatStop');
 if (chatStopBtn) {
     chatStopBtn.addEventListener('click', () => {
         vscode.postMessage({ command: 'stopGeneration' });
+    });
+}
+
+const chatClearBtn = document.getElementById('chatClear');
+if (chatClearBtn) {
+    chatClearBtn.addEventListener('click', () => {
+        vscode.postMessage({ command: 'clearChat' });
     });
 }
 

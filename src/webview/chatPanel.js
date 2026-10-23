@@ -15,6 +15,7 @@ const vscode = typeof acquireVsCodeApi !== 'undefined' ? acquireVsCodeApi() : nu
 const chatInput = document.getElementById('chatInput');
 const chatSend = document.getElementById('chatSend');
 const chatStop = document.getElementById('chatStop');
+const chatClear = document.getElementById('chatClear');
 const synthesizingIndicator = document.getElementById('synthesizingIndicator');
 const popBackBtn = document.getElementById('popBackChat');
 
@@ -38,6 +39,7 @@ if (chatSend && chatInput && vscode) {
         chatInput.value = '';
         resetChatStream();
         vscode.postMessage({ command: 'chat', prompt });
+        vscode.postMessage({ type: 'chatLogContent', content: (document.getElementById('chatLog') || {}).innerHTML || '' });
     });
 }
 
@@ -56,9 +58,22 @@ if (popBackBtn && vscode) {
     });
 }
 
+const activeModelBadgeChat = document.getElementById('activeModelBadgeChat');
+if (activeModelBadgeChat && vscode) {
+    activeModelBadgeChat.addEventListener('click', () => {
+        vscode.postMessage({ command: 'changeModel' });
+    });
+}
+
 if (chatStop && vscode) {
     chatStop.addEventListener('click', () => {
         vscode.postMessage({ command: 'stopGeneration' });
+    });
+}
+
+if (chatClear && vscode) {
+    chatClear.addEventListener('click', () => {
+        vscode.postMessage({ command: 'clearChat' });
     });
 }
 
@@ -67,11 +82,24 @@ if (vscode) {
         const msg = event.data;
         if (!msg || !msg.type) return;
         switch (msg.type) {
-            case 'initialChatLogContent': {
+            case 'initialChatLogContent':
+            case 'setChatLogContent': {
                 const chatLog = document.getElementById('chatLog');
                 if (chatLog && msg.content != null) {
                     chatLog.innerHTML = msg.content;
                     chatLog.scrollTop = chatLog.scrollHeight;
+                    if (!msg.content) {
+                        resetChatStream();
+                    }
+                }
+                break;
+            }
+            case 'activeModelChanged': {
+                const label = document.getElementById('activeModelLabelChat');
+                if (label) {
+                    const provider = msg.provider || 'AI';
+                    const model = msg.model || 'Default';
+                    label.textContent = `Model: ${model} (${provider})`;
                 }
                 break;
             }
@@ -83,6 +111,7 @@ if (vscode) {
                 break;
             case 'chatResponseDone':
                 finalizeChatStream();
+                vscode.postMessage({ type: 'chatLogContent', content: (document.getElementById('chatLog') || {}).innerHTML || '' });
                 break;
             case 'suggestionNotice':
             case 'suggestion': {
@@ -90,11 +119,17 @@ if (vscode) {
                 if (!s || s.suggestedValue == null || s.suggestedValue === '') {
                     break;
                 }
-                const isAdd =
-                    s.originalValue == null || String(s.originalValue).trim() === '';
+                const hypName = (s.hypothesisName || '').trim();
+                const isGoal = ['goal', '⊢', '|-'].includes(hypName.toLowerCase()) || hypName === '⊢' || hypName === '|-';
+                const origVal = (s.originalValue != null && String(s.originalValue).trim() !== '' && String(s.originalValue).trim() !== 'undefined')
+                    ? String(s.originalValue).trim()
+                    : '';
+                const isAdd = !isGoal && origVal === '';
                 const text = isAdd
                     ? `Suggestion: Add hypothesis "${s.hypothesisName} : ${s.suggestedValue}"${s.reason ? ` (${s.reason})` : ''}`
-                    : `Suggestion: Replace "${s.originalValue}" with "${s.suggestedValue}" in hypothesis "${s.hypothesisName || 'Goal'}"${s.reason ? ` (${s.reason})` : ''}`;
+                    : (isGoal && !origVal)
+                        ? `Suggestion: Update goal to "${s.suggestedValue}"${s.reason ? ` (${s.reason})` : ''}`
+                        : `Suggestion: Replace "${origVal || 'current value'}" with "${s.suggestedValue}" in hypothesis "${s.hypothesisName || 'Goal'}"${s.reason ? ` (${s.reason})` : ''}`;
                 appendChatMessage(text, 'assistant');
                 break;
             }

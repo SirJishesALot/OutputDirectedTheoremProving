@@ -1,1568 +1,10 @@
 "use strict";
 (() => {
-  var __create = Object.create;
   var __defProp = Object.defineProperty;
-  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-  var __getOwnPropNames = Object.getOwnPropertyNames;
-  var __getProtoOf = Object.getPrototypeOf;
-  var __hasOwnProp = Object.prototype.hasOwnProperty;
-  var __commonJS = (cb, mod) => function __require() {
-    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  var __export = (target, all2) => {
+    for (var name in all2)
+      __defProp(target, name, { get: all2[name], enumerable: true });
   };
-  var __copyProps = (to, from2, except, desc) => {
-    if (from2 && typeof from2 === "object" || typeof from2 === "function") {
-      for (let key of __getOwnPropNames(from2))
-        if (!__hasOwnProp.call(to, key) && key !== except)
-          __defProp(to, key, { get: () => from2[key], enumerable: !(desc = __getOwnPropDesc(from2, key)) || desc.enumerable });
-    }
-    return to;
-  };
-  var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-    // If the importer is in node compatibility mode or this is not an ESM
-    // file that has been converted to a CommonJS file using a Babel-
-    // compatible transform (i.e. "__esModule" has not been set), then set
-    // "default" to the CommonJS "module.exports" for node compatibility.
-    isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-    mod
-  ));
-
-  // node_modules/highlight.js/lib/core.js
-  var require_core = __commonJS({
-    "node_modules/highlight.js/lib/core.js"(exports, module) {
-      function deepFreeze(obj) {
-        if (obj instanceof Map) {
-          obj.clear = obj.delete = obj.set = function() {
-            throw new Error("map is read-only");
-          };
-        } else if (obj instanceof Set) {
-          obj.add = obj.clear = obj.delete = function() {
-            throw new Error("set is read-only");
-          };
-        }
-        Object.freeze(obj);
-        Object.getOwnPropertyNames(obj).forEach((name) => {
-          const prop = obj[name];
-          const type = typeof prop;
-          if ((type === "object" || type === "function") && !Object.isFrozen(prop)) {
-            deepFreeze(prop);
-          }
-        });
-        return obj;
-      }
-      var Response = class {
-        /**
-         * @param {CompiledMode} mode
-         */
-        constructor(mode) {
-          if (mode.data === void 0) mode.data = {};
-          this.data = mode.data;
-          this.isMatchIgnored = false;
-        }
-        ignoreMatch() {
-          this.isMatchIgnored = true;
-        }
-      };
-      function escapeHTML(value) {
-        return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#x27;");
-      }
-      function inherit$1(original, ...objects) {
-        const result = /* @__PURE__ */ Object.create(null);
-        for (const key in original) {
-          result[key] = original[key];
-        }
-        objects.forEach(function(obj) {
-          for (const key in obj) {
-            result[key] = obj[key];
-          }
-        });
-        return (
-          /** @type {T} */
-          result
-        );
-      }
-      var SPAN_CLOSE = "</span>";
-      var emitsWrappingTags = (node) => {
-        return !!node.scope;
-      };
-      var scopeToCSSClass = (name, { prefix }) => {
-        if (name.startsWith("language:")) {
-          return name.replace("language:", "language-");
-        }
-        if (name.includes(".")) {
-          const pieces = name.split(".");
-          return [
-            `${prefix}${pieces.shift()}`,
-            ...pieces.map((x2, i) => `${x2}${"_".repeat(i + 1)}`)
-          ].join(" ");
-        }
-        return `${prefix}${name}`;
-      };
-      var HTMLRenderer = class {
-        /**
-         * Creates a new HTMLRenderer
-         *
-         * @param {Tree} parseTree - the parse tree (must support `walk` API)
-         * @param {{classPrefix: string}} options
-         */
-        constructor(parseTree3, options) {
-          this.buffer = "";
-          this.classPrefix = options.classPrefix;
-          parseTree3.walk(this);
-        }
-        /**
-         * Adds texts to the output stream
-         *
-         * @param {string} text */
-        addText(text2) {
-          this.buffer += escapeHTML(text2);
-        }
-        /**
-         * Adds a node open to the output stream (if needed)
-         *
-         * @param {Node} node */
-        openNode(node) {
-          if (!emitsWrappingTags(node)) return;
-          const className = scopeToCSSClass(
-            node.scope,
-            { prefix: this.classPrefix }
-          );
-          this.span(className);
-        }
-        /**
-         * Adds a node close to the output stream (if needed)
-         *
-         * @param {Node} node */
-        closeNode(node) {
-          if (!emitsWrappingTags(node)) return;
-          this.buffer += SPAN_CLOSE;
-        }
-        /**
-         * returns the accumulated buffer
-        */
-        value() {
-          return this.buffer;
-        }
-        // helpers
-        /**
-         * Builds a span element
-         *
-         * @param {string} className */
-        span(className) {
-          this.buffer += `<span class="${className}">`;
-        }
-      };
-      var newNode = (opts = {}) => {
-        const result = { children: [] };
-        Object.assign(result, opts);
-        return result;
-      };
-      var TokenTree = class _TokenTree {
-        constructor() {
-          this.rootNode = newNode();
-          this.stack = [this.rootNode];
-        }
-        get top() {
-          return this.stack[this.stack.length - 1];
-        }
-        get root() {
-          return this.rootNode;
-        }
-        /** @param {Node} node */
-        add(node) {
-          this.top.children.push(node);
-        }
-        /** @param {string} scope */
-        openNode(scope) {
-          const node = newNode({ scope });
-          this.add(node);
-          this.stack.push(node);
-        }
-        closeNode() {
-          if (this.stack.length > 1) {
-            return this.stack.pop();
-          }
-          return void 0;
-        }
-        closeAllNodes() {
-          while (this.closeNode()) ;
-        }
-        toJSON() {
-          return JSON.stringify(this.rootNode, null, 4);
-        }
-        /**
-         * @typedef { import("./html_renderer").Renderer } Renderer
-         * @param {Renderer} builder
-         */
-        walk(builder) {
-          return this.constructor._walk(builder, this.rootNode);
-        }
-        /**
-         * @param {Renderer} builder
-         * @param {Node} node
-         */
-        static _walk(builder, node) {
-          if (typeof node === "string") {
-            builder.addText(node);
-          } else if (node.children) {
-            builder.openNode(node);
-            node.children.forEach((child) => this._walk(builder, child));
-            builder.closeNode(node);
-          }
-          return builder;
-        }
-        /**
-         * @param {Node} node
-         */
-        static _collapse(node) {
-          if (typeof node === "string") return;
-          if (!node.children) return;
-          if (node.children.every((el) => typeof el === "string")) {
-            node.children = [node.children.join("")];
-          } else {
-            node.children.forEach((child) => {
-              _TokenTree._collapse(child);
-            });
-          }
-        }
-      };
-      var TokenTreeEmitter = class extends TokenTree {
-        /**
-         * @param {*} options
-         */
-        constructor(options) {
-          super();
-          this.options = options;
-        }
-        /**
-         * @param {string} text
-         */
-        addText(text2) {
-          if (text2 === "") {
-            return;
-          }
-          this.add(text2);
-        }
-        /** @param {string} scope */
-        startScope(scope) {
-          this.openNode(scope);
-        }
-        endScope() {
-          this.closeNode();
-        }
-        /**
-         * @param {Emitter & {root: DataNode}} emitter
-         * @param {string} name
-         */
-        __addSublanguage(emitter, name) {
-          const node = emitter.root;
-          if (name) node.scope = `language:${name}`;
-          this.add(node);
-        }
-        toHTML() {
-          const renderer = new HTMLRenderer(this, this.options);
-          return renderer.value();
-        }
-        finalize() {
-          this.closeAllNodes();
-          return true;
-        }
-      };
-      function source(re2) {
-        if (!re2) return null;
-        if (typeof re2 === "string") return re2;
-        return re2.source;
-      }
-      function lookahead(re2) {
-        return concat("(?=", re2, ")");
-      }
-      function anyNumberOfTimes(re2) {
-        return concat("(?:", re2, ")*");
-      }
-      function optional(re2) {
-        return concat("(?:", re2, ")?");
-      }
-      function concat(...args) {
-        const joined = args.map((x2) => source(x2)).join("");
-        return joined;
-      }
-      function stripOptionsFromArgs(args) {
-        const opts = args[args.length - 1];
-        if (typeof opts === "object" && opts.constructor === Object) {
-          args.splice(args.length - 1, 1);
-          return opts;
-        } else {
-          return {};
-        }
-      }
-      function either(...args) {
-        const opts = stripOptionsFromArgs(args);
-        const joined = "(" + (opts.capture ? "" : "?:") + args.map((x2) => source(x2)).join("|") + ")";
-        return joined;
-      }
-      function countMatchGroups(re2) {
-        return new RegExp(re2.toString() + "|").exec("").length - 1;
-      }
-      function startsWith(re2, lexeme) {
-        const match = re2 && re2.exec(lexeme);
-        return match && match.index === 0;
-      }
-      var BACKREF_RE = /\[(?:[^\\\]]|\\.)*\]|\(\??|\\([1-9][0-9]*)|\\./;
-      function _rewriteBackreferences(regexps, { joinWith }) {
-        let numCaptures = 0;
-        return regexps.map((regex) => {
-          numCaptures += 1;
-          const offset = numCaptures;
-          let re2 = source(regex);
-          let out = "";
-          while (re2.length > 0) {
-            const match = BACKREF_RE.exec(re2);
-            if (!match) {
-              out += re2;
-              break;
-            }
-            out += re2.substring(0, match.index);
-            re2 = re2.substring(match.index + match[0].length);
-            if (match[0][0] === "\\" && match[1]) {
-              out += "\\" + String(Number(match[1]) + offset);
-            } else {
-              out += match[0];
-              if (match[0] === "(") {
-                numCaptures++;
-              }
-            }
-          }
-          return out;
-        }).map((re2) => `(${re2})`).join(joinWith);
-      }
-      var MATCH_NOTHING_RE = /\b\B/;
-      var IDENT_RE = "[a-zA-Z]\\w*";
-      var UNDERSCORE_IDENT_RE = "[a-zA-Z_]\\w*";
-      var NUMBER_RE = "\\b\\d+(\\.\\d+)?";
-      var C_NUMBER_RE = "(-?)(\\b0[xX][a-fA-F0-9]+|(\\b\\d+(\\.\\d*)?|\\.\\d+)([eE][-+]?\\d+)?)";
-      var BINARY_NUMBER_RE = "\\b(0b[01]+)";
-      var RE_STARTERS_RE = "!|!=|!==|%|%=|&|&&|&=|\\*|\\*=|\\+|\\+=|,|-|-=|/=|/|:|;|<<|<<=|<=|<|===|==|=|>>>=|>>=|>=|>>>|>>|>|\\?|\\[|\\{|\\(|\\^|\\^=|\\||\\|=|\\|\\||~";
-      var SHEBANG = (opts = {}) => {
-        const beginShebang = /^#![ ]*\//;
-        if (opts.binary) {
-          opts.begin = concat(
-            beginShebang,
-            /.*\b/,
-            opts.binary,
-            /\b.*/
-          );
-        }
-        return inherit$1({
-          scope: "meta",
-          begin: beginShebang,
-          end: /$/,
-          relevance: 0,
-          /** @type {ModeCallback} */
-          "on:begin": (m2, resp) => {
-            if (m2.index !== 0) resp.ignoreMatch();
-          }
-        }, opts);
-      };
-      var BACKSLASH_ESCAPE = {
-        begin: "\\\\[\\s\\S]",
-        relevance: 0
-      };
-      var APOS_STRING_MODE = {
-        scope: "string",
-        begin: "'",
-        end: "'",
-        illegal: "\\n",
-        contains: [BACKSLASH_ESCAPE]
-      };
-      var QUOTE_STRING_MODE = {
-        scope: "string",
-        begin: '"',
-        end: '"',
-        illegal: "\\n",
-        contains: [BACKSLASH_ESCAPE]
-      };
-      var PHRASAL_WORDS_MODE = {
-        begin: /\b(a|an|the|are|I'm|isn't|don't|doesn't|won't|but|just|should|pretty|simply|enough|gonna|going|wtf|so|such|will|you|your|they|like|more)\b/
-      };
-      var COMMENT = function(begin, end, modeOptions = {}) {
-        const mode = inherit$1(
-          {
-            scope: "comment",
-            begin,
-            end,
-            contains: []
-          },
-          modeOptions
-        );
-        mode.contains.push({
-          scope: "doctag",
-          // hack to avoid the space from being included. the space is necessary to
-          // match here to prevent the plain text rule below from gobbling up doctags
-          begin: "[ ]*(?=(TODO|FIXME|NOTE|BUG|OPTIMIZE|HACK|XXX):)",
-          end: /(TODO|FIXME|NOTE|BUG|OPTIMIZE|HACK|XXX):/,
-          excludeBegin: true,
-          relevance: 0
-        });
-        const ENGLISH_WORD = either(
-          // list of common 1 and 2 letter words in English
-          "I",
-          "a",
-          "is",
-          "so",
-          "us",
-          "to",
-          "at",
-          "if",
-          "in",
-          "it",
-          "on",
-          // note: this is not an exhaustive list of contractions, just popular ones
-          /[A-Za-z]+['](d|ve|re|ll|t|s|n)/,
-          // contractions - can't we'd they're let's, etc
-          /[A-Za-z]+[-][a-z]+/,
-          // `no-way`, etc.
-          /[A-Za-z][a-z]{2,}/
-          // allow capitalized words at beginning of sentences
-        );
-        mode.contains.push(
-          {
-            // TODO: how to include ", (, ) without breaking grammars that use these for
-            // comment delimiters?
-            // begin: /[ ]+([()"]?([A-Za-z'-]{3,}|is|a|I|so|us|[tT][oO]|at|if|in|it|on)[.]?[()":]?([.][ ]|[ ]|\))){3}/
-            // ---
-            // this tries to find sequences of 3 english words in a row (without any
-            // "programming" type syntax) this gives us a strong signal that we've
-            // TRULY found a comment - vs perhaps scanning with the wrong language.
-            // It's possible to find something that LOOKS like the start of the
-            // comment - but then if there is no readable text - good chance it is a
-            // false match and not a comment.
-            //
-            // for a visual example please see:
-            // https://github.com/highlightjs/highlight.js/issues/2827
-            begin: concat(
-              /[ ]+/,
-              // necessary to prevent us gobbling up doctags like /* @author Bob Mcgill */
-              "(",
-              ENGLISH_WORD,
-              /[.]?[:]?([.][ ]|[ ])/,
-              "){3}"
-            )
-            // look for 3 words in a row
-          }
-        );
-        return mode;
-      };
-      var C_LINE_COMMENT_MODE = COMMENT("//", "$");
-      var C_BLOCK_COMMENT_MODE = COMMENT("/\\*", "\\*/");
-      var HASH_COMMENT_MODE = COMMENT("#", "$");
-      var NUMBER_MODE = {
-        scope: "number",
-        begin: NUMBER_RE,
-        relevance: 0
-      };
-      var C_NUMBER_MODE = {
-        scope: "number",
-        begin: C_NUMBER_RE,
-        relevance: 0
-      };
-      var BINARY_NUMBER_MODE = {
-        scope: "number",
-        begin: BINARY_NUMBER_RE,
-        relevance: 0
-      };
-      var REGEXP_MODE = {
-        scope: "regexp",
-        begin: /\/(?=[^/\n]*\/)/,
-        end: /\/[gimuy]*/,
-        contains: [
-          BACKSLASH_ESCAPE,
-          {
-            begin: /\[/,
-            end: /\]/,
-            relevance: 0,
-            contains: [BACKSLASH_ESCAPE]
-          }
-        ]
-      };
-      var TITLE_MODE = {
-        scope: "title",
-        begin: IDENT_RE,
-        relevance: 0
-      };
-      var UNDERSCORE_TITLE_MODE = {
-        scope: "title",
-        begin: UNDERSCORE_IDENT_RE,
-        relevance: 0
-      };
-      var METHOD_GUARD = {
-        // excludes method names from keyword processing
-        begin: "\\.\\s*" + UNDERSCORE_IDENT_RE,
-        relevance: 0
-      };
-      var END_SAME_AS_BEGIN = function(mode) {
-        return Object.assign(
-          mode,
-          {
-            /** @type {ModeCallback} */
-            "on:begin": (m2, resp) => {
-              resp.data._beginMatch = m2[1];
-            },
-            /** @type {ModeCallback} */
-            "on:end": (m2, resp) => {
-              if (resp.data._beginMatch !== m2[1]) resp.ignoreMatch();
-            }
-          }
-        );
-      };
-      var MODES = /* @__PURE__ */ Object.freeze({
-        __proto__: null,
-        APOS_STRING_MODE,
-        BACKSLASH_ESCAPE,
-        BINARY_NUMBER_MODE,
-        BINARY_NUMBER_RE,
-        COMMENT,
-        C_BLOCK_COMMENT_MODE,
-        C_LINE_COMMENT_MODE,
-        C_NUMBER_MODE,
-        C_NUMBER_RE,
-        END_SAME_AS_BEGIN,
-        HASH_COMMENT_MODE,
-        IDENT_RE,
-        MATCH_NOTHING_RE,
-        METHOD_GUARD,
-        NUMBER_MODE,
-        NUMBER_RE,
-        PHRASAL_WORDS_MODE,
-        QUOTE_STRING_MODE,
-        REGEXP_MODE,
-        RE_STARTERS_RE,
-        SHEBANG,
-        TITLE_MODE,
-        UNDERSCORE_IDENT_RE,
-        UNDERSCORE_TITLE_MODE
-      });
-      function skipIfHasPrecedingDot(match, response) {
-        const before = match.input[match.index - 1];
-        if (before === ".") {
-          response.ignoreMatch();
-        }
-      }
-      function scopeClassName(mode, _parent) {
-        if (mode.className !== void 0) {
-          mode.scope = mode.className;
-          delete mode.className;
-        }
-      }
-      function beginKeywords(mode, parent) {
-        if (!parent) return;
-        if (!mode.beginKeywords) return;
-        mode.begin = "\\b(" + mode.beginKeywords.split(" ").join("|") + ")(?!\\.)(?=\\b|\\s)";
-        mode.__beforeBegin = skipIfHasPrecedingDot;
-        mode.keywords = mode.keywords || mode.beginKeywords;
-        delete mode.beginKeywords;
-        if (mode.relevance === void 0) mode.relevance = 0;
-      }
-      function compileIllegal(mode, _parent) {
-        if (!Array.isArray(mode.illegal)) return;
-        mode.illegal = either(...mode.illegal);
-      }
-      function compileMatch(mode, _parent) {
-        if (!mode.match) return;
-        if (mode.begin || mode.end) throw new Error("begin & end are not supported with match");
-        mode.begin = mode.match;
-        delete mode.match;
-      }
-      function compileRelevance(mode, _parent) {
-        if (mode.relevance === void 0) mode.relevance = 1;
-      }
-      var beforeMatchExt = (mode, parent) => {
-        if (!mode.beforeMatch) return;
-        if (mode.starts) throw new Error("beforeMatch cannot be used with starts");
-        const originalMode = Object.assign({}, mode);
-        Object.keys(mode).forEach((key) => {
-          delete mode[key];
-        });
-        mode.keywords = originalMode.keywords;
-        mode.begin = concat(originalMode.beforeMatch, lookahead(originalMode.begin));
-        mode.starts = {
-          relevance: 0,
-          contains: [
-            Object.assign(originalMode, { endsParent: true })
-          ]
-        };
-        mode.relevance = 0;
-        delete originalMode.beforeMatch;
-      };
-      var COMMON_KEYWORDS = [
-        "of",
-        "and",
-        "for",
-        "in",
-        "not",
-        "or",
-        "if",
-        "then",
-        "parent",
-        // common variable name
-        "list",
-        // common variable name
-        "value"
-        // common variable name
-      ];
-      var DEFAULT_KEYWORD_SCOPE = "keyword";
-      function compileKeywords(rawKeywords, caseInsensitive, scopeName = DEFAULT_KEYWORD_SCOPE) {
-        const compiledKeywords = /* @__PURE__ */ Object.create(null);
-        if (typeof rawKeywords === "string") {
-          compileList(scopeName, rawKeywords.split(" "));
-        } else if (Array.isArray(rawKeywords)) {
-          compileList(scopeName, rawKeywords);
-        } else {
-          Object.keys(rawKeywords).forEach(function(scopeName2) {
-            Object.assign(
-              compiledKeywords,
-              compileKeywords(rawKeywords[scopeName2], caseInsensitive, scopeName2)
-            );
-          });
-        }
-        return compiledKeywords;
-        function compileList(scopeName2, keywordList) {
-          if (caseInsensitive) {
-            keywordList = keywordList.map((x2) => x2.toLowerCase());
-          }
-          keywordList.forEach(function(keyword) {
-            const pair = keyword.split("|");
-            compiledKeywords[pair[0]] = [scopeName2, scoreForKeyword(pair[0], pair[1])];
-          });
-        }
-      }
-      function scoreForKeyword(keyword, providedScore) {
-        if (providedScore) {
-          return Number(providedScore);
-        }
-        return commonKeyword(keyword) ? 0 : 1;
-      }
-      function commonKeyword(keyword) {
-        return COMMON_KEYWORDS.includes(keyword.toLowerCase());
-      }
-      var seenDeprecations = {};
-      var error = (message) => {
-        console.error(message);
-      };
-      var warn = (message, ...args) => {
-        console.log(`WARN: ${message}`, ...args);
-      };
-      var deprecated = (version3, message) => {
-        if (seenDeprecations[`${version3}/${message}`]) return;
-        console.log(`Deprecated as of ${version3}. ${message}`);
-        seenDeprecations[`${version3}/${message}`] = true;
-      };
-      var MultiClassError = new Error();
-      function remapScopeNames(mode, regexes, { key }) {
-        let offset = 0;
-        const scopeNames = mode[key];
-        const emit = {};
-        const positions = {};
-        for (let i = 1; i <= regexes.length; i++) {
-          positions[i + offset] = scopeNames[i];
-          emit[i + offset] = true;
-          offset += countMatchGroups(regexes[i - 1]);
-        }
-        mode[key] = positions;
-        mode[key]._emit = emit;
-        mode[key]._multi = true;
-      }
-      function beginMultiClass(mode) {
-        if (!Array.isArray(mode.begin)) return;
-        if (mode.skip || mode.excludeBegin || mode.returnBegin) {
-          error("skip, excludeBegin, returnBegin not compatible with beginScope: {}");
-          throw MultiClassError;
-        }
-        if (typeof mode.beginScope !== "object" || mode.beginScope === null) {
-          error("beginScope must be object");
-          throw MultiClassError;
-        }
-        remapScopeNames(mode, mode.begin, { key: "beginScope" });
-        mode.begin = _rewriteBackreferences(mode.begin, { joinWith: "" });
-      }
-      function endMultiClass(mode) {
-        if (!Array.isArray(mode.end)) return;
-        if (mode.skip || mode.excludeEnd || mode.returnEnd) {
-          error("skip, excludeEnd, returnEnd not compatible with endScope: {}");
-          throw MultiClassError;
-        }
-        if (typeof mode.endScope !== "object" || mode.endScope === null) {
-          error("endScope must be object");
-          throw MultiClassError;
-        }
-        remapScopeNames(mode, mode.end, { key: "endScope" });
-        mode.end = _rewriteBackreferences(mode.end, { joinWith: "" });
-      }
-      function scopeSugar(mode) {
-        if (mode.scope && typeof mode.scope === "object" && mode.scope !== null) {
-          mode.beginScope = mode.scope;
-          delete mode.scope;
-        }
-      }
-      function MultiClass(mode) {
-        scopeSugar(mode);
-        if (typeof mode.beginScope === "string") {
-          mode.beginScope = { _wrap: mode.beginScope };
-        }
-        if (typeof mode.endScope === "string") {
-          mode.endScope = { _wrap: mode.endScope };
-        }
-        beginMultiClass(mode);
-        endMultiClass(mode);
-      }
-      function compileLanguage(language) {
-        function langRe(value, global) {
-          return new RegExp(
-            source(value),
-            "m" + (language.case_insensitive ? "i" : "") + (language.unicodeRegex ? "u" : "") + (global ? "g" : "")
-          );
-        }
-        class MultiRegex {
-          constructor() {
-            this.matchIndexes = {};
-            this.regexes = [];
-            this.matchAt = 1;
-            this.position = 0;
-          }
-          // @ts-ignore
-          addRule(re2, opts) {
-            opts.position = this.position++;
-            this.matchIndexes[this.matchAt] = opts;
-            this.regexes.push([opts, re2]);
-            this.matchAt += countMatchGroups(re2) + 1;
-          }
-          compile() {
-            if (this.regexes.length === 0) {
-              this.exec = () => null;
-            }
-            const terminators = this.regexes.map((el) => el[1]);
-            this.matcherRe = langRe(_rewriteBackreferences(terminators, { joinWith: "|" }), true);
-            this.lastIndex = 0;
-          }
-          /** @param {string} s */
-          exec(s) {
-            this.matcherRe.lastIndex = this.lastIndex;
-            const match = this.matcherRe.exec(s);
-            if (!match) {
-              return null;
-            }
-            const i = match.findIndex((el, i2) => i2 > 0 && el !== void 0);
-            const matchData = this.matchIndexes[i];
-            match.splice(0, i);
-            return Object.assign(match, matchData);
-          }
-        }
-        class ResumableMultiRegex {
-          constructor() {
-            this.rules = [];
-            this.multiRegexes = [];
-            this.count = 0;
-            this.lastIndex = 0;
-            this.regexIndex = 0;
-          }
-          // @ts-ignore
-          getMatcher(index) {
-            if (this.multiRegexes[index]) return this.multiRegexes[index];
-            const matcher = new MultiRegex();
-            this.rules.slice(index).forEach(([re2, opts]) => matcher.addRule(re2, opts));
-            matcher.compile();
-            this.multiRegexes[index] = matcher;
-            return matcher;
-          }
-          resumingScanAtSamePosition() {
-            return this.regexIndex !== 0;
-          }
-          considerAll() {
-            this.regexIndex = 0;
-          }
-          // @ts-ignore
-          addRule(re2, opts) {
-            this.rules.push([re2, opts]);
-            if (opts.type === "begin") this.count++;
-          }
-          /** @param {string} s */
-          exec(s) {
-            const m2 = this.getMatcher(this.regexIndex);
-            m2.lastIndex = this.lastIndex;
-            let result = m2.exec(s);
-            if (this.resumingScanAtSamePosition()) {
-              if (result && result.index === this.lastIndex) ;
-              else {
-                const m22 = this.getMatcher(0);
-                m22.lastIndex = this.lastIndex + 1;
-                result = m22.exec(s);
-              }
-            }
-            if (result) {
-              this.regexIndex += result.position + 1;
-              if (this.regexIndex === this.count) {
-                this.considerAll();
-              }
-            }
-            return result;
-          }
-        }
-        function buildModeRegex(mode) {
-          const mm = new ResumableMultiRegex();
-          mode.contains.forEach((term) => mm.addRule(term.begin, { rule: term, type: "begin" }));
-          if (mode.terminatorEnd) {
-            mm.addRule(mode.terminatorEnd, { type: "end" });
-          }
-          if (mode.illegal) {
-            mm.addRule(mode.illegal, { type: "illegal" });
-          }
-          return mm;
-        }
-        function compileMode(mode, parent) {
-          const cmode = (
-            /** @type CompiledMode */
-            mode
-          );
-          if (mode.isCompiled) return cmode;
-          [
-            scopeClassName,
-            // do this early so compiler extensions generally don't have to worry about
-            // the distinction between match/begin
-            compileMatch,
-            MultiClass,
-            beforeMatchExt
-          ].forEach((ext) => ext(mode, parent));
-          language.compilerExtensions.forEach((ext) => ext(mode, parent));
-          mode.__beforeBegin = null;
-          [
-            beginKeywords,
-            // do this later so compiler extensions that come earlier have access to the
-            // raw array if they wanted to perhaps manipulate it, etc.
-            compileIllegal,
-            // default to 1 relevance if not specified
-            compileRelevance
-          ].forEach((ext) => ext(mode, parent));
-          mode.isCompiled = true;
-          let keywordPattern = null;
-          if (typeof mode.keywords === "object" && mode.keywords.$pattern) {
-            mode.keywords = Object.assign({}, mode.keywords);
-            keywordPattern = mode.keywords.$pattern;
-            delete mode.keywords.$pattern;
-          }
-          keywordPattern = keywordPattern || /\w+/;
-          if (mode.keywords) {
-            mode.keywords = compileKeywords(mode.keywords, language.case_insensitive);
-          }
-          cmode.keywordPatternRe = langRe(keywordPattern, true);
-          if (parent) {
-            if (!mode.begin) mode.begin = /\B|\b/;
-            cmode.beginRe = langRe(cmode.begin);
-            if (!mode.end && !mode.endsWithParent) mode.end = /\B|\b/;
-            if (mode.end) cmode.endRe = langRe(cmode.end);
-            cmode.terminatorEnd = source(cmode.end) || "";
-            if (mode.endsWithParent && parent.terminatorEnd) {
-              cmode.terminatorEnd += (mode.end ? "|" : "") + parent.terminatorEnd;
-            }
-          }
-          if (mode.illegal) cmode.illegalRe = langRe(
-            /** @type {RegExp | string} */
-            mode.illegal
-          );
-          if (!mode.contains) mode.contains = [];
-          mode.contains = [].concat(...mode.contains.map(function(c) {
-            return expandOrCloneMode(c === "self" ? mode : c);
-          }));
-          mode.contains.forEach(function(c) {
-            compileMode(
-              /** @type Mode */
-              c,
-              cmode
-            );
-          });
-          if (mode.starts) {
-            compileMode(mode.starts, parent);
-          }
-          cmode.matcher = buildModeRegex(cmode);
-          return cmode;
-        }
-        if (!language.compilerExtensions) language.compilerExtensions = [];
-        if (language.contains && language.contains.includes("self")) {
-          throw new Error("ERR: contains `self` is not supported at the top-level of a language.  See documentation.");
-        }
-        language.classNameAliases = inherit$1(language.classNameAliases || {});
-        return compileMode(
-          /** @type Mode */
-          language
-        );
-      }
-      function dependencyOnParent(mode) {
-        if (!mode) return false;
-        return mode.endsWithParent || dependencyOnParent(mode.starts);
-      }
-      function expandOrCloneMode(mode) {
-        if (mode.variants && !mode.cachedVariants) {
-          mode.cachedVariants = mode.variants.map(function(variant) {
-            return inherit$1(mode, { variants: null }, variant);
-          });
-        }
-        if (mode.cachedVariants) {
-          return mode.cachedVariants;
-        }
-        if (dependencyOnParent(mode)) {
-          return inherit$1(mode, { starts: mode.starts ? inherit$1(mode.starts) : null });
-        }
-        if (Object.isFrozen(mode)) {
-          return inherit$1(mode);
-        }
-        return mode;
-      }
-      var version2 = "11.11.1";
-      var HTMLInjectionError = class extends Error {
-        constructor(reason, html) {
-          super(reason);
-          this.name = "HTMLInjectionError";
-          this.html = html;
-        }
-      };
-      var escape2 = escapeHTML;
-      var inherit = inherit$1;
-      var NO_MATCH = Symbol("nomatch");
-      var MAX_KEYWORD_HITS = 7;
-      var HLJS = function(hljs) {
-        const languages = /* @__PURE__ */ Object.create(null);
-        const aliases = /* @__PURE__ */ Object.create(null);
-        const plugins2 = [];
-        let SAFE_MODE = true;
-        const LANGUAGE_NOT_FOUND = "Could not find the language '{}', did you forget to load/include a language module?";
-        const PLAINTEXT_LANGUAGE = { disableAutodetect: true, name: "Plain text", contains: [] };
-        let options = {
-          ignoreUnescapedHTML: false,
-          throwUnescapedHTML: false,
-          noHighlightRe: /^(no-?highlight)$/i,
-          languageDetectRe: /\blang(?:uage)?-([\w-]+)\b/i,
-          classPrefix: "hljs-",
-          cssSelector: "pre code",
-          languages: null,
-          // beta configuration options, subject to change, welcome to discuss
-          // https://github.com/highlightjs/highlight.js/issues/1086
-          __emitter: TokenTreeEmitter
-        };
-        function shouldNotHighlight(languageName) {
-          return options.noHighlightRe.test(languageName);
-        }
-        function blockLanguage(block) {
-          let classes = block.className + " ";
-          classes += block.parentNode ? block.parentNode.className : "";
-          const match = options.languageDetectRe.exec(classes);
-          if (match) {
-            const language = getLanguage(match[1]);
-            if (!language) {
-              warn(LANGUAGE_NOT_FOUND.replace("{}", match[1]));
-              warn("Falling back to no-highlight mode for this block.", block);
-            }
-            return language ? match[1] : "no-highlight";
-          }
-          return classes.split(/\s+/).find((_class) => shouldNotHighlight(_class) || getLanguage(_class));
-        }
-        function highlight2(codeOrLanguageName, optionsOrCode, ignoreIllegals) {
-          let code = "";
-          let languageName = "";
-          if (typeof optionsOrCode === "object") {
-            code = codeOrLanguageName;
-            ignoreIllegals = optionsOrCode.ignoreIllegals;
-            languageName = optionsOrCode.language;
-          } else {
-            deprecated("10.7.0", "highlight(lang, code, ...args) has been deprecated.");
-            deprecated("10.7.0", "Please use highlight(code, options) instead.\nhttps://github.com/highlightjs/highlight.js/issues/2277");
-            languageName = codeOrLanguageName;
-            code = optionsOrCode;
-          }
-          if (ignoreIllegals === void 0) {
-            ignoreIllegals = true;
-          }
-          const context = {
-            code,
-            language: languageName
-          };
-          fire("before:highlight", context);
-          const result = context.result ? context.result : _highlight(context.language, context.code, ignoreIllegals);
-          result.code = context.code;
-          fire("after:highlight", result);
-          return result;
-        }
-        function _highlight(languageName, codeToHighlight, ignoreIllegals, continuation) {
-          const keywordHits = /* @__PURE__ */ Object.create(null);
-          function keywordData(mode, matchText) {
-            return mode.keywords[matchText];
-          }
-          function processKeywords() {
-            if (!top.keywords) {
-              emitter.addText(modeBuffer);
-              return;
-            }
-            let lastIndex = 0;
-            top.keywordPatternRe.lastIndex = 0;
-            let match = top.keywordPatternRe.exec(modeBuffer);
-            let buf = "";
-            while (match) {
-              buf += modeBuffer.substring(lastIndex, match.index);
-              const word = language.case_insensitive ? match[0].toLowerCase() : match[0];
-              const data = keywordData(top, word);
-              if (data) {
-                const [kind, keywordRelevance] = data;
-                emitter.addText(buf);
-                buf = "";
-                keywordHits[word] = (keywordHits[word] || 0) + 1;
-                if (keywordHits[word] <= MAX_KEYWORD_HITS) relevance += keywordRelevance;
-                if (kind.startsWith("_")) {
-                  buf += match[0];
-                } else {
-                  const cssClass = language.classNameAliases[kind] || kind;
-                  emitKeyword(match[0], cssClass);
-                }
-              } else {
-                buf += match[0];
-              }
-              lastIndex = top.keywordPatternRe.lastIndex;
-              match = top.keywordPatternRe.exec(modeBuffer);
-            }
-            buf += modeBuffer.substring(lastIndex);
-            emitter.addText(buf);
-          }
-          function processSubLanguage() {
-            if (modeBuffer === "") return;
-            let result2 = null;
-            if (typeof top.subLanguage === "string") {
-              if (!languages[top.subLanguage]) {
-                emitter.addText(modeBuffer);
-                return;
-              }
-              result2 = _highlight(top.subLanguage, modeBuffer, true, continuations[top.subLanguage]);
-              continuations[top.subLanguage] = /** @type {CompiledMode} */
-              result2._top;
-            } else {
-              result2 = highlightAuto(modeBuffer, top.subLanguage.length ? top.subLanguage : null);
-            }
-            if (top.relevance > 0) {
-              relevance += result2.relevance;
-            }
-            emitter.__addSublanguage(result2._emitter, result2.language);
-          }
-          function processBuffer() {
-            if (top.subLanguage != null) {
-              processSubLanguage();
-            } else {
-              processKeywords();
-            }
-            modeBuffer = "";
-          }
-          function emitKeyword(keyword, scope) {
-            if (keyword === "") return;
-            emitter.startScope(scope);
-            emitter.addText(keyword);
-            emitter.endScope();
-          }
-          function emitMultiClass(scope, match) {
-            let i = 1;
-            const max = match.length - 1;
-            while (i <= max) {
-              if (!scope._emit[i]) {
-                i++;
-                continue;
-              }
-              const klass = language.classNameAliases[scope[i]] || scope[i];
-              const text2 = match[i];
-              if (klass) {
-                emitKeyword(text2, klass);
-              } else {
-                modeBuffer = text2;
-                processKeywords();
-                modeBuffer = "";
-              }
-              i++;
-            }
-          }
-          function startNewMode(mode, match) {
-            if (mode.scope && typeof mode.scope === "string") {
-              emitter.openNode(language.classNameAliases[mode.scope] || mode.scope);
-            }
-            if (mode.beginScope) {
-              if (mode.beginScope._wrap) {
-                emitKeyword(modeBuffer, language.classNameAliases[mode.beginScope._wrap] || mode.beginScope._wrap);
-                modeBuffer = "";
-              } else if (mode.beginScope._multi) {
-                emitMultiClass(mode.beginScope, match);
-                modeBuffer = "";
-              }
-            }
-            top = Object.create(mode, { parent: { value: top } });
-            return top;
-          }
-          function endOfMode(mode, match, matchPlusRemainder) {
-            let matched = startsWith(mode.endRe, matchPlusRemainder);
-            if (matched) {
-              if (mode["on:end"]) {
-                const resp = new Response(mode);
-                mode["on:end"](match, resp);
-                if (resp.isMatchIgnored) matched = false;
-              }
-              if (matched) {
-                while (mode.endsParent && mode.parent) {
-                  mode = mode.parent;
-                }
-                return mode;
-              }
-            }
-            if (mode.endsWithParent) {
-              return endOfMode(mode.parent, match, matchPlusRemainder);
-            }
-          }
-          function doIgnore(lexeme) {
-            if (top.matcher.regexIndex === 0) {
-              modeBuffer += lexeme[0];
-              return 1;
-            } else {
-              resumeScanAtSamePosition = true;
-              return 0;
-            }
-          }
-          function doBeginMatch(match) {
-            const lexeme = match[0];
-            const newMode = match.rule;
-            const resp = new Response(newMode);
-            const beforeCallbacks = [newMode.__beforeBegin, newMode["on:begin"]];
-            for (const cb of beforeCallbacks) {
-              if (!cb) continue;
-              cb(match, resp);
-              if (resp.isMatchIgnored) return doIgnore(lexeme);
-            }
-            if (newMode.skip) {
-              modeBuffer += lexeme;
-            } else {
-              if (newMode.excludeBegin) {
-                modeBuffer += lexeme;
-              }
-              processBuffer();
-              if (!newMode.returnBegin && !newMode.excludeBegin) {
-                modeBuffer = lexeme;
-              }
-            }
-            startNewMode(newMode, match);
-            return newMode.returnBegin ? 0 : lexeme.length;
-          }
-          function doEndMatch(match) {
-            const lexeme = match[0];
-            const matchPlusRemainder = codeToHighlight.substring(match.index);
-            const endMode = endOfMode(top, match, matchPlusRemainder);
-            if (!endMode) {
-              return NO_MATCH;
-            }
-            const origin = top;
-            if (top.endScope && top.endScope._wrap) {
-              processBuffer();
-              emitKeyword(lexeme, top.endScope._wrap);
-            } else if (top.endScope && top.endScope._multi) {
-              processBuffer();
-              emitMultiClass(top.endScope, match);
-            } else if (origin.skip) {
-              modeBuffer += lexeme;
-            } else {
-              if (!(origin.returnEnd || origin.excludeEnd)) {
-                modeBuffer += lexeme;
-              }
-              processBuffer();
-              if (origin.excludeEnd) {
-                modeBuffer = lexeme;
-              }
-            }
-            do {
-              if (top.scope) {
-                emitter.closeNode();
-              }
-              if (!top.skip && !top.subLanguage) {
-                relevance += top.relevance;
-              }
-              top = top.parent;
-            } while (top !== endMode.parent);
-            if (endMode.starts) {
-              startNewMode(endMode.starts, match);
-            }
-            return origin.returnEnd ? 0 : lexeme.length;
-          }
-          function processContinuations() {
-            const list = [];
-            for (let current = top; current !== language; current = current.parent) {
-              if (current.scope) {
-                list.unshift(current.scope);
-              }
-            }
-            list.forEach((item) => emitter.openNode(item));
-          }
-          let lastMatch = {};
-          function processLexeme(textBeforeMatch, match) {
-            const lexeme = match && match[0];
-            modeBuffer += textBeforeMatch;
-            if (lexeme == null) {
-              processBuffer();
-              return 0;
-            }
-            if (lastMatch.type === "begin" && match.type === "end" && lastMatch.index === match.index && lexeme === "") {
-              modeBuffer += codeToHighlight.slice(match.index, match.index + 1);
-              if (!SAFE_MODE) {
-                const err = new Error(`0 width match regex (${languageName})`);
-                err.languageName = languageName;
-                err.badRule = lastMatch.rule;
-                throw err;
-              }
-              return 1;
-            }
-            lastMatch = match;
-            if (match.type === "begin") {
-              return doBeginMatch(match);
-            } else if (match.type === "illegal" && !ignoreIllegals) {
-              const err = new Error('Illegal lexeme "' + lexeme + '" for mode "' + (top.scope || "<unnamed>") + '"');
-              err.mode = top;
-              throw err;
-            } else if (match.type === "end") {
-              const processed = doEndMatch(match);
-              if (processed !== NO_MATCH) {
-                return processed;
-              }
-            }
-            if (match.type === "illegal" && lexeme === "") {
-              modeBuffer += "\n";
-              return 1;
-            }
-            if (iterations > 1e5 && iterations > match.index * 3) {
-              const err = new Error("potential infinite loop, way more iterations than matches");
-              throw err;
-            }
-            modeBuffer += lexeme;
-            return lexeme.length;
-          }
-          const language = getLanguage(languageName);
-          if (!language) {
-            error(LANGUAGE_NOT_FOUND.replace("{}", languageName));
-            throw new Error('Unknown language: "' + languageName + '"');
-          }
-          const md = compileLanguage(language);
-          let result = "";
-          let top = continuation || md;
-          const continuations = {};
-          const emitter = new options.__emitter(options);
-          processContinuations();
-          let modeBuffer = "";
-          let relevance = 0;
-          let index = 0;
-          let iterations = 0;
-          let resumeScanAtSamePosition = false;
-          try {
-            if (!language.__emitTokens) {
-              top.matcher.considerAll();
-              for (; ; ) {
-                iterations++;
-                if (resumeScanAtSamePosition) {
-                  resumeScanAtSamePosition = false;
-                } else {
-                  top.matcher.considerAll();
-                }
-                top.matcher.lastIndex = index;
-                const match = top.matcher.exec(codeToHighlight);
-                if (!match) break;
-                const beforeMatch = codeToHighlight.substring(index, match.index);
-                const processedCount = processLexeme(beforeMatch, match);
-                index = match.index + processedCount;
-              }
-              processLexeme(codeToHighlight.substring(index));
-            } else {
-              language.__emitTokens(codeToHighlight, emitter);
-            }
-            emitter.finalize();
-            result = emitter.toHTML();
-            return {
-              language: languageName,
-              value: result,
-              relevance,
-              illegal: false,
-              _emitter: emitter,
-              _top: top
-            };
-          } catch (err) {
-            if (err.message && err.message.includes("Illegal")) {
-              return {
-                language: languageName,
-                value: escape2(codeToHighlight),
-                illegal: true,
-                relevance: 0,
-                _illegalBy: {
-                  message: err.message,
-                  index,
-                  context: codeToHighlight.slice(index - 100, index + 100),
-                  mode: err.mode,
-                  resultSoFar: result
-                },
-                _emitter: emitter
-              };
-            } else if (SAFE_MODE) {
-              return {
-                language: languageName,
-                value: escape2(codeToHighlight),
-                illegal: false,
-                relevance: 0,
-                errorRaised: err,
-                _emitter: emitter,
-                _top: top
-              };
-            } else {
-              throw err;
-            }
-          }
-        }
-        function justTextHighlightResult(code) {
-          const result = {
-            value: escape2(code),
-            illegal: false,
-            relevance: 0,
-            _top: PLAINTEXT_LANGUAGE,
-            _emitter: new options.__emitter(options)
-          };
-          result._emitter.addText(code);
-          return result;
-        }
-        function highlightAuto(code, languageSubset) {
-          languageSubset = languageSubset || options.languages || Object.keys(languages);
-          const plaintext = justTextHighlightResult(code);
-          const results = languageSubset.filter(getLanguage).filter(autoDetection).map(
-            (name) => _highlight(name, code, false)
-          );
-          results.unshift(plaintext);
-          const sorted = results.sort((a, b2) => {
-            if (a.relevance !== b2.relevance) return b2.relevance - a.relevance;
-            if (a.language && b2.language) {
-              if (getLanguage(a.language).supersetOf === b2.language) {
-                return 1;
-              } else if (getLanguage(b2.language).supersetOf === a.language) {
-                return -1;
-              }
-            }
-            return 0;
-          });
-          const [best, secondBest] = sorted;
-          const result = best;
-          result.secondBest = secondBest;
-          return result;
-        }
-        function updateClassName(element, currentLang, resultLang) {
-          const language = currentLang && aliases[currentLang] || resultLang;
-          element.classList.add("hljs");
-          element.classList.add(`language-${language}`);
-        }
-        function highlightElement(element) {
-          let node = null;
-          const language = blockLanguage(element);
-          if (shouldNotHighlight(language)) return;
-          fire(
-            "before:highlightElement",
-            { el: element, language }
-          );
-          if (element.dataset.highlighted) {
-            console.log("Element previously highlighted. To highlight again, first unset `dataset.highlighted`.", element);
-            return;
-          }
-          if (element.children.length > 0) {
-            if (!options.ignoreUnescapedHTML) {
-              console.warn("One of your code blocks includes unescaped HTML. This is a potentially serious security risk.");
-              console.warn("https://github.com/highlightjs/highlight.js/wiki/security");
-              console.warn("The element with unescaped HTML:");
-              console.warn(element);
-            }
-            if (options.throwUnescapedHTML) {
-              const err = new HTMLInjectionError(
-                "One of your code blocks includes unescaped HTML.",
-                element.innerHTML
-              );
-              throw err;
-            }
-          }
-          node = element;
-          const text2 = node.textContent;
-          const result = language ? highlight2(text2, { language, ignoreIllegals: true }) : highlightAuto(text2);
-          element.innerHTML = result.value;
-          element.dataset.highlighted = "yes";
-          updateClassName(element, language, result.language);
-          element.result = {
-            language: result.language,
-            // TODO: remove with version 11.0
-            re: result.relevance,
-            relevance: result.relevance
-          };
-          if (result.secondBest) {
-            element.secondBest = {
-              language: result.secondBest.language,
-              relevance: result.secondBest.relevance
-            };
-          }
-          fire("after:highlightElement", { el: element, result, text: text2 });
-        }
-        function configure(userOptions) {
-          options = inherit(options, userOptions);
-        }
-        const initHighlighting = () => {
-          highlightAll();
-          deprecated("10.6.0", "initHighlighting() deprecated.  Use highlightAll() now.");
-        };
-        function initHighlightingOnLoad() {
-          highlightAll();
-          deprecated("10.6.0", "initHighlightingOnLoad() deprecated.  Use highlightAll() now.");
-        }
-        let wantsHighlight = false;
-        function highlightAll() {
-          function boot() {
-            highlightAll();
-          }
-          if (document.readyState === "loading") {
-            if (!wantsHighlight) {
-              window.addEventListener("DOMContentLoaded", boot, false);
-            }
-            wantsHighlight = true;
-            return;
-          }
-          const blocks = document.querySelectorAll(options.cssSelector);
-          blocks.forEach(highlightElement);
-        }
-        function registerLanguage(languageName, languageDefinition) {
-          let lang = null;
-          try {
-            lang = languageDefinition(hljs);
-          } catch (error$1) {
-            error("Language definition for '{}' could not be registered.".replace("{}", languageName));
-            if (!SAFE_MODE) {
-              throw error$1;
-            } else {
-              error(error$1);
-            }
-            lang = PLAINTEXT_LANGUAGE;
-          }
-          if (!lang.name) lang.name = languageName;
-          languages[languageName] = lang;
-          lang.rawDefinition = languageDefinition.bind(null, hljs);
-          if (lang.aliases) {
-            registerAliases(lang.aliases, { languageName });
-          }
-        }
-        function unregisterLanguage(languageName) {
-          delete languages[languageName];
-          for (const alias of Object.keys(aliases)) {
-            if (aliases[alias] === languageName) {
-              delete aliases[alias];
-            }
-          }
-        }
-        function listLanguages() {
-          return Object.keys(languages);
-        }
-        function getLanguage(name) {
-          name = (name || "").toLowerCase();
-          return languages[name] || languages[aliases[name]];
-        }
-        function registerAliases(aliasList, { languageName }) {
-          if (typeof aliasList === "string") {
-            aliasList = [aliasList];
-          }
-          aliasList.forEach((alias) => {
-            aliases[alias.toLowerCase()] = languageName;
-          });
-        }
-        function autoDetection(name) {
-          const lang = getLanguage(name);
-          return lang && !lang.disableAutodetect;
-        }
-        function upgradePluginAPI(plugin) {
-          if (plugin["before:highlightBlock"] && !plugin["before:highlightElement"]) {
-            plugin["before:highlightElement"] = (data) => {
-              plugin["before:highlightBlock"](
-                Object.assign({ block: data.el }, data)
-              );
-            };
-          }
-          if (plugin["after:highlightBlock"] && !plugin["after:highlightElement"]) {
-            plugin["after:highlightElement"] = (data) => {
-              plugin["after:highlightBlock"](
-                Object.assign({ block: data.el }, data)
-              );
-            };
-          }
-        }
-        function addPlugin(plugin) {
-          upgradePluginAPI(plugin);
-          plugins2.push(plugin);
-        }
-        function removePlugin(plugin) {
-          const index = plugins2.indexOf(plugin);
-          if (index !== -1) {
-            plugins2.splice(index, 1);
-          }
-        }
-        function fire(event, args) {
-          const cb = event;
-          plugins2.forEach(function(plugin) {
-            if (plugin[cb]) {
-              plugin[cb](args);
-            }
-          });
-        }
-        function deprecateHighlightBlock(el) {
-          deprecated("10.7.0", "highlightBlock will be removed entirely in v12.0");
-          deprecated("10.7.0", "Please use highlightElement now.");
-          return highlightElement(el);
-        }
-        Object.assign(hljs, {
-          highlight: highlight2,
-          highlightAuto,
-          highlightAll,
-          highlightElement,
-          // TODO: Remove with v12 API
-          highlightBlock: deprecateHighlightBlock,
-          configure,
-          initHighlighting,
-          initHighlightingOnLoad,
-          registerLanguage,
-          unregisterLanguage,
-          listLanguages,
-          getLanguage,
-          registerAliases,
-          autoDetection,
-          inherit,
-          addPlugin,
-          removePlugin
-        });
-        hljs.debugMode = function() {
-          SAFE_MODE = false;
-        };
-        hljs.safeMode = function() {
-          SAFE_MODE = true;
-        };
-        hljs.versionString = version2;
-        hljs.regex = {
-          concat,
-          lookahead,
-          either,
-          optional,
-          anyNumberOfTimes
-        };
-        for (const key in MODES) {
-          if (typeof MODES[key] === "object") {
-            deepFreeze(MODES[key]);
-          }
-        }
-        Object.assign(hljs, MODES);
-        return hljs;
-      };
-      var highlight = HLJS({});
-      highlight.newInstance = () => HLJS({});
-      module.exports = highlight;
-      highlight.HighlightJS = highlight;
-      highlight.default = highlight;
-    }
-  });
 
   // node_modules/orderedmap/dist/index.js
   function OrderedMap(content) {
@@ -1570,27 +12,27 @@
   }
   OrderedMap.prototype = {
     constructor: OrderedMap,
-    find: function(key) {
-      for (var i = 0; i < this.content.length; i += 2)
-        if (this.content[i] === key) return i;
+    find: function(key2) {
+      for (var i2 = 0; i2 < this.content.length; i2 += 2)
+        if (this.content[i2] === key2) return i2;
       return -1;
     },
     // :: (string) → ?any
     // Retrieve the value stored under `key`, or return undefined when
     // no such key exists.
-    get: function(key) {
-      var found2 = this.find(key);
+    get: function(key2) {
+      var found2 = this.find(key2);
       return found2 == -1 ? void 0 : this.content[found2 + 1];
     },
     // :: (string, any, ?string) → OrderedMap
     // Create a new map by replacing the value of `key` with a new
     // value, or adding a binding to the end of the map. If `newKey` is
     // given, the key of the binding will be replaced with that key.
-    update: function(key, value, newKey) {
-      var self = newKey && newKey != key ? this.remove(newKey) : this;
-      var found2 = self.find(key), content = self.content.slice();
+    update: function(key2, value, newKey) {
+      var self = newKey && newKey != key2 ? this.remove(newKey) : this;
+      var found2 = self.find(key2), content = self.content.slice();
       if (found2 == -1) {
-        content.push(newKey || key, value);
+        content.push(newKey || key2, value);
       } else {
         content[found2 + 1] = value;
         if (newKey) content[found2] = newKey;
@@ -1599,8 +41,8 @@
     },
     // :: (string) → OrderedMap
     // Return a map with the given key removed, if it existed.
-    remove: function(key) {
-      var found2 = this.find(key);
+    remove: function(key2) {
+      var found2 = this.find(key2);
       if (found2 == -1) return this;
       var content = this.content.slice();
       content.splice(found2, 2);
@@ -1608,31 +50,31 @@
     },
     // :: (string, any) → OrderedMap
     // Add a new key to the start of the map.
-    addToStart: function(key, value) {
-      return new OrderedMap([key, value].concat(this.remove(key).content));
+    addToStart: function(key2, value) {
+      return new OrderedMap([key2, value].concat(this.remove(key2).content));
     },
     // :: (string, any) → OrderedMap
     // Add a new key to the end of the map.
-    addToEnd: function(key, value) {
-      var content = this.remove(key).content.slice();
-      content.push(key, value);
+    addToEnd: function(key2, value) {
+      var content = this.remove(key2).content.slice();
+      content.push(key2, value);
       return new OrderedMap(content);
     },
     // :: (string, string, any) → OrderedMap
     // Add a key after the given key. If `place` is not found, the new
     // key is added to the end.
-    addBefore: function(place, key, value) {
-      var without = this.remove(key), content = without.content.slice();
+    addBefore: function(place, key2, value) {
+      var without = this.remove(key2), content = without.content.slice();
       var found2 = without.find(place);
-      content.splice(found2 == -1 ? content.length : found2, 0, key, value);
+      content.splice(found2 == -1 ? content.length : found2, 0, key2, value);
       return new OrderedMap(content);
     },
     // :: ((key: string, value: any))
     // Call the given function for each key/value pair in the map, in
     // order.
-    forEach: function(f) {
-      for (var i = 0; i < this.content.length; i += 2)
-        f(this.content[i], this.content[i + 1]);
+    forEach: function(f2) {
+      for (var i2 = 0; i2 < this.content.length; i2 += 2)
+        f2(this.content[i2], this.content[i2 + 1]);
     },
     // :: (union<Object, OrderedMap>) → OrderedMap
     // Create a new map by prepending the keys in this map that don't
@@ -1656,16 +98,16 @@
     subtract: function(map2) {
       var result = this;
       map2 = OrderedMap.from(map2);
-      for (var i = 0; i < map2.content.length; i += 2)
-        result = result.remove(map2.content[i]);
+      for (var i2 = 0; i2 < map2.content.length; i2 += 2)
+        result = result.remove(map2.content[i2]);
       return result;
     },
     // :: () → Object
     // Turn ordered map into a plain object.
     toObject: function() {
       var result = {};
-      this.forEach(function(key, value) {
-        result[key] = value;
+      this.forEach(function(key2, value) {
+        result[key2] = value;
       });
       return result;
     },
@@ -1684,11 +126,11 @@
   var dist_default = OrderedMap;
 
   // node_modules/prosemirror-model/dist/index.js
-  function findDiffStart(a, b2, pos) {
-    for (let i = 0; ; i++) {
-      if (i == a.childCount || i == b2.childCount)
-        return a.childCount == b2.childCount ? null : pos;
-      let childA = a.child(i), childB = b2.child(i);
+  function findDiffStart(a2, b4, pos) {
+    for (let i2 = 0; ; i2++) {
+      if (i2 == a2.childCount || i2 == b4.childCount)
+        return a2.childCount == b4.childCount ? null : pos;
+      let childA = a2.child(i2), childB = b4.child(i2);
       if (childA == childB) {
         pos += childA.nodeSize;
         continue;
@@ -1696,7 +138,7 @@
       if (!childA.sameMarkup(childB))
         return pos;
       if (childA.isText && childA.text != childB.text) {
-        for (let j2 = 0; childA.text[j2] == childB.text[j2]; j2++)
+        for (let j3 = 0; childA.text[j3] == childB.text[j3]; j3++)
           pos++;
         return pos;
       }
@@ -1708,11 +150,11 @@
       pos += childA.nodeSize;
     }
   }
-  function findDiffEnd(a, b2, posA, posB) {
-    for (let iA = a.childCount, iB = b2.childCount; ; ) {
+  function findDiffEnd(a2, b4, posA, posB) {
+    for (let iA = a2.childCount, iB = b4.childCount; ; ) {
       if (iA == 0 || iB == 0)
         return iA == iB ? null : { a: posA, b: posB };
-      let childA = a.child(--iA), childB = b2.child(--iB), size = childA.nodeSize;
+      let childA = a2.child(--iA), childB = b4.child(--iB), size = childA.nodeSize;
       if (childA == childB) {
         posA -= size;
         posB -= size;
@@ -1746,20 +188,20 @@
       this.content = content;
       this.size = size || 0;
       if (size == null)
-        for (let i = 0; i < content.length; i++)
-          this.size += content[i].nodeSize;
+        for (let i2 = 0; i2 < content.length; i2++)
+          this.size += content[i2].nodeSize;
     }
     /**
     Invoke a callback for all descendant nodes between the given two
     positions (relative to start of this fragment). Doesn't descend
     into a node when the callback returns `false`.
     */
-    nodesBetween(from2, to, f, nodeStart = 0, parent) {
-      for (let i = 0, pos = 0; pos < to; i++) {
-        let child = this.content[i], end = pos + child.nodeSize;
-        if (end > from2 && f(child, nodeStart + pos, parent || null, i) !== false && child.content.size) {
+    nodesBetween(from2, to, f2, nodeStart = 0, parent) {
+      for (let i2 = 0, pos = 0; pos < to; i2++) {
+        let child = this.content[i2], end = pos + child.nodeSize;
+        if (end > from2 && f2(child, nodeStart + pos, parent || null, i2) !== false && child.content.size) {
           let start = pos + 1;
-          child.nodesBetween(Math.max(0, from2 - start), Math.min(child.content.size, to - start), f, nodeStart + start);
+          child.nodesBetween(Math.max(0, from2 - start), Math.min(child.content.size, to - start), f2, nodeStart + start);
         }
         pos = end;
       }
@@ -1769,26 +211,26 @@
     relative to the start of the fragment. The callback may return
     `false` to prevent traversal of a given node's children.
     */
-    descendants(f) {
-      this.nodesBetween(0, this.size, f);
+    descendants(f2) {
+      this.nodesBetween(0, this.size, f2);
     }
     /**
     Extract the text between `from` and `to`. See the same method on
     [`Node`](https://prosemirror.net/docs/ref/#model.Node.textBetween).
     */
     textBetween(from2, to, blockSeparator, leafText) {
-      let text2 = "", first = true;
+      let text3 = "", first = true;
       this.nodesBetween(from2, to, (node, pos) => {
         let nodeText = node.isText ? node.text.slice(Math.max(from2, pos) - pos, to - pos) : !node.isLeaf ? "" : leafText ? typeof leafText === "function" ? leafText(node) : leafText : node.type.spec.leafText ? node.type.spec.leafText(node) : "";
         if (node.isBlock && (node.isLeaf && nodeText || node.isTextblock) && blockSeparator) {
           if (first)
             first = false;
           else
-            text2 += blockSeparator;
+            text3 += blockSeparator;
         }
-        text2 += nodeText;
+        text3 += nodeText;
       }, 0);
-      return text2;
+      return text3;
     }
     /**
     Create a new fragment containing the combined content of this
@@ -1799,13 +241,13 @@
         return this;
       if (!this.size)
         return other;
-      let last = this.lastChild, first = other.firstChild, content = this.content.slice(), i = 0;
+      let last = this.lastChild, first = other.firstChild, content = this.content.slice(), i2 = 0;
       if (last.isText && last.sameMarkup(first)) {
         content[content.length - 1] = last.withText(last.text + first.text);
-        i = 1;
+        i2 = 1;
       }
-      for (; i < other.content.length; i++)
-        content.push(other.content[i]);
+      for (; i2 < other.content.length; i2++)
+        content.push(other.content[i2]);
       return new _Fragment(content, this.size + other.size);
     }
     /**
@@ -1816,8 +258,8 @@
         return this;
       let result = [], size = 0;
       if (to > from2)
-        for (let i = 0, pos = 0; pos < to; i++) {
-          let child = this.content[i], end = pos + child.nodeSize;
+        for (let i2 = 0, pos = 0; pos < to; i2++) {
+          let child = this.content[i2], end = pos + child.nodeSize;
           if (end > from2) {
             if (pos < from2 || end > to) {
               if (child.isText)
@@ -1875,8 +317,8 @@
     eq(other) {
       if (this.content.length != other.content.length)
         return false;
-      for (let i = 0; i < this.content.length; i++)
-        if (!this.content[i].eq(other.content[i]))
+      for (let i2 = 0; i2 < this.content.length; i2++)
+        if (!this.content[i2].eq(other.content[i2]))
           return false;
       return true;
     }
@@ -1918,11 +360,11 @@
     Call `f` for every child node, passing the node, its offset
     into this parent node, and its index.
     */
-    forEach(f) {
-      for (let i = 0, p = 0; i < this.content.length; i++) {
-        let child = this.content[i];
-        f(child, p, i);
-        p += child.nodeSize;
+    forEach(f2) {
+      for (let i2 = 0, p2 = 0; i2 < this.content.length; i2++) {
+        let child = this.content[i2];
+        f2(child, p2, i2);
+        p2 += child.nodeSize;
       }
     }
     /**
@@ -1953,12 +395,12 @@
         return retIndex(this.content.length, pos);
       if (pos > this.size || pos < 0)
         throw new RangeError(`Position ${pos} outside of fragment (${this})`);
-      for (let i = 0, curPos = 0; ; i++) {
-        let cur = this.child(i), end = curPos + cur.nodeSize;
+      for (let i2 = 0, curPos = 0; ; i2++) {
+        let cur = this.child(i2), end = curPos + cur.nodeSize;
         if (end >= pos) {
           if (end == pos)
-            return retIndex(i + 1, end);
-          return retIndex(i, curPos);
+            return retIndex(i2 + 1, end);
+          return retIndex(i2, curPos);
         }
         curPos = end;
       }
@@ -1999,12 +441,12 @@
       if (!array.length)
         return _Fragment.empty;
       let joined, size = 0;
-      for (let i = 0; i < array.length; i++) {
-        let node = array[i];
+      for (let i2 = 0; i2 < array.length; i2++) {
+        let node = array[i2];
         size += node.nodeSize;
-        if (i && node.isText && array[i - 1].sameMarkup(node)) {
+        if (i2 && node.isText && array[i2 - 1].sameMarkup(node)) {
           if (!joined)
-            joined = array.slice(0, i);
+            joined = array.slice(0, i2);
           joined[joined.length - 1] = node.withText(joined[joined.length - 1].text + node.text);
         } else if (joined) {
           joined.push(node);
@@ -2037,26 +479,26 @@
     found.offset = offset;
     return found;
   }
-  function compareDeep(a, b2) {
-    if (a === b2)
+  function compareDeep(a2, b4) {
+    if (a2 === b4)
       return true;
-    if (!(a && typeof a == "object") || !(b2 && typeof b2 == "object"))
+    if (!(a2 && typeof a2 == "object") || !(b4 && typeof b4 == "object"))
       return false;
-    let array = Array.isArray(a);
-    if (Array.isArray(b2) != array)
+    let array = Array.isArray(a2);
+    if (Array.isArray(b4) != array)
       return false;
     if (array) {
-      if (a.length != b2.length)
+      if (a2.length != b4.length)
         return false;
-      for (let i = 0; i < a.length; i++)
-        if (!compareDeep(a[i], b2[i]))
+      for (let i2 = 0; i2 < a2.length; i2++)
+        if (!compareDeep(a2[i2], b4[i2]))
           return false;
     } else {
-      for (let p in a)
-        if (!(p in b2) || !compareDeep(a[p], b2[p]))
+      for (let p2 in a2)
+        if (!(p2 in b4) || !compareDeep(a2[p2], b4[p2]))
           return false;
-      for (let p in b2)
-        if (!(p in a))
+      for (let p2 in b4)
+        if (!(p2 in a2))
           return false;
     }
     return true;
@@ -2078,19 +520,19 @@
     */
     addToSet(set) {
       let copy2, placed = false;
-      for (let i = 0; i < set.length; i++) {
-        let other = set[i];
+      for (let i2 = 0; i2 < set.length; i2++) {
+        let other = set[i2];
         if (this.eq(other))
           return set;
         if (this.type.excludes(other.type)) {
           if (!copy2)
-            copy2 = set.slice(0, i);
+            copy2 = set.slice(0, i2);
         } else if (other.type.excludes(this.type)) {
           return set;
         } else {
           if (!placed && other.type.rank > this.type.rank) {
             if (!copy2)
-              copy2 = set.slice(0, i);
+              copy2 = set.slice(0, i2);
             copy2.push(this);
             placed = true;
           }
@@ -2109,17 +551,17 @@
     mark is not in the set, the set itself is returned.
     */
     removeFromSet(set) {
-      for (let i = 0; i < set.length; i++)
-        if (this.eq(set[i]))
-          return set.slice(0, i).concat(set.slice(i + 1));
+      for (let i2 = 0; i2 < set.length; i2++)
+        if (this.eq(set[i2]))
+          return set.slice(0, i2).concat(set.slice(i2 + 1));
       return set;
     }
     /**
     Test whether this mark is in the given set of marks.
     */
     isInSet(set) {
-      for (let i = 0; i < set.length; i++)
-        if (this.eq(set[i]))
+      for (let i2 = 0; i2 < set.length; i2++)
+        if (this.eq(set[i2]))
           return true;
       return false;
     }
@@ -2135,7 +577,7 @@
     */
     toJSON() {
       let obj = { type: this.type.name };
-      for (let _2 in this.attrs) {
+      for (let _4 in this.attrs) {
         obj.attrs = this.attrs;
         break;
       }
@@ -2150,20 +592,20 @@
       let type = schema3.marks[json.type];
       if (!type)
         throw new RangeError(`There is no mark type ${json.type} in this schema`);
-      let mark = type.create(json.attrs);
-      type.checkAttrs(mark.attrs);
-      return mark;
+      let mark2 = type.create(json.attrs);
+      type.checkAttrs(mark2.attrs);
+      return mark2;
     }
     /**
     Test whether two sets of marks are identical.
     */
-    static sameSet(a, b2) {
-      if (a == b2)
+    static sameSet(a2, b4) {
+      if (a2 == b4)
         return true;
-      if (a.length != b2.length)
+      if (a2.length != b4.length)
         return false;
-      for (let i = 0; i < a.length; i++)
-        if (!a[i].eq(b2[i]))
+      for (let i2 = 0; i2 < a2.length; i2++)
+        if (!a2[i2].eq(b4[i2]))
           return false;
       return true;
     }
@@ -2177,7 +619,7 @@
       if (marks2 instanceof _Mark)
         return [marks2];
       let copy2 = marks2.slice();
-      copy2.sort((a, b2) => a.type.rank - b2.type.rank);
+      copy2.sort((a2, b4) => a2.type.rank - b4.type.rank);
       return copy2;
     }
   };
@@ -2343,8 +785,8 @@
         startIndex++;
       }
     }
-    for (let i = startIndex; i < endIndex; i++)
-      addNode(node.child(i), target);
+    for (let i2 = startIndex; i2 < endIndex; i2++)
+      addNode(node.child(i2), target);
     if ($end && $end.depth == depth && $end.textOffset)
       addNode($end.nodeBefore, target);
   }
@@ -2383,8 +825,8 @@
   function prepareSliceForReplace(slice2, $along) {
     let extra = $along.depth - slice2.openStart, parent = $along.node(extra);
     let node = parent.copy(slice2.content);
-    for (let i = extra - 1; i >= 0; i--)
-      node = $along.node(i).copy(Fragment.from(node));
+    for (let i2 = extra - 1; i2 >= 0; i2--)
+      node = $along.node(i2).copy(Fragment.from(node));
     return {
       start: node.resolveNoCache(slice2.openStart + extra),
       end: node.resolveNoCache(node.content.size - slice2.openEnd - extra)
@@ -2523,8 +965,8 @@
     posAtIndex(index, depth) {
       depth = this.resolveDepth(depth);
       let node = this.path[depth * 3], pos = depth == 0 ? 0 : this.path[depth * 3 - 1] + 1;
-      for (let i = 0; i < index; i++)
-        pos += node.child(i).nodeSize;
+      for (let i2 = 0; i2 < index; i2++)
+        pos += node.child(i2).nodeSize;
       return pos;
     }
     /**
@@ -2546,9 +988,9 @@
         other = tmp;
       }
       let marks2 = main2.marks;
-      for (var i = 0; i < marks2.length; i++)
-        if (marks2[i].type.spec.inclusive === false && (!other || !marks2[i].isInSet(other.marks)))
-          marks2 = marks2[i--].removeFromSet(marks2);
+      for (var i2 = 0; i2 < marks2.length; i2++)
+        if (marks2[i2].type.spec.inclusive === false && (!other || !marks2[i2].isInSet(other.marks)))
+          marks2 = marks2[i2--].removeFromSet(marks2);
       return marks2;
     }
     /**
@@ -2564,9 +1006,9 @@
       if (!after || !after.isInline)
         return null;
       let marks2 = after.marks, next = $end.parent.maybeChild($end.index());
-      for (var i = 0; i < marks2.length; i++)
-        if (marks2[i].type.spec.inclusive === false && (!next || !marks2[i].isInSet(next.marks)))
-          marks2 = marks2[i--].removeFromSet(marks2);
+      for (var i2 = 0; i2 < marks2.length; i2++)
+        if (marks2[i2].type.spec.inclusive === false && (!next || !marks2[i2].isInSet(next.marks)))
+          marks2 = marks2[i2--].removeFromSet(marks2);
       return marks2;
     }
     /**
@@ -2591,9 +1033,9 @@
     blockRange(other = this, pred) {
       if (other.pos < this.pos)
         return other.blockRange(this);
-      for (let d2 = this.depth - (this.parent.inlineContent || this.pos == other.pos ? 1 : 0); d2 >= 0; d2--)
-        if (other.pos <= this.end(d2) && (!pred || pred(this.node(d2))))
-          return new NodeRange(this, other, d2);
+      for (let d3 = this.depth - (this.parent.inlineContent || this.pos == other.pos ? 1 : 0); d3 >= 0; d3--)
+        if (other.pos <= this.end(d3) && (!pred || pred(this.node(d3))))
+          return new NodeRange(this, other, d3);
       return null;
     }
     /**
@@ -2619,8 +1061,8 @@
     */
     toString() {
       let str = "";
-      for (let i = 1; i <= this.depth; i++)
-        str += (str ? "/" : "") + this.node(i).type.name + "_" + this.index(i - 1);
+      for (let i2 = 1; i2 <= this.depth; i2++)
+        str += (str ? "/" : "") + this.node(i2).type.name + "_" + this.index(i2 - 1);
       return str + ":" + this.parentOffset;
     }
     /**
@@ -2651,8 +1093,8 @@
     static resolveCached(doc3, pos) {
       let cache = resolveCache.get(doc3);
       if (cache) {
-        for (let i = 0; i < cache.elts.length; i++) {
-          let elt = cache.elts[i];
+        for (let i2 = 0; i2 < cache.elts.length; i2++) {
+          let elt = cache.elts[i2];
           if (elt.pos == pos)
             return elt;
         }
@@ -2764,8 +1206,8 @@
     Call `f` for every child node, passing the node, its offset
     into this parent node, and its index.
     */
-    forEach(f) {
-      this.content.forEach(f);
+    forEach(f2) {
+      this.content.forEach(f2);
     }
     /**
     Invoke a callback for all descendant nodes recursively between
@@ -2777,15 +1219,15 @@
     recursed over. The last parameter can be used to specify a
     starting position to count from.
     */
-    nodesBetween(from2, to, f, startPos = 0) {
-      this.content.nodesBetween(from2, to, f, startPos, this);
+    nodesBetween(from2, to, f2, startPos = 0) {
+      this.content.nodesBetween(from2, to, f2, startPos, this);
     }
     /**
     Call the given callback for every descendant node. Doesn't
     descend into a node when the callback returns `false`.
     */
-    descendants(f) {
-      this.nodesBetween(0, this.content.size, f);
+    descendants(f2) {
+      this.nodesBetween(0, this.content.size, f2);
     }
     /**
     Concatenates all the text nodes found in this fragment and its
@@ -3029,12 +1471,12 @@
     replacement fragment.
     */
     canReplace(from2, to, replacement = Fragment.empty, start = 0, end = replacement.childCount) {
-      let one = this.contentMatchAt(from2).matchFragment(replacement, start, end);
-      let two = one && one.matchFragment(this.content, to);
+      let one2 = this.contentMatchAt(from2).matchFragment(replacement, start, end);
+      let two = one2 && one2.matchFragment(this.content, to);
       if (!two || !two.validEnd)
         return false;
-      for (let i = start; i < end; i++)
-        if (!this.type.allowsMarks(replacement.child(i).marks))
+      for (let i2 = start; i2 < end; i2++)
+        if (!this.type.allowsMarks(replacement.child(i2).marks))
           return false;
       return true;
     }
@@ -3069,13 +1511,13 @@
       this.type.checkContent(this.content);
       this.type.checkAttrs(this.attrs);
       let copy2 = Mark.none;
-      for (let i = 0; i < this.marks.length; i++) {
-        let mark = this.marks[i];
-        mark.type.checkAttrs(mark.attrs);
-        copy2 = mark.addToSet(copy2);
+      for (let i2 = 0; i2 < this.marks.length; i2++) {
+        let mark2 = this.marks[i2];
+        mark2.type.checkAttrs(mark2.attrs);
+        copy2 = mark2.addToSet(copy2);
       }
       if (!Mark.sameSet(copy2, this.marks))
-        throw new RangeError(`Invalid collection of marks for node ${this.type.name}: ${this.marks.map((m2) => m2.type.name)}`);
+        throw new RangeError(`Invalid collection of marks for node ${this.type.name}: ${this.marks.map((m4) => m4.type.name)}`);
       this.content.forEach((node) => node.check());
     }
     /**
@@ -3083,7 +1525,7 @@
     */
     toJSON() {
       let obj = { type: this.type.name };
-      for (let _2 in this.attrs) {
+      for (let _4 in this.attrs) {
         obj.attrs = this.attrs;
         break;
       }
@@ -3144,10 +1586,10 @@
     mark(marks2) {
       return marks2 == this.marks ? this : new _TextNode(this.type, this.attrs, this.text, marks2);
     }
-    withText(text2) {
-      if (text2 == this.text)
+    withText(text3) {
+      if (text3 == this.text)
         return this;
-      return new _TextNode(this.type, this.attrs, text2, this.marks);
+      return new _TextNode(this.type, this.attrs, text3, this.marks);
     }
     cut(from2 = 0, to = this.text.length) {
       if (from2 == 0 && to == this.text.length)
@@ -3164,8 +1606,8 @@
     }
   };
   function wrapMarks(marks2, str) {
-    for (let i = marks2.length - 1; i >= 0; i--)
-      str = marks2[i].type.name + "(" + str + ")";
+    for (let i2 = marks2.length - 1; i2 >= 0; i2--)
+      str = marks2[i2].type.name + "(" + str + ")";
     return str;
   }
   var ContentMatch = class _ContentMatch {
@@ -3196,9 +1638,9 @@
     successful.
     */
     matchType(type) {
-      for (let i = 0; i < this.next.length; i++)
-        if (this.next[i].type == type)
-          return this.next[i].next;
+      for (let i2 = 0; i2 < this.next.length; i2++)
+        if (this.next[i2].type == type)
+          return this.next[i2].next;
       return null;
     }
     /**
@@ -3207,8 +1649,8 @@
     */
     matchFragment(frag, start = 0, end = frag.childCount) {
       let cur = this;
-      for (let i = start; cur && i < end; i++)
-        cur = cur.matchType(frag.child(i).type);
+      for (let i2 = start; cur && i2 < end; i2++)
+        cur = cur.matchType(frag.child(i2).type);
       return cur;
     }
     /**
@@ -3222,8 +1664,8 @@
     be generated.
     */
     get defaultType() {
-      for (let i = 0; i < this.next.length; i++) {
-        let { type } = this.next[i];
+      for (let i2 = 0; i2 < this.next.length; i2++) {
+        let { type } = this.next[i2];
         if (!(type.isText || type.hasRequiredAttrs()))
           return type;
       }
@@ -3233,9 +1675,9 @@
     @internal
     */
     compatible(other) {
-      for (let i = 0; i < this.next.length; i++)
-        for (let j2 = 0; j2 < other.next.length; j2++)
-          if (this.next[i].type == other.next[j2].type)
+      for (let i2 = 0; i2 < this.next.length; i2++)
+        for (let j3 = 0; j3 < other.next.length; j3++)
+          if (this.next[i2].type == other.next[j3].type)
             return true;
       return false;
     }
@@ -3253,8 +1695,8 @@
         let finished = match.matchFragment(after, startIndex);
         if (finished && (!toEnd || finished.validEnd))
           return Fragment.from(types.map((tp) => tp.createAndFill()));
-        for (let i = 0; i < match.next.length; i++) {
-          let { type, next } = match.next[i];
+        for (let i2 = 0; i2 < match.next.length; i2++) {
+          let { type, next } = match.next[i2];
           if (!(type.isText || type.hasRequiredAttrs()) && seen.indexOf(next) == -1) {
             seen.push(next);
             let found2 = search(next, types.concat(type));
@@ -3273,9 +1715,9 @@
     exists.
     */
     findWrapping(target) {
-      for (let i = 0; i < this.wrapCache.length; i += 2)
-        if (this.wrapCache[i] == target)
-          return this.wrapCache[i + 1];
+      for (let i2 = 0; i2 < this.wrapCache.length; i2 += 2)
+        if (this.wrapCache[i2] == target)
+          return this.wrapCache[i2 + 1];
       let computed = this.computeWrapping(target);
       this.wrapCache.push(target, computed);
       return computed;
@@ -3293,8 +1735,8 @@
             result.push(obj.type);
           return result.reverse();
         }
-        for (let i = 0; i < match.next.length; i++) {
-          let { type, next } = match.next[i];
+        for (let i2 = 0; i2 < match.next.length; i2++) {
+          let { type, next } = match.next[i2];
           if (!type.isLeaf && !type.hasRequiredAttrs() && !(type.name in seen) && (!current.type || next.validEnd)) {
             active.push({ match: type.contentMatch, type, via: current });
             seen[type.name] = true;
@@ -3324,17 +1766,17 @@
     */
     toString() {
       let seen = [];
-      function scan(m2) {
-        seen.push(m2);
-        for (let i = 0; i < m2.next.length; i++)
-          if (seen.indexOf(m2.next[i].next) == -1)
-            scan(m2.next[i].next);
+      function scan(m4) {
+        seen.push(m4);
+        for (let i2 = 0; i2 < m4.next.length; i2++)
+          if (seen.indexOf(m4.next[i2].next) == -1)
+            scan(m4.next[i2].next);
       }
       scan(this);
-      return seen.map((m2, i) => {
-        let out = i + (m2.validEnd ? "*" : " ") + " ";
-        for (let i2 = 0; i2 < m2.next.length; i2++)
-          out += (i2 ? ", " : "") + m2.next[i2].type.name + "->" + seen.indexOf(m2.next[i2].next);
+      return seen.map((m4, i2) => {
+        let out = i2 + (m4.validEnd ? "*" : " ") + " ";
+        for (let i3 = 0; i3 < m4.next.length; i3++)
+          out += (i3 ? ", " : "") + m4.next[i3].type.name + "->" + seen.indexOf(m4.next[i3].next);
         return out;
       }).join("\n");
     }
@@ -3464,9 +1906,9 @@
       if (expr2.type == "choice") {
         return expr2.exprs.reduce((out, expr3) => out.concat(compile(expr3, from2)), []);
       } else if (expr2.type == "seq") {
-        for (let i = 0; ; i++) {
-          let next = compile(expr2.exprs[i], from2);
-          if (i == expr2.exprs.length - 1)
+        for (let i2 = 0; ; i2++) {
+          let next = compile(expr2.exprs[i2], from2);
+          if (i2 == expr2.exprs.length - 1)
             return next;
           connect(next, from2 = node());
         }
@@ -3484,7 +1926,7 @@
         return [edge(from2)].concat(compile(expr2.expr, from2));
       } else if (expr2.type == "range") {
         let cur = from2;
-        for (let i = 0; i < expr2.min; i++) {
+        for (let i2 = 0; i2 < expr2.min; i2++) {
           let next = node();
           connect(compile(expr2.expr, cur), next);
           cur = next;
@@ -3492,7 +1934,7 @@
         if (expr2.max == -1) {
           connect(compile(expr2.expr, cur), cur);
         } else {
-          for (let i = expr2.min; i < expr2.max; i++) {
+          for (let i2 = expr2.min; i2 < expr2.max; i2++) {
             let next = node();
             edge(cur, next);
             connect(compile(expr2.expr, cur), next);
@@ -3507,8 +1949,8 @@
       }
     }
   }
-  function cmp(a, b2) {
-    return b2 - a;
+  function cmp(a2, b4) {
+    return b4 - a2;
   }
   function nullFrom(nfa2, node) {
     let result = [];
@@ -3519,8 +1961,8 @@
       if (edges.length == 1 && !edges[0].term)
         return scan(edges[0].to);
       result.push(node2);
-      for (let i = 0; i < edges.length; i++) {
-        let { term, to } = edges[i];
+      for (let i2 = 0; i2 < edges.length; i2++) {
+        let { term, to } = edges[i2];
         if (!term && result.indexOf(to) == -1)
           scan(to);
       }
@@ -3536,9 +1978,9 @@
           if (!term)
             return;
           let set;
-          for (let i = 0; i < out.length; i++)
-            if (out[i][0] == term)
-              set = out[i][1];
+          for (let i2 = 0; i2 < out.length; i2++)
+            if (out[i2][0] == term)
+              set = out[i2][1];
           nullFrom(nfa2, to).forEach((node2) => {
             if (!set)
               out.push([term, set = []]);
@@ -3548,18 +1990,18 @@
         });
       });
       let state = labeled[states.join(",")] = new ContentMatch(states.indexOf(nfa2.length - 1) > -1);
-      for (let i = 0; i < out.length; i++) {
-        let states2 = out[i][1].sort(cmp);
-        state.next.push({ type: out[i][0], next: labeled[states2.join(",")] || explore(states2) });
+      for (let i2 = 0; i2 < out.length; i2++) {
+        let states2 = out[i2][1].sort(cmp);
+        state.next.push({ type: out[i2][0], next: labeled[states2.join(",")] || explore(states2) });
       }
       return state;
     }
   }
   function checkForDeadEnds(match, stream) {
-    for (let i = 0, work = [match]; i < work.length; i++) {
-      let state = work[i], dead = !state.validEnd, nodes3 = [];
-      for (let j2 = 0; j2 < state.next.length; j2++) {
-        let { type, next } = state.next[j2];
+    for (let i2 = 0, work = [match]; i2 < work.length; i2++) {
+      let state = work[i2], dead = !state.validEnd, nodes3 = [];
+      for (let j3 = 0; j3 < state.next.length; j3++) {
+        let { type, next } = state.next[j3];
         nodes3.push(type.name);
         if (dead && !(type.isText || type.hasRequiredAttrs()))
           dead = false;
@@ -3747,8 +2189,8 @@
       let result = this.contentMatch.matchFragment(content);
       if (!result || !result.validEnd)
         return false;
-      for (let i = 0; i < content.childCount; i++)
-        if (!this.allowsMarks(content.child(i).marks))
+      for (let i2 = 0; i2 < content.childCount; i2++)
+        if (!this.allowsMarks(content.child(i2).marks))
           return false;
       return true;
     }
@@ -3779,8 +2221,8 @@
     allowsMarks(marks2) {
       if (this.markSet == null)
         return true;
-      for (let i = 0; i < marks2.length; i++)
-        if (!this.allowsMarkType(marks2[i].type))
+      for (let i2 = 0; i2 < marks2.length; i2++)
+        if (!this.allowsMarkType(marks2[i2].type))
           return false;
       return true;
     }
@@ -3791,12 +2233,12 @@
       if (this.markSet == null)
         return marks2;
       let copy2;
-      for (let i = 0; i < marks2.length; i++) {
-        if (!this.allowsMarkType(marks2[i].type)) {
+      for (let i2 = 0; i2 < marks2.length; i2++) {
+        if (!this.allowsMarkType(marks2[i2].type)) {
           if (!copy2)
-            copy2 = marks2.slice(0, i);
+            copy2 = marks2.slice(0, i2);
         } else if (copy2) {
-          copy2.push(marks2[i]);
+          copy2.push(marks2[i2]);
         }
       }
       return !copy2 ? marks2 : copy2.length ? copy2 : Mark.none;
@@ -3812,7 +2254,7 @@
         throw new RangeError("Schema is missing its top node type ('" + topType + "')");
       if (!result.text)
         throw new RangeError("Every schema needs a 'text' type");
-      for (let _2 in result.text.attrs)
+      for (let _4 in result.text.attrs)
         throw new RangeError("The text node type should not have attributes");
       return result;
     }
@@ -3872,10 +2314,10 @@
     without it is returned. Otherwise, the input set is returned.
     */
     removeFromSet(set) {
-      for (var i = 0; i < set.length; i++)
-        if (set[i].type == this) {
-          set = set.slice(0, i).concat(set.slice(i + 1));
-          i--;
+      for (var i2 = 0; i2 < set.length; i2++)
+        if (set[i2].type == this) {
+          set = set.slice(0, i2).concat(set.slice(i2 + 1));
+          i2--;
         }
       return set;
     }
@@ -3883,9 +2325,9 @@
     Tests whether there is a mark of this type in the given set.
     */
     isInSet(set) {
-      for (let i = 0; i < set.length; i++)
-        if (set[i].type == this)
-          return set[i];
+      for (let i2 = 0; i2 < set.length; i2++)
+        if (set[i2].type == this)
+          return set[i2];
     }
     /**
     @internal
@@ -3957,9 +2399,9 @@
     Create a text node in the schema. Empty text nodes are not
     allowed.
     */
-    text(text2, marks2) {
+    text(text3, marks2) {
       let type = this.nodes.text;
-      return new TextNode(type, type.defaultAttrs, text2, Mark.setFrom(marks2));
+      return new TextNode(type, type.defaultAttrs, text3, Mark.setFrom(marks2));
     }
     /**
     Create a mark with the given type and attributes.
@@ -3981,19 +2423,19 @@
   };
   function gatherMarks(schema3, marks2) {
     let found2 = [];
-    for (let i = 0; i < marks2.length; i++) {
-      let name = marks2[i], mark = schema3.marks[name], ok = mark;
-      if (mark) {
-        found2.push(mark);
+    for (let i2 = 0; i2 < marks2.length; i2++) {
+      let name = marks2[i2], mark2 = schema3.marks[name], ok = mark2;
+      if (mark2) {
+        found2.push(mark2);
       } else {
         for (let prop in schema3.marks) {
-          let mark2 = schema3.marks[prop];
-          if (name == "_" || mark2.spec.group && mark2.spec.group.split(" ").indexOf(name) > -1)
-            found2.push(ok = mark2);
+          let mark3 = schema3.marks[prop];
+          if (name == "_" || mark3.spec.group && mark3.spec.group.split(" ").indexOf(name) > -1)
+            found2.push(ok = mark3);
         }
       }
       if (!ok)
-        throw new SyntaxError("Unknown mark type: '" + marks2[i] + "'");
+        throw new SyntaxError("Unknown mark type: '" + marks2[i2] + "'");
     }
     return found2;
   }
@@ -4024,10 +2466,10 @@
           this.styles.push(rule);
         }
       });
-      this.normalizeLists = !this.tags.some((r) => {
-        if (!/^(ul|ol)\b/.test(r.tag) || !r.node)
+      this.normalizeLists = !this.tags.some((r4) => {
+        if (!/^(ul|ol)\b/.test(r4.tag) || !r4.node)
           return false;
-        let node = schema3.nodes[r.node];
+        let node = schema3.nodes[r4.node];
         return node.contentMatch.matchType(node);
       });
     }
@@ -4056,8 +2498,8 @@
     @internal
     */
     matchTag(dom, context, after) {
-      for (let i = after ? this.tags.indexOf(after) + 1 : 0; i < this.tags.length; i++) {
-        let rule = this.tags[i];
+      for (let i2 = after ? this.tags.indexOf(after) + 1 : 0; i2 < this.tags.length; i2++) {
+        let rule = this.tags[i2];
         if (matches(dom, rule.tag) && (rule.namespace === void 0 || dom.namespaceURI == rule.namespace) && (!rule.context || context.matchesContext(rule.context))) {
           if (rule.getAttrs) {
             let result = rule.getAttrs(dom);
@@ -4073,8 +2515,8 @@
     @internal
     */
     matchStyle(prop, value, context, after) {
-      for (let i = after ? this.styles.indexOf(after) + 1 : 0; i < this.styles.length; i++) {
-        let rule = this.styles[i], style = rule.style;
+      for (let i2 = after ? this.styles.indexOf(after) + 1 : 0; i2 < this.styles.length; i2++) {
+        let rule = this.styles[i2], style = rule.style;
         if (style.indexOf(prop) != 0 || rule.context && !context.matchesContext(rule.context) || // Test that the style string either precisely matches the prop,
         // or has an '=' sign after the prop, followed by the given
         // value.
@@ -4095,13 +2537,13 @@
     static schemaRules(schema3) {
       let result = [];
       function insert(rule) {
-        let priority = rule.priority == null ? 50 : rule.priority, i = 0;
-        for (; i < result.length; i++) {
-          let next = result[i], nextPriority = next.priority == null ? 50 : next.priority;
+        let priority = rule.priority == null ? 50 : rule.priority, i2 = 0;
+        for (; i2 < result.length; i2++) {
+          let next = result[i2], nextPriority = next.priority == null ? 50 : next.priority;
           if (nextPriority < priority)
             break;
         }
-        result.splice(i, 0, rule);
+        result.splice(i2, 0, rule);
       }
       for (let name in schema3.marks) {
         let rules = schema3.marks[name].spec.parseDOM;
@@ -4215,13 +2657,13 @@
     }
     finish(openEnd) {
       if (!(this.options & OPT_PRESERVE_WS)) {
-        let last = this.content[this.content.length - 1], m2;
-        if (last && last.isText && (m2 = /[ \t\r\n\u000c]+$/.exec(last.text))) {
-          let text2 = last;
-          if (last.text.length == m2[0].length)
+        let last = this.content[this.content.length - 1], m4;
+        if (last && last.isText && (m4 = /[ \t\r\n\u000c]+$/.exec(last.text))) {
+          let text3 = last;
+          if (last.text.length == m4[0].length)
             this.content.pop();
           else
-            this.content[this.content.length - 1] = text2.withText(text2.text.slice(0, text2.text.length - m2[0].length));
+            this.content[this.content.length - 1] = text3.withText(text3.text.slice(0, text3.text.length - m4[0].length));
         }
       }
       let content = Fragment.from(this.content);
@@ -4285,11 +2727,11 @@
           value = value.replace(/\r\n?/g, "\n");
         } else if (schema3.linebreakReplacement && /[\r\n]/.test(value) && this.top.findWrapping(schema3.linebreakReplacement.create())) {
           let lines = value.split(/\r?\n|\r/);
-          for (let i = 0; i < lines.length; i++) {
-            if (i)
+          for (let i2 = 0; i2 < lines.length; i2++) {
+            if (i2)
               this.insertNode(schema3.linebreakReplacement.create(), marks2, true);
-            if (lines[i])
-              this.insertNode(schema3.text(lines[i]), marks2, !/\S/.test(lines[i]));
+            if (lines[i2])
+              this.insertNode(schema3.text(lines[i2]), marks2, !/\S/.test(lines[i2]));
           }
           value = "";
         } else {
@@ -4362,8 +2804,8 @@
     readStyles(dom, marks2) {
       let styles2 = dom.style;
       if (styles2 && styles2.length)
-        for (let i = 0; i < this.parser.matchedStyles.length; i++) {
-          let name = this.parser.matchedStyles[i], value = styles2.getPropertyValue(name);
+        for (let i2 = 0; i2 < this.parser.matchedStyles.length; i2++) {
+          let name = this.parser.matchedStyles[i2], value = styles2.getPropertyValue(name);
           if (value)
             for (let after = void 0; ; ) {
               let rule = this.parser.matchStyle(name, value, this, after);
@@ -4372,7 +2814,7 @@
               if (rule.ignore)
                 return null;
               if (rule.clearMark)
-                marks2 = marks2.filter((m2) => !rule.clearMark(m2));
+                marks2 = marks2.filter((m4) => !rule.clearMark(m4));
               else
                 marks2 = marks2.concat(this.parser.schema.marks[rule.mark].create(rule.attrs));
               if (rule.consuming === false)
@@ -4460,8 +2902,8 @@
       if (!route)
         return null;
       this.sync(sync);
-      for (let i = 0; i < route.length; i++)
-        marks2 = this.enterInner(route[i], null, marks2, false);
+      for (let i2 = 0; i2 < route.length; i2++)
+        marks2 = this.enterInner(route[i2], null, marks2, false);
       return marks2;
     }
     // Try to insert the given node, adjusting the context when needed.
@@ -4478,9 +2920,9 @@
         if (top.match)
           top.match = top.match.matchType(node.type);
         let nodeMarks = Mark.none;
-        for (let m2 of innerMarks.concat(node.marks))
-          if (top.type ? top.type.allowsMarkType(m2.type) : markMayApply(m2.type, node.type))
-            nodeMarks = m2.addToSet(nodeMarks);
+        for (let m4 of innerMarks.concat(node.marks))
+          if (top.type ? top.type.allowsMarkType(m4.type) : markMayApply(m4.type, node.type))
+            nodeMarks = m4.addToSet(nodeMarks);
         top.content.push(node.mark(nodeMarks));
         return true;
       }
@@ -4503,9 +2945,9 @@
       if (top.options & OPT_OPEN_LEFT && top.content.length == 0)
         options |= OPT_OPEN_LEFT;
       let applyMarks = Mark.none;
-      marks2 = marks2.filter((m2) => {
-        if (top.type ? top.type.allowsMarkType(m2.type) : markMayApply(m2.type, type)) {
-          applyMarks = m2.addToSet(applyMarks);
+      marks2 = marks2.filter((m4) => {
+        if (top.type ? top.type.allowsMarkType(m4.type) : markMayApply(m4.type, type)) {
+          applyMarks = m4.addToSet(applyMarks);
           return false;
         }
         return true;
@@ -4517,10 +2959,10 @@
     // Make sure all nodes above this.open are finished and added to
     // their parents
     closeExtra(openEnd = false) {
-      let i = this.nodes.length - 1;
-      if (i > this.open) {
-        for (; i > this.open; i--)
-          this.nodes[i - 1].content.push(this.nodes[i].finish(openEnd));
+      let i2 = this.nodes.length - 1;
+      if (i2 > this.open) {
+        for (; i2 > this.open; i2--)
+          this.nodes[i2 - 1].content.push(this.nodes[i2].finish(openEnd));
         this.nodes.length = this.open + 1;
       }
     }
@@ -4530,12 +2972,12 @@
       return this.nodes[0].finish(!!(this.isOpen || this.options.topOpen));
     }
     sync(to) {
-      for (let i = this.open; i >= 0; i--) {
-        if (this.nodes[i] == to) {
-          this.open = i;
+      for (let i2 = this.open; i2 >= 0; i2--) {
+        if (this.nodes[i2] == to) {
+          this.open = i2;
           return true;
         } else if (this.localPreserveWS) {
-          this.nodes[i].options |= OPT_PRESERVE_WS;
+          this.nodes[i2].options |= OPT_PRESERVE_WS;
         }
       }
       return false;
@@ -4543,44 +2985,44 @@
     get currentPos() {
       this.closeExtra();
       let pos = 0;
-      for (let i = this.open; i >= 0; i--) {
-        let content = this.nodes[i].content;
-        for (let j2 = content.length - 1; j2 >= 0; j2--)
-          pos += content[j2].nodeSize;
-        if (i)
+      for (let i2 = this.open; i2 >= 0; i2--) {
+        let content = this.nodes[i2].content;
+        for (let j3 = content.length - 1; j3 >= 0; j3--)
+          pos += content[j3].nodeSize;
+        if (i2)
           pos++;
       }
       return pos;
     }
     findAtPoint(parent, offset) {
       if (this.find)
-        for (let i = 0; i < this.find.length; i++) {
-          if (this.find[i].node == parent && this.find[i].offset == offset)
-            this.find[i].pos = this.currentPos;
+        for (let i2 = 0; i2 < this.find.length; i2++) {
+          if (this.find[i2].node == parent && this.find[i2].offset == offset)
+            this.find[i2].pos = this.currentPos;
         }
     }
     findInside(parent) {
       if (this.find)
-        for (let i = 0; i < this.find.length; i++) {
-          if (this.find[i].pos == null && parent.nodeType == 1 && parent.contains(this.find[i].node))
-            this.find[i].pos = this.currentPos;
+        for (let i2 = 0; i2 < this.find.length; i2++) {
+          if (this.find[i2].pos == null && parent.nodeType == 1 && parent.contains(this.find[i2].node))
+            this.find[i2].pos = this.currentPos;
         }
     }
     findAround(parent, content, before) {
       if (parent != content && this.find)
-        for (let i = 0; i < this.find.length; i++) {
-          if (this.find[i].pos == null && parent.nodeType == 1 && parent.contains(this.find[i].node)) {
-            let pos = content.compareDocumentPosition(this.find[i].node);
+        for (let i2 = 0; i2 < this.find.length; i2++) {
+          if (this.find[i2].pos == null && parent.nodeType == 1 && parent.contains(this.find[i2].node)) {
+            let pos = content.compareDocumentPosition(this.find[i2].node);
             if (pos & (before ? 2 : 4))
-              this.find[i].pos = this.currentPos;
+              this.find[i2].pos = this.currentPos;
           }
         }
     }
     findInText(textNode) {
       if (this.find)
-        for (let i = 0; i < this.find.length; i++) {
-          if (this.find[i].node == textNode)
-            this.find[i].pos = this.currentPos - (textNode.nodeValue.length - this.find[i].offset);
+        for (let i2 = 0; i2 < this.find.length; i2++) {
+          if (this.find[i2].node == textNode)
+            this.find[i2].pos = this.currentPos - (textNode.nodeValue.length - this.find[i2].offset);
         }
     }
     // Determines whether the given context string matches this context.
@@ -4588,21 +3030,21 @@
       if (context.indexOf("|") > -1)
         return context.split(/\s*\|\s*/).some(this.matchesContext, this);
       let parts = context.split("/");
-      let option = this.options.context;
-      let useRoot = !this.isOpen && (!option || option.parent.type == this.nodes[0].type);
-      let minDepth = -(option ? option.depth + 1 : 0) + (useRoot ? 0 : 1);
-      let match = (i, depth) => {
-        for (; i >= 0; i--) {
-          let part = parts[i];
+      let option2 = this.options.context;
+      let useRoot = !this.isOpen && (!option2 || option2.parent.type == this.nodes[0].type);
+      let minDepth = -(option2 ? option2.depth + 1 : 0) + (useRoot ? 0 : 1);
+      let match = (i2, depth) => {
+        for (; i2 >= 0; i2--) {
+          let part = parts[i2];
           if (part == "") {
-            if (i == parts.length - 1 || i == 0)
+            if (i2 == parts.length - 1 || i2 == 0)
               continue;
             for (; depth >= minDepth; depth--)
-              if (match(i - 1, depth))
+              if (match(i2 - 1, depth))
                 return true;
             return false;
           } else {
-            let next = depth > 0 || depth == 0 && useRoot ? this.nodes[depth].type : option && depth >= minDepth ? option.node(depth - minDepth).type : null;
+            let next = depth > 0 || depth == 0 && useRoot ? this.nodes[depth].type : option2 && depth >= minDepth ? option2.node(depth - minDepth).type : null;
             if (!next || next.name != part && !next.isInGroup(part))
               return false;
             depth--;
@@ -4615,8 +3057,8 @@
     textblockFromContext() {
       let $context = this.options.context;
       if ($context)
-        for (let d2 = $context.depth; d2 >= 0; d2--) {
-          let deflt3 = $context.node(d2).contentMatchAt($context.indexAfter(d2)).defaultType;
+        for (let d3 = $context.depth; d3 >= 0; d3--) {
+          let deflt3 = $context.node(d3).contentMatchAt($context.indexAfter(d3)).defaultType;
           if (deflt3 && deflt3.isTextblock && deflt3.defaultAttrs)
             return deflt3;
         }
@@ -4657,8 +3099,8 @@
         continue;
       let seen = [], scan = (match) => {
         seen.push(match);
-        for (let i = 0; i < match.edgeCount; i++) {
-          let { type, next } = match.edge(i);
+        for (let i2 = 0; i2 < match.edgeCount; i2++) {
+          let { type, next } = match.edge(i2);
           if (type == nodeType)
             return true;
           if (seen.indexOf(next) < 0 && scan(next))
@@ -4744,8 +3186,8 @@
     */
     serializeNode(node, options = {}) {
       let dom = this.serializeNodeInner(node, options);
-      for (let i = node.marks.length - 1; i >= 0; i--) {
-        let wrap2 = this.serializeMark(node.marks[i], node.isInline, options);
+      for (let i2 = node.marks.length - 1; i2 >= 0; i2--) {
+        let wrap2 = this.serializeMark(node.marks[i2], node.isInline, options);
         if (wrap2) {
           (wrap2.contentDOM || wrap2.dom).appendChild(dom);
           dom = wrap2.dom;
@@ -4756,9 +3198,9 @@
     /**
     @internal
     */
-    serializeMark(mark, inline, options = {}) {
-      let toDOM = this.marks[mark.type.name];
-      return toDOM && renderSpec(doc(options), toDOM(mark, inline), null, mark.attrs);
+    serializeMark(mark2, inline, options = {}) {
+      let toDOM = this.marks[mark2.type.name];
+      return toDOM && renderSpec(doc(options), toDOM(mark2, inline), null, mark2.attrs);
     }
     static renderSpec(doc3, structure, xmlNS = null, blockArraysIn) {
       return renderSpec(doc3, structure, xmlNS, blockArraysIn);
@@ -4816,8 +3258,8 @@
               result = [];
             result.push(value);
           } else {
-            for (let i = 0; i < value.length; i++)
-              scan(value[i]);
+            for (let i2 = 0; i2 < value.length; i2++)
+              scan(value[i2]);
           }
         } else {
           for (let prop in value)
@@ -4861,10 +3303,10 @@
             dom.setAttribute(name, attrs[name]);
         }
     }
-    for (let i = start; i < structure.length; i++) {
-      let child = structure[i];
+    for (let i2 = start; i2 < structure.length; i2++) {
+      let child = structure[i2];
       if (child === 0) {
-        if (i < structure.length - 1 || i > start)
+        if (i2 < structure.length - 1 || i2 > start)
           throw new RangeError("Content hole must be the only child of its parent node");
         return { dom, contentDOM: dom };
       } else {
@@ -4952,8 +3394,8 @@
     recover(value) {
       let diff = 0, index = recoverIndex(value);
       if (!this.inverted)
-        for (let i = 0; i < index; i++)
-          diff += this.ranges[i * 3 + 2] - this.ranges[i * 3 + 1];
+        for (let i2 = 0; i2 < index; i2++)
+          diff += this.ranges[i2 * 3 + 2] - this.ranges[i2 * 3 + 1];
       return this.ranges[index * 3] + diff + recoverOffset(value);
     }
     mapResult(pos, assoc = 1) {
@@ -4967,17 +3409,17 @@
     */
     _map(pos, assoc, simple) {
       let diff = 0, oldIndex = this.inverted ? 2 : 1, newIndex = this.inverted ? 1 : 2;
-      for (let i = 0; i < this.ranges.length; i += 3) {
-        let start = this.ranges[i] - (this.inverted ? diff : 0);
+      for (let i2 = 0; i2 < this.ranges.length; i2 += 3) {
+        let start = this.ranges[i2] - (this.inverted ? diff : 0);
         if (start > pos)
           break;
-        let oldSize = this.ranges[i + oldIndex], newSize = this.ranges[i + newIndex], end = start + oldSize;
+        let oldSize = this.ranges[i2 + oldIndex], newSize = this.ranges[i2 + newIndex], end = start + oldSize;
         if (pos <= end) {
           let side = !oldSize ? assoc : pos == start ? -1 : pos == end ? 1 : assoc;
           let result = start + diff + (side < 0 ? 0 : newSize);
           if (simple)
             return result;
-          let recover = pos == (assoc < 0 ? start : end) ? null : makeRecover(i / 3, pos - start);
+          let recover = pos == (assoc < 0 ? start : end) ? null : makeRecover(i2 / 3, pos - start);
           let del2 = pos == start ? DEL_AFTER : pos == end ? DEL_BEFORE : DEL_ACROSS;
           if (assoc < 0 ? pos != start : pos != end)
             del2 |= DEL_SIDE;
@@ -4993,14 +3435,14 @@
     touches(pos, recover) {
       let diff = 0, index = recoverIndex(recover);
       let oldIndex = this.inverted ? 2 : 1, newIndex = this.inverted ? 1 : 2;
-      for (let i = 0; i < this.ranges.length; i += 3) {
-        let start = this.ranges[i] - (this.inverted ? diff : 0);
+      for (let i2 = 0; i2 < this.ranges.length; i2 += 3) {
+        let start = this.ranges[i2] - (this.inverted ? diff : 0);
         if (start > pos)
           break;
-        let oldSize = this.ranges[i + oldIndex], end = start + oldSize;
-        if (pos <= end && i == index * 3)
+        let oldSize = this.ranges[i2 + oldIndex], end = start + oldSize;
+        if (pos <= end && i2 == index * 3)
           return true;
-        diff += this.ranges[i + newIndex] - oldSize;
+        diff += this.ranges[i2 + newIndex] - oldSize;
       }
       return false;
     }
@@ -5008,12 +3450,12 @@
     Calls the given function on each of the changed ranges included in
     this map.
     */
-    forEach(f) {
+    forEach(f2) {
       let oldIndex = this.inverted ? 2 : 1, newIndex = this.inverted ? 1 : 2;
-      for (let i = 0, diff = 0; i < this.ranges.length; i += 3) {
-        let start = this.ranges[i], oldStart = start - (this.inverted ? diff : 0), newStart = start + (this.inverted ? 0 : diff);
-        let oldSize = this.ranges[i + oldIndex], newSize = this.ranges[i + newIndex];
-        f(oldStart, oldStart + oldSize, newStart, newStart + newSize);
+      for (let i2 = 0, diff = 0; i2 < this.ranges.length; i2 += 3) {
+        let start = this.ranges[i2], oldStart = start - (this.inverted ? diff : 0), newStart = start + (this.inverted ? 0 : diff);
+        let oldSize = this.ranges[i2 + oldIndex], newSize = this.ranges[i2 + newIndex];
+        f2(oldStart, oldStart + oldSize, newStart, newStart + newSize);
         diff += newSize - oldSize;
       }
     }
@@ -5083,9 +3525,9 @@
     mirroring information).
     */
     appendMapping(mapping) {
-      for (let i = 0, startSize = this._maps.length; i < mapping._maps.length; i++) {
-        let mirr = mapping.getMirror(i);
-        this.appendMap(mapping._maps[i], mirr != null && mirr < i ? startSize + mirr : void 0);
+      for (let i2 = 0, startSize = this._maps.length; i2 < mapping._maps.length; i2++) {
+        let mirr = mapping.getMirror(i2);
+        this.appendMap(mapping._maps[i2], mirr != null && mirr < i2 ? startSize + mirr : void 0);
       }
     }
     /**
@@ -5095,26 +3537,26 @@
     */
     getMirror(n) {
       if (this.mirror) {
-        for (let i = 0; i < this.mirror.length; i++)
-          if (this.mirror[i] == n)
-            return this.mirror[i + (i % 2 ? -1 : 1)];
+        for (let i2 = 0; i2 < this.mirror.length; i2++)
+          if (this.mirror[i2] == n)
+            return this.mirror[i2 + (i2 % 2 ? -1 : 1)];
       }
     }
     /**
     @internal
     */
-    setMirror(n, m2) {
+    setMirror(n, m4) {
       if (!this.mirror)
         this.mirror = [];
-      this.mirror.push(n, m2);
+      this.mirror.push(n, m4);
     }
     /**
     Append the inverse of the given mapping to this one.
     */
     appendMappingInverted(mapping) {
-      for (let i = mapping.maps.length - 1, totalSize = this._maps.length + mapping._maps.length; i >= 0; i--) {
-        let mirr = mapping.getMirror(i);
-        this.appendMap(mapping._maps[i].invert(), mirr != null && mirr > i ? totalSize - mirr - 1 : void 0);
+      for (let i2 = mapping.maps.length - 1, totalSize = this._maps.length + mapping._maps.length; i2 >= 0; i2--) {
+        let mirr = mapping.getMirror(i2);
+        this.appendMap(mapping._maps[i2].invert(), mirr != null && mirr > i2 ? totalSize - mirr - 1 : void 0);
       }
     }
     /**
@@ -5131,8 +3573,8 @@
     map(pos, assoc = 1) {
       if (this.mirror)
         return this._map(pos, assoc, true);
-      for (let i = this.from; i < this.to; i++)
-        pos = this._maps[i].map(pos, assoc);
+      for (let i2 = this.from; i2 < this.to; i2++)
+        pos = this._maps[i2].map(pos, assoc);
       return pos;
     }
     /**
@@ -5147,12 +3589,12 @@
     */
     _map(pos, assoc, simple) {
       let delInfo = 0;
-      for (let i = this.from; i < this.to; i++) {
-        let map2 = this._maps[i], result = map2.mapResult(pos, assoc);
+      for (let i2 = this.from; i2 < this.to; i2++) {
+        let map2 = this._maps[i2], result = map2.mapResult(pos, assoc);
         if (result.recover != null) {
-          let corr = this.getMirror(i);
-          if (corr != null && corr > i && corr < this.to) {
-            i = corr;
+          let corr = this.getMirror(i2);
+          if (corr != null && corr > i2 && corr < this.to) {
+            i2 = corr;
             pos = this._maps[corr].recover(result.recover);
             continue;
           }
@@ -5242,14 +3684,14 @@
       }
     }
   };
-  function mapFragment(fragment, f, parent) {
+  function mapFragment(fragment, f2, parent) {
     let mapped = [];
-    for (let i = 0; i < fragment.childCount; i++) {
-      let child = fragment.child(i);
+    for (let i2 = 0; i2 < fragment.childCount; i2++) {
+      let child = fragment.child(i2);
       if (child.content.size)
-        child = child.copy(mapFragment(child.content, f, child));
+        child = child.copy(mapFragment(child.content, f2, child));
       if (child.isInline)
-        child = f(child, parent, i);
+        child = f2(child, parent, i2);
       mapped.push(child);
     }
     return Fragment.fromArray(mapped);
@@ -5258,11 +3700,11 @@
     /**
     Create a mark step.
     */
-    constructor(from2, to, mark) {
+    constructor(from2, to, mark2) {
       super();
       this.from = from2;
       this.to = to;
-      this.mark = mark;
+      this.mark = mark2;
     }
     apply(doc3) {
       let oldSlice = doc3.slice(this.from, this.to), $from = doc3.resolve(this.from);
@@ -5310,11 +3752,11 @@
     /**
     Create a mark-removing step.
     */
-    constructor(from2, to, mark) {
+    constructor(from2, to, mark2) {
       super();
       this.from = from2;
       this.to = to;
-      this.mark = mark;
+      this.mark = mark2;
     }
     apply(doc3) {
       let oldSlice = doc3.slice(this.from, this.to);
@@ -5359,10 +3801,10 @@
     /**
     Create a node mark step.
     */
-    constructor(pos, mark) {
+    constructor(pos, mark2) {
       super();
       this.pos = pos;
-      this.mark = mark;
+      this.mark = mark2;
     }
     apply(doc3) {
       let node = doc3.nodeAt(this.pos);
@@ -5376,9 +3818,9 @@
       if (node) {
         let newSet = this.mark.addToSet(node.marks);
         if (newSet.length == node.marks.length) {
-          for (let i = 0; i < node.marks.length; i++)
-            if (!node.marks[i].isInSet(newSet))
-              return new _AddNodeMarkStep(this.pos, node.marks[i]);
+          for (let i2 = 0; i2 < node.marks.length; i2++)
+            if (!node.marks[i2].isInSet(newSet))
+              return new _AddNodeMarkStep(this.pos, node.marks[i2]);
           return new _AddNodeMarkStep(this.pos, this.mark);
         }
       }
@@ -5405,10 +3847,10 @@
     /**
     Create a mark-removing step.
     */
-    constructor(pos, mark) {
+    constructor(pos, mark2) {
       super();
       this.pos = pos;
-      this.mark = mark;
+      this.mark = mark2;
     }
     apply(doc3) {
       let node = doc3.nodeAt(this.pos);
@@ -5597,60 +4039,60 @@
     }
     return false;
   }
-  function addMark(tr, from2, to, mark) {
+  function addMark(tr2, from2, to, mark2) {
     let removed = [], added = [];
     let removing, adding;
-    tr.doc.nodesBetween(from2, to, (node, pos, parent) => {
+    tr2.doc.nodesBetween(from2, to, (node, pos, parent) => {
       if (!node.isInline)
         return;
       let marks2 = node.marks;
-      if (!mark.isInSet(marks2) && parent.type.allowsMarkType(mark.type)) {
+      if (!mark2.isInSet(marks2) && parent.type.allowsMarkType(mark2.type)) {
         let start = Math.max(pos, from2), end = Math.min(pos + node.nodeSize, to);
-        let newSet = mark.addToSet(marks2);
-        for (let i = 0; i < marks2.length; i++) {
-          if (!marks2[i].isInSet(newSet)) {
-            if (removing && removing.to == start && removing.mark.eq(marks2[i]))
+        let newSet = mark2.addToSet(marks2);
+        for (let i2 = 0; i2 < marks2.length; i2++) {
+          if (!marks2[i2].isInSet(newSet)) {
+            if (removing && removing.to == start && removing.mark.eq(marks2[i2]))
               removing.to = end;
             else
-              removed.push(removing = new RemoveMarkStep(start, end, marks2[i]));
+              removed.push(removing = new RemoveMarkStep(start, end, marks2[i2]));
           }
         }
         if (adding && adding.to == start)
           adding.to = end;
         else
-          added.push(adding = new AddMarkStep(start, end, mark));
+          added.push(adding = new AddMarkStep(start, end, mark2));
       }
     });
-    removed.forEach((s) => tr.step(s));
-    added.forEach((s) => tr.step(s));
+    removed.forEach((s2) => tr2.step(s2));
+    added.forEach((s2) => tr2.step(s2));
   }
-  function removeMark(tr, from2, to, mark) {
+  function removeMark(tr2, from2, to, mark2) {
     let matched = [], step = 0;
-    tr.doc.nodesBetween(from2, to, (node, pos) => {
+    tr2.doc.nodesBetween(from2, to, (node, pos) => {
       if (!node.isInline)
         return;
       step++;
       let toRemove = null;
-      if (mark instanceof MarkType) {
+      if (mark2 instanceof MarkType) {
         let set = node.marks, found2;
-        while (found2 = mark.isInSet(set)) {
+        while (found2 = mark2.isInSet(set)) {
           (toRemove || (toRemove = [])).push(found2);
           set = found2.removeFromSet(set);
         }
-      } else if (mark) {
-        if (mark.isInSet(node.marks))
-          toRemove = [mark];
+      } else if (mark2) {
+        if (mark2.isInSet(node.marks))
+          toRemove = [mark2];
       } else {
         toRemove = node.marks;
       }
       if (toRemove && toRemove.length) {
         let end = Math.min(pos + node.nodeSize, to);
-        for (let i = 0; i < toRemove.length; i++) {
-          let style = toRemove[i], found2;
-          for (let j2 = 0; j2 < matched.length; j2++) {
-            let m2 = matched[j2];
-            if (m2.step == step - 1 && style.eq(matched[j2].style))
-              found2 = m2;
+        for (let i2 = 0; i2 < toRemove.length; i2++) {
+          let style = toRemove[i2], found2;
+          for (let j3 = 0; j3 < matched.length; j3++) {
+            let m4 = matched[j3];
+            if (m4.step == step - 1 && style.eq(matched[j3].style))
+              found2 = m4;
           }
           if (found2) {
             found2.to = end;
@@ -5661,27 +4103,27 @@
         }
       }
     });
-    matched.forEach((m2) => tr.step(new RemoveMarkStep(m2.from, m2.to, m2.style)));
+    matched.forEach((m4) => tr2.step(new RemoveMarkStep(m4.from, m4.to, m4.style)));
   }
-  function clearIncompatible(tr, pos, parentType, match = parentType.contentMatch, clearNewlines = true) {
-    let node = tr.doc.nodeAt(pos);
+  function clearIncompatible(tr2, pos, parentType, match = parentType.contentMatch, clearNewlines = true) {
+    let node = tr2.doc.nodeAt(pos);
     let replSteps = [], cur = pos + 1;
-    for (let i = 0; i < node.childCount; i++) {
-      let child = node.child(i), end = cur + child.nodeSize;
+    for (let i2 = 0; i2 < node.childCount; i2++) {
+      let child = node.child(i2), end = cur + child.nodeSize;
       let allowed = match.matchType(child.type);
       if (!allowed) {
         replSteps.push(new ReplaceStep(cur, end, Slice.empty));
       } else {
         match = allowed;
-        for (let j2 = 0; j2 < child.marks.length; j2++)
-          if (!parentType.allowsMarkType(child.marks[j2].type))
-            tr.step(new RemoveMarkStep(cur, end, child.marks[j2]));
+        for (let j3 = 0; j3 < child.marks.length; j3++)
+          if (!parentType.allowsMarkType(child.marks[j3].type))
+            tr2.step(new RemoveMarkStep(cur, end, child.marks[j3]));
         if (clearNewlines && child.isText && parentType.whitespace != "pre") {
-          let m2, newline = /\r?\n|\r/g, slice2;
-          while (m2 = newline.exec(child.text)) {
+          let m4, newline = /\r?\n|\r/g, slice2;
+          while (m4 = newline.exec(child.text)) {
             if (!slice2)
               slice2 = new Slice(Fragment.from(parentType.schema.text(" ", parentType.allowedMarks(child.marks))), 0, 0);
-            replSteps.push(new ReplaceStep(cur + m2.index, cur + m2.index + m2[0].length, slice2));
+            replSteps.push(new ReplaceStep(cur + m4.index, cur + m4.index + m4[0].length, slice2));
           }
         }
       }
@@ -5689,71 +4131,71 @@
     }
     if (!match.validEnd) {
       let fill = match.fillBefore(Fragment.empty, true);
-      tr.replace(cur, cur, new Slice(fill, 0, 0));
+      tr2.replace(cur, cur, new Slice(fill, 0, 0));
     }
-    for (let i = replSteps.length - 1; i >= 0; i--)
-      tr.step(replSteps[i]);
+    for (let i2 = replSteps.length - 1; i2 >= 0; i2--)
+      tr2.step(replSteps[i2]);
   }
   function canCut(node, start, end) {
     return (start == 0 || node.canReplace(start, node.childCount)) && (end == node.childCount || node.canReplace(0, end));
   }
-  function liftTarget(range) {
-    let parent = range.parent;
-    let content = parent.content.cutByIndex(range.startIndex, range.endIndex);
-    for (let depth = range.depth; ; --depth) {
-      let node = range.$from.node(depth);
-      let index = range.$from.index(depth), endIndex = range.$to.indexAfter(depth);
-      if (depth < range.depth && node.canReplace(index, endIndex, content))
+  function liftTarget(range2) {
+    let parent = range2.parent;
+    let content = parent.content.cutByIndex(range2.startIndex, range2.endIndex);
+    for (let depth = range2.depth; ; --depth) {
+      let node = range2.$from.node(depth);
+      let index = range2.$from.index(depth), endIndex = range2.$to.indexAfter(depth);
+      if (depth < range2.depth && node.canReplace(index, endIndex, content))
         return depth;
       if (depth == 0 || node.type.spec.isolating || !canCut(node, index, endIndex))
         break;
     }
     return null;
   }
-  function lift(tr, range, target) {
-    let { $from, $to, depth } = range;
+  function lift(tr2, range2, target) {
+    let { $from, $to, depth } = range2;
     let gapStart = $from.before(depth + 1), gapEnd = $to.after(depth + 1);
     let start = gapStart, end = gapEnd;
     let before = Fragment.empty, openStart = 0;
-    for (let d2 = depth, splitting = false; d2 > target; d2--)
-      if (splitting || $from.index(d2) > 0) {
+    for (let d3 = depth, splitting = false; d3 > target; d3--)
+      if (splitting || $from.index(d3) > 0) {
         splitting = true;
-        before = Fragment.from($from.node(d2).copy(before));
+        before = Fragment.from($from.node(d3).copy(before));
         openStart++;
       } else {
         start--;
       }
     let after = Fragment.empty, openEnd = 0;
-    for (let d2 = depth, splitting = false; d2 > target; d2--)
-      if (splitting || $to.after(d2 + 1) < $to.end(d2)) {
+    for (let d3 = depth, splitting = false; d3 > target; d3--)
+      if (splitting || $to.after(d3 + 1) < $to.end(d3)) {
         splitting = true;
-        after = Fragment.from($to.node(d2).copy(after));
+        after = Fragment.from($to.node(d3).copy(after));
         openEnd++;
       } else {
         end++;
       }
-    tr.step(new ReplaceAroundStep(start, end, gapStart, gapEnd, new Slice(before.append(after), openStart, openEnd), before.size - openStart, true));
+    tr2.step(new ReplaceAroundStep(start, end, gapStart, gapEnd, new Slice(before.append(after), openStart, openEnd), before.size - openStart, true));
   }
-  function wrap(tr, range, wrappers) {
+  function wrap(tr2, range2, wrappers) {
     let content = Fragment.empty;
-    for (let i = wrappers.length - 1; i >= 0; i--) {
+    for (let i2 = wrappers.length - 1; i2 >= 0; i2--) {
       if (content.size) {
-        let match = wrappers[i].type.contentMatch.matchFragment(content);
+        let match = wrappers[i2].type.contentMatch.matchFragment(content);
         if (!match || !match.validEnd)
           throw new RangeError("Wrapper type given to Transform.wrap does not form valid content of its parent wrapper");
       }
-      content = Fragment.from(wrappers[i].type.create(wrappers[i].attrs, content));
+      content = Fragment.from(wrappers[i2].type.create(wrappers[i2].attrs, content));
     }
-    let start = range.start, end = range.end;
-    tr.step(new ReplaceAroundStep(start, end, start, end, new Slice(content, 0, 0), wrappers.length, true));
+    let start = range2.start, end = range2.end;
+    tr2.step(new ReplaceAroundStep(start, end, start, end, new Slice(content, 0, 0), wrappers.length, true));
   }
-  function setBlockType(tr, from2, to, type, attrs) {
+  function setBlockType(tr2, from2, to, type, attrs) {
     if (!type.isTextblock)
       throw new RangeError("Type given to setBlockType should be a textblock");
-    let mapFrom = tr.steps.length;
-    tr.doc.nodesBetween(from2, to, (node, pos) => {
+    let mapFrom = tr2.steps.length;
+    tr2.doc.nodesBetween(from2, to, (node, pos) => {
       let attrsHere = typeof attrs == "function" ? attrs(node) : attrs;
-      if (node.isTextblock && !node.hasMarkup(type, attrsHere) && canChangeType(tr.doc, tr.mapping.slice(mapFrom).map(pos), type)) {
+      if (node.isTextblock && !node.hasMarkup(type, attrsHere) && canChangeType(tr2.doc, tr2.mapping.slice(mapFrom).map(pos), type)) {
         let convertNewlines = null;
         if (type.schema.linebreakReplacement) {
           let pre = type.whitespace == "pre", supportLinebreak = !!type.contentMatch.matchType(type.schema.linebreakReplacement);
@@ -5763,33 +4205,33 @@
             convertNewlines = true;
         }
         if (convertNewlines === false)
-          replaceLinebreaks(tr, node, pos, mapFrom);
-        clearIncompatible(tr, tr.mapping.slice(mapFrom).map(pos, 1), type, void 0, convertNewlines === null);
-        let mapping = tr.mapping.slice(mapFrom);
+          replaceLinebreaks(tr2, node, pos, mapFrom);
+        clearIncompatible(tr2, tr2.mapping.slice(mapFrom).map(pos, 1), type, void 0, convertNewlines === null);
+        let mapping = tr2.mapping.slice(mapFrom);
         let startM = mapping.map(pos, 1), endM = mapping.map(pos + node.nodeSize, 1);
-        tr.step(new ReplaceAroundStep(startM, endM, startM + 1, endM - 1, new Slice(Fragment.from(type.create(attrsHere, null, node.marks)), 0, 0), 1, true));
+        tr2.step(new ReplaceAroundStep(startM, endM, startM + 1, endM - 1, new Slice(Fragment.from(type.create(attrsHere, null, node.marks)), 0, 0), 1, true));
         if (convertNewlines === true)
-          replaceNewlines(tr, node, pos, mapFrom);
+          replaceNewlines(tr2, node, pos, mapFrom);
         return false;
       }
     });
   }
-  function replaceNewlines(tr, node, pos, mapFrom) {
+  function replaceNewlines(tr2, node, pos, mapFrom) {
     node.forEach((child, offset) => {
       if (child.isText) {
-        let m2, newline = /\r?\n|\r/g;
-        while (m2 = newline.exec(child.text)) {
-          let start = tr.mapping.slice(mapFrom).map(pos + 1 + offset + m2.index);
-          tr.replaceWith(start, start + 1, node.type.schema.linebreakReplacement.create());
+        let m4, newline = /\r?\n|\r/g;
+        while (m4 = newline.exec(child.text)) {
+          let start = tr2.mapping.slice(mapFrom).map(pos + 1 + offset + m4.index);
+          tr2.replaceWith(start, start + 1, node.type.schema.linebreakReplacement.create());
         }
       }
     });
   }
-  function replaceLinebreaks(tr, node, pos, mapFrom) {
+  function replaceLinebreaks(tr2, node, pos, mapFrom) {
     node.forEach((child, offset) => {
       if (child.type == child.type.schema.linebreakReplacement) {
-        let start = tr.mapping.slice(mapFrom).map(pos + 1 + offset);
-        tr.replaceWith(start, start + 1, node.type.schema.text("\n"));
+        let start = tr2.mapping.slice(mapFrom).map(pos + 1 + offset);
+        tr2.replaceWith(start, start + 1, node.type.schema.text("\n"));
       }
     });
   }
@@ -5797,33 +4239,33 @@
     let $pos = doc3.resolve(pos), index = $pos.index();
     return $pos.parent.canReplaceWith(index, index + 1, type);
   }
-  function setNodeMarkup(tr, pos, type, attrs, marks2) {
-    let node = tr.doc.nodeAt(pos);
+  function setNodeMarkup(tr2, pos, type, attrs, marks2) {
+    let node = tr2.doc.nodeAt(pos);
     if (!node)
       throw new RangeError("No node at given position");
     if (!type)
       type = node.type;
     let newNode = type.create(attrs, null, marks2 || node.marks);
     if (node.isLeaf)
-      return tr.replaceWith(pos, pos + node.nodeSize, newNode);
+      return tr2.replaceWith(pos, pos + node.nodeSize, newNode);
     if (!type.validContent(node.content))
       throw new RangeError("Invalid content for node type " + type.name);
-    tr.step(new ReplaceAroundStep(pos, pos + node.nodeSize, pos + 1, pos + node.nodeSize - 1, new Slice(Fragment.from(newNode), 0, 0), 1, true));
+    tr2.step(new ReplaceAroundStep(pos, pos + node.nodeSize, pos + 1, pos + node.nodeSize - 1, new Slice(Fragment.from(newNode), 0, 0), 1, true));
   }
   function canSplit(doc3, pos, depth = 1, typesAfter) {
     let $pos = doc3.resolve(pos), base2 = $pos.depth - depth;
     let innerType = typesAfter && typesAfter[typesAfter.length - 1] || $pos.parent;
     if (base2 < 0 || $pos.parent.type.spec.isolating || !$pos.parent.canReplace($pos.index(), $pos.parent.childCount) || !innerType.type.validContent($pos.parent.content.cutByIndex($pos.index(), $pos.parent.childCount)))
       return false;
-    for (let d2 = $pos.depth - 1, i = depth - 2; d2 > base2; d2--, i--) {
-      let node = $pos.node(d2), index2 = $pos.index(d2);
+    for (let d3 = $pos.depth - 1, i2 = depth - 2; d3 > base2; d3--, i2--) {
+      let node = $pos.node(d3), index2 = $pos.index(d3);
       if (node.type.spec.isolating)
         return false;
       let rest = node.content.cutByIndex(index2, node.childCount);
-      let overrideChild = typesAfter && typesAfter[i + 1];
+      let overrideChild = typesAfter && typesAfter[i2 + 1];
       if (overrideChild)
         rest = rest.replaceChild(0, overrideChild.type.create(overrideChild.attrs));
-      let after = typesAfter && typesAfter[i] || node;
+      let after = typesAfter && typesAfter[i2] || node;
       if (!node.canReplace(index2 + 1, node.childCount) || !after.type.validContent(rest))
         return false;
     }
@@ -5831,42 +4273,42 @@
     let baseType = typesAfter && typesAfter[0];
     return $pos.node(base2).canReplaceWith(index, index, baseType ? baseType.type : $pos.node(base2 + 1).type);
   }
-  function split(tr, pos, depth = 1, typesAfter) {
-    let $pos = tr.doc.resolve(pos), before = Fragment.empty, after = Fragment.empty;
-    for (let d2 = $pos.depth, e = $pos.depth - depth, i = depth - 1; d2 > e; d2--, i--) {
-      before = Fragment.from($pos.node(d2).copy(before));
-      let typeAfter = typesAfter && typesAfter[i];
-      after = Fragment.from(typeAfter ? typeAfter.type.create(typeAfter.attrs, after) : $pos.node(d2).copy(after));
+  function split(tr2, pos, depth = 1, typesAfter) {
+    let $pos = tr2.doc.resolve(pos), before = Fragment.empty, after = Fragment.empty;
+    for (let d3 = $pos.depth, e = $pos.depth - depth, i2 = depth - 1; d3 > e; d3--, i2--) {
+      before = Fragment.from($pos.node(d3).copy(before));
+      let typeAfter = typesAfter && typesAfter[i2];
+      after = Fragment.from(typeAfter ? typeAfter.type.create(typeAfter.attrs, after) : $pos.node(d3).copy(after));
     }
-    tr.step(new ReplaceStep(pos, pos, new Slice(before.append(after), depth, depth), true));
+    tr2.step(new ReplaceStep(pos, pos, new Slice(before.append(after), depth, depth), true));
   }
   function canJoin(doc3, pos) {
     let $pos = doc3.resolve(pos), index = $pos.index();
     return joinable2($pos.nodeBefore, $pos.nodeAfter) && $pos.parent.canReplace(index, index + 1);
   }
-  function canAppendWithSubstitutedLinebreaks(a, b2) {
-    if (!b2.content.size)
-      a.type.compatibleContent(b2.type);
-    let match = a.contentMatchAt(a.childCount);
-    let { linebreakReplacement } = a.type.schema;
-    for (let i = 0; i < b2.childCount; i++) {
-      let child = b2.child(i);
-      let type = child.type == linebreakReplacement ? a.type.schema.nodes.text : child.type;
+  function canAppendWithSubstitutedLinebreaks(a2, b4) {
+    if (!b4.content.size)
+      a2.type.compatibleContent(b4.type);
+    let match = a2.contentMatchAt(a2.childCount);
+    let { linebreakReplacement } = a2.type.schema;
+    for (let i2 = 0; i2 < b4.childCount; i2++) {
+      let child = b4.child(i2);
+      let type = child.type == linebreakReplacement ? a2.type.schema.nodes.text : child.type;
       match = match.matchType(type);
       if (!match)
         return false;
-      if (!a.type.allowsMarks(child.marks))
+      if (!a2.type.allowsMarks(child.marks))
         return false;
     }
     return match.validEnd;
   }
-  function joinable2(a, b2) {
-    return !!(a && b2 && !a.isLeaf && canAppendWithSubstitutedLinebreaks(a, b2));
+  function joinable2(a2, b4) {
+    return !!(a2 && b4 && !a2.isLeaf && canAppendWithSubstitutedLinebreaks(a2, b4));
   }
-  function join(tr, pos, depth) {
+  function join(tr2, pos, depth) {
     let convertNewlines = null;
-    let { linebreakReplacement } = tr.doc.type.schema;
-    let $before = tr.doc.resolve(pos - depth), beforeType = $before.node().type;
+    let { linebreakReplacement } = tr2.doc.type.schema;
+    let $before = tr2.doc.resolve(pos - depth), beforeType = $before.node().type;
     if (linebreakReplacement && beforeType.inlineContent) {
       let pre = beforeType.whitespace == "pre";
       let supportLinebreak = !!beforeType.contentMatch.matchType(linebreakReplacement);
@@ -5875,39 +4317,39 @@
       else if (!pre && supportLinebreak)
         convertNewlines = true;
     }
-    let mapFrom = tr.steps.length;
+    let mapFrom = tr2.steps.length;
     if (convertNewlines === false) {
-      let $after = tr.doc.resolve(pos + depth);
-      replaceLinebreaks(tr, $after.node(), $after.before(), mapFrom);
+      let $after = tr2.doc.resolve(pos + depth);
+      replaceLinebreaks(tr2, $after.node(), $after.before(), mapFrom);
     }
     if (beforeType.inlineContent)
-      clearIncompatible(tr, pos + depth - 1, beforeType, $before.node().contentMatchAt($before.index()), convertNewlines == null);
-    let mapping = tr.mapping.slice(mapFrom), start = mapping.map(pos - depth);
-    tr.step(new ReplaceStep(start, mapping.map(pos + depth, -1), Slice.empty, true));
+      clearIncompatible(tr2, pos + depth - 1, beforeType, $before.node().contentMatchAt($before.index()), convertNewlines == null);
+    let mapping = tr2.mapping.slice(mapFrom), start = mapping.map(pos - depth);
+    tr2.step(new ReplaceStep(start, mapping.map(pos + depth, -1), Slice.empty, true));
     if (convertNewlines === true) {
-      let $full = tr.doc.resolve(start);
-      replaceNewlines(tr, $full.node(), $full.before(), tr.steps.length);
+      let $full = tr2.doc.resolve(start);
+      replaceNewlines(tr2, $full.node(), $full.before(), tr2.steps.length);
     }
-    return tr;
+    return tr2;
   }
   function insertPoint(doc3, pos, nodeType) {
     let $pos = doc3.resolve(pos);
     if ($pos.parent.canReplaceWith($pos.index(), $pos.index(), nodeType))
       return pos;
     if ($pos.parentOffset == 0)
-      for (let d2 = $pos.depth - 1; d2 >= 0; d2--) {
-        let index = $pos.index(d2);
-        if ($pos.node(d2).canReplaceWith(index, index, nodeType))
-          return $pos.before(d2 + 1);
+      for (let d3 = $pos.depth - 1; d3 >= 0; d3--) {
+        let index = $pos.index(d3);
+        if ($pos.node(d3).canReplaceWith(index, index, nodeType))
+          return $pos.before(d3 + 1);
         if (index > 0)
           return null;
       }
     if ($pos.parentOffset == $pos.parent.content.size)
-      for (let d2 = $pos.depth - 1; d2 >= 0; d2--) {
-        let index = $pos.indexAfter(d2);
-        if ($pos.node(d2).canReplaceWith(index, index, nodeType))
-          return $pos.after(d2 + 1);
-        if (index < $pos.node(d2).childCount)
+      for (let d3 = $pos.depth - 1; d3 >= 0; d3--) {
+        let index = $pos.indexAfter(d3);
+        if ($pos.node(d3).canReplaceWith(index, index, nodeType))
+          return $pos.after(d3 + 1);
+        if (index < $pos.node(d3).childCount)
           return null;
       }
     return null;
@@ -5917,13 +4359,13 @@
     if (!slice2.content.size)
       return pos;
     let content = slice2.content;
-    for (let i = 0; i < slice2.openStart; i++)
+    for (let i2 = 0; i2 < slice2.openStart; i2++)
       content = content.firstChild.content;
     for (let pass = 1; pass <= (slice2.openStart == 0 && slice2.size ? 2 : 1); pass++) {
-      for (let d2 = $pos.depth; d2 >= 0; d2--) {
-        let bias = d2 == $pos.depth ? 0 : $pos.pos <= ($pos.start(d2 + 1) + $pos.end(d2 + 1)) / 2 ? -1 : 1;
-        let insertPos = $pos.index(d2) + (bias > 0 ? 1 : 0);
-        let parent = $pos.node(d2), fits = false;
+      for (let d3 = $pos.depth; d3 >= 0; d3--) {
+        let bias = d3 == $pos.depth ? 0 : $pos.pos <= ($pos.start(d3 + 1) + $pos.end(d3 + 1)) / 2 ? -1 : 1;
+        let insertPos = $pos.index(d3) + (bias > 0 ? 1 : 0);
+        let parent = $pos.node(d3), fits = false;
         if (pass == 1) {
           fits = parent.canReplace(insertPos, insertPos, content);
         } else {
@@ -5931,7 +4373,7 @@
           fits = wrapping && parent.canReplaceWith(insertPos, insertPos, wrapping[0]);
         }
         if (fits)
-          return bias == 0 ? $pos.pos : bias < 0 ? $pos.before(d2 + 1) : $pos.after(d2 + 1);
+          return bias == 0 ? $pos.pos : bias < 0 ? $pos.before(d3 + 1) : $pos.after(d3 + 1);
       }
     }
     return null;
@@ -5954,15 +4396,15 @@
       this.unplaced = unplaced;
       this.frontier = [];
       this.placed = Fragment.empty;
-      for (let i = 0; i <= $from.depth; i++) {
-        let node = $from.node(i);
+      for (let i2 = 0; i2 <= $from.depth; i2++) {
+        let node = $from.node(i2);
         this.frontier.push({
           type: node.type,
-          match: node.contentMatchAt($from.indexAfter(i))
+          match: node.contentMatchAt($from.indexAfter(i2))
         });
       }
-      for (let i = $from.depth; i > 0; i--)
-        this.placed = Fragment.from($from.node(i).copy(this.placed));
+      for (let i2 = $from.depth; i2 > 0; i2--)
+        this.placed = Fragment.from($from.node(i2).copy(this.placed));
     }
     get depth() {
       return this.frontier.length - 1;
@@ -5997,12 +4439,12 @@
     // depths, one for the slice and one for the frontier.
     findFittable() {
       let startDepth = this.unplaced.openStart;
-      for (let cur = this.unplaced.content, d2 = 0, openEnd = this.unplaced.openEnd; d2 < startDepth; d2++) {
+      for (let cur = this.unplaced.content, d3 = 0, openEnd = this.unplaced.openEnd; d3 < startDepth; d3++) {
         let node = cur.firstChild;
         if (cur.childCount > 1)
           openEnd = 0;
-        if (node.type.spec.isolating && openEnd <= d2) {
-          startDepth = d2;
+        if (node.type.spec.isolating && openEnd <= d3) {
+          startDepth = d3;
           break;
         }
         cur = node.content;
@@ -6054,25 +4496,25 @@
       while (this.depth > frontierDepth)
         this.closeFrontierNode();
       if (wrap2)
-        for (let i = 0; i < wrap2.length; i++)
-          this.openFrontierNode(wrap2[i]);
+        for (let i2 = 0; i2 < wrap2.length; i2++)
+          this.openFrontierNode(wrap2[i2]);
       let slice2 = this.unplaced, fragment = parent ? parent.content : slice2.content;
       let openStart = slice2.openStart - sliceDepth;
       let taken = 0, add = [];
       let { match, type } = this.frontier[frontierDepth];
       if (inject) {
-        for (let i = 0; i < inject.childCount; i++)
-          add.push(inject.child(i));
+        for (let i2 = 0; i2 < inject.childCount; i2++)
+          add.push(inject.child(i2));
         match = match.matchFragment(inject);
       }
       let openEndCount = fragment.size + sliceDepth - (slice2.content.size - slice2.openEnd);
       while (taken < fragment.childCount) {
-        let next = fragment.child(taken), matches2 = match.matchType(next.type);
-        if (!matches2)
+        let next = fragment.child(taken), matches3 = match.matchType(next.type);
+        if (!matches3)
           break;
         taken++;
         if (taken > 1 || openStart == 0 || next.content.size) {
-          match = matches2;
+          match = matches3;
           add.push(closeNodeStart(next.mark(type.allowedMarks(next.marks)), taken == 1 ? openStart : 0, taken == fragment.childCount ? openEndCount : -1));
         }
       }
@@ -6083,7 +4525,7 @@
       this.frontier[frontierDepth].match = match;
       if (toEnd && openEndCount < 0 && parent && parent.type == this.frontier[this.depth].type && this.frontier.length > 1)
         this.closeFrontierNode();
-      for (let i = 0, cur = fragment; i < openEndCount; i++) {
+      for (let i2 = 0, cur = fragment; i2 < openEndCount; i2++) {
         let node = cur.lastChild;
         this.frontier.push({ type: node.type, match: node.contentMatchAt(node.childCount) });
         cur = node.content;
@@ -6102,19 +4544,19 @@
       return after;
     }
     findCloseLevel($to) {
-      scan: for (let i = Math.min(this.depth, $to.depth); i >= 0; i--) {
-        let { match, type } = this.frontier[i];
-        let dropInner = i < $to.depth && $to.end(i + 1) == $to.pos + ($to.depth - (i + 1));
-        let fit = contentAfterFits($to, i, type, match, dropInner);
+      scan: for (let i2 = Math.min(this.depth, $to.depth); i2 >= 0; i2--) {
+        let { match, type } = this.frontier[i2];
+        let dropInner = i2 < $to.depth && $to.end(i2 + 1) == $to.pos + ($to.depth - (i2 + 1));
+        let fit = contentAfterFits($to, i2, type, match, dropInner);
         if (!fit)
           continue;
-        for (let d2 = i - 1; d2 >= 0; d2--) {
-          let { match: match2, type: type2 } = this.frontier[d2];
-          let matches2 = contentAfterFits($to, d2, type2, match2, true);
-          if (!matches2 || matches2.childCount)
+        for (let d3 = i2 - 1; d3 >= 0; d3--) {
+          let { match: match2, type: type2 } = this.frontier[d3];
+          let matches3 = contentAfterFits($to, d3, type2, match2, true);
+          if (!matches3 || matches3.childCount)
             continue scan;
         }
-        return { depth: i, fit, move: dropInner ? $to.doc.resolve($to.after(i + 1)) : $to };
+        return { depth: i2, fit, move: dropInner ? $to.doc.resolve($to.after(i2 + 1)) : $to };
       }
     }
     close($to) {
@@ -6126,8 +4568,8 @@
       if (close3.fit.childCount)
         this.placed = addToFragment(this.placed, close3.depth, close3.fit);
       $to = close3.move;
-      for (let d2 = close3.depth + 1; d2 <= $to.depth; d2++) {
-        let node = $to.node(d2), add = node.type.contentMatch.fillBefore(node.content, true, $to.index(d2));
+      for (let d3 = close3.depth + 1; d3 <= $to.depth; d3++) {
+        let node = $to.node(d3), add = node.type.contentMatch.fillBefore(node.content, true, $to.index(d3));
         this.openFrontierNode(node.type, node.attrs, add);
       }
       return $to;
@@ -6156,7 +4598,7 @@
     return fragment.replaceChild(fragment.childCount - 1, fragment.lastChild.copy(addToFragment(fragment.lastChild.content, depth - 1, content)));
   }
   function contentAt(fragment, depth) {
-    for (let i = 0; i < depth; i++)
+    for (let i2 = 0; i2 < depth; i2++)
       fragment = fragment.firstChild.content;
     return fragment;
   }
@@ -6181,72 +4623,72 @@
     return fit && !invalidMarks(type, node.content, index) ? fit : null;
   }
   function invalidMarks(type, fragment, start) {
-    for (let i = start; i < fragment.childCount; i++)
-      if (!type.allowsMarks(fragment.child(i).marks))
+    for (let i2 = start; i2 < fragment.childCount; i2++)
+      if (!type.allowsMarks(fragment.child(i2).marks))
         return true;
     return false;
   }
   function definesContent(type) {
     return type.spec.defining || type.spec.definingForContent;
   }
-  function replaceRange(tr, from2, to, slice2) {
+  function replaceRange(tr2, from2, to, slice2) {
     if (!slice2.size)
-      return tr.deleteRange(from2, to);
-    let $from = tr.doc.resolve(from2), $to = tr.doc.resolve(to);
+      return tr2.deleteRange(from2, to);
+    let $from = tr2.doc.resolve(from2), $to = tr2.doc.resolve(to);
     if (fitsTrivially($from, $to, slice2))
-      return tr.step(new ReplaceStep(from2, to, slice2));
-    let targetDepths = coveredDepths($from, tr.doc.resolve(to));
+      return tr2.step(new ReplaceStep(from2, to, slice2));
+    let targetDepths = coveredDepths($from, tr2.doc.resolve(to));
     if (targetDepths[targetDepths.length - 1] == 0)
       targetDepths.pop();
     let preferredTarget = -($from.depth + 1);
     targetDepths.unshift(preferredTarget);
-    for (let d2 = $from.depth, pos = $from.pos - 1; d2 > 0; d2--, pos--) {
-      let spec = $from.node(d2).type.spec;
+    for (let d3 = $from.depth, pos = $from.pos - 1; d3 > 0; d3--, pos--) {
+      let spec = $from.node(d3).type.spec;
       if (spec.defining || spec.definingAsContext || spec.isolating)
         break;
-      if (targetDepths.indexOf(d2) > -1)
-        preferredTarget = d2;
-      else if ($from.before(d2) == pos)
-        targetDepths.splice(1, 0, -d2);
+      if (targetDepths.indexOf(d3) > -1)
+        preferredTarget = d3;
+      else if ($from.before(d3) == pos)
+        targetDepths.splice(1, 0, -d3);
     }
     let preferredTargetIndex = targetDepths.indexOf(preferredTarget);
     let leftNodes = [], preferredDepth = slice2.openStart;
-    for (let content = slice2.content, i = 0; ; i++) {
+    for (let content = slice2.content, i2 = 0; ; i2++) {
       let node = content.firstChild;
       leftNodes.push(node);
-      if (i == slice2.openStart)
+      if (i2 == slice2.openStart)
         break;
       content = node.content;
     }
-    for (let d2 = preferredDepth - 1; d2 >= 0; d2--) {
-      let leftNode = leftNodes[d2], def = definesContent(leftNode.type);
+    for (let d3 = preferredDepth - 1; d3 >= 0; d3--) {
+      let leftNode = leftNodes[d3], def = definesContent(leftNode.type);
       if (def && !leftNode.sameMarkup($from.node(Math.abs(preferredTarget) - 1)))
-        preferredDepth = d2;
+        preferredDepth = d3;
       else if (def || !leftNode.type.isTextblock)
         break;
     }
-    for (let j2 = slice2.openStart; j2 >= 0; j2--) {
-      let openDepth = (j2 + preferredDepth + 1) % (slice2.openStart + 1);
+    for (let j3 = slice2.openStart; j3 >= 0; j3--) {
+      let openDepth = (j3 + preferredDepth + 1) % (slice2.openStart + 1);
       let insert = leftNodes[openDepth];
       if (!insert)
         continue;
-      for (let i = 0; i < targetDepths.length; i++) {
-        let targetDepth = targetDepths[(i + preferredTargetIndex) % targetDepths.length], expand = true;
+      for (let i2 = 0; i2 < targetDepths.length; i2++) {
+        let targetDepth = targetDepths[(i2 + preferredTargetIndex) % targetDepths.length], expand = true;
         if (targetDepth < 0) {
           expand = false;
           targetDepth = -targetDepth;
         }
         let parent = $from.node(targetDepth - 1), index = $from.index(targetDepth - 1);
         if (parent.canReplaceWith(index, index, insert.type, insert.marks))
-          return tr.replace($from.before(targetDepth), expand ? $to.after(targetDepth) : to, new Slice(closeFragment(slice2.content, 0, slice2.openStart, openDepth), openDepth, slice2.openEnd));
+          return tr2.replace($from.before(targetDepth), expand ? $to.after(targetDepth) : to, new Slice(closeFragment(slice2.content, 0, slice2.openStart, openDepth), openDepth, slice2.openEnd));
       }
     }
-    let startSteps = tr.steps.length;
-    for (let i = targetDepths.length - 1; i >= 0; i--) {
-      tr.replace(from2, to, slice2);
-      if (tr.steps.length > startSteps)
+    let startSteps = tr2.steps.length;
+    for (let i2 = targetDepths.length - 1; i2 >= 0; i2--) {
+      tr2.replace(from2, to, slice2);
+      if (tr2.steps.length > startSteps)
         break;
-      let depth = targetDepths[i];
+      let depth = targetDepths[i2];
       if (depth < 0)
         continue;
       from2 = $from.before(depth);
@@ -6265,38 +4707,38 @@
     }
     return fragment;
   }
-  function replaceRangeWith(tr, from2, to, node) {
-    if (!node.isInline && from2 == to && tr.doc.resolve(from2).parent.content.size) {
-      let point = insertPoint(tr.doc, from2, node.type);
+  function replaceRangeWith(tr2, from2, to, node) {
+    if (!node.isInline && from2 == to && tr2.doc.resolve(from2).parent.content.size) {
+      let point = insertPoint(tr2.doc, from2, node.type);
       if (point != null)
         from2 = to = point;
     }
-    tr.replaceRange(from2, to, new Slice(Fragment.from(node), 0, 0));
+    tr2.replaceRange(from2, to, new Slice(Fragment.from(node), 0, 0));
   }
-  function deleteRange(tr, from2, to) {
-    let $from = tr.doc.resolve(from2), $to = tr.doc.resolve(to);
+  function deleteRange(tr2, from2, to) {
+    let $from = tr2.doc.resolve(from2), $to = tr2.doc.resolve(to);
     let covered = coveredDepths($from, $to);
-    for (let i = 0; i < covered.length; i++) {
-      let depth = covered[i], last = i == covered.length - 1;
+    for (let i2 = 0; i2 < covered.length; i2++) {
+      let depth = covered[i2], last = i2 == covered.length - 1;
       if (last && depth == 0 || $from.node(depth).type.contentMatch.validEnd)
-        return tr.delete($from.start(depth), $to.end(depth));
+        return tr2.delete($from.start(depth), $to.end(depth));
       if (depth > 0 && (last || $from.node(depth - 1).canReplace($from.index(depth - 1), $to.indexAfter(depth - 1))))
-        return tr.delete($from.before(depth), $to.after(depth));
+        return tr2.delete($from.before(depth), $to.after(depth));
     }
-    for (let d2 = 1; d2 <= $from.depth && d2 <= $to.depth; d2++) {
-      if (from2 - $from.start(d2) == $from.depth - d2 && to > $from.end(d2) && $to.end(d2) - to != $to.depth - d2 && $from.start(d2 - 1) == $to.start(d2 - 1) && $from.node(d2 - 1).canReplace($from.index(d2 - 1), $to.index(d2 - 1)))
-        return tr.delete($from.before(d2), to);
+    for (let d3 = 1; d3 <= $from.depth && d3 <= $to.depth; d3++) {
+      if (from2 - $from.start(d3) == $from.depth - d3 && to > $from.end(d3) && $to.end(d3) - to != $to.depth - d3 && $from.start(d3 - 1) == $to.start(d3 - 1) && $from.node(d3 - 1).canReplace($from.index(d3 - 1), $to.index(d3 - 1)))
+        return tr2.delete($from.before(d3), to);
     }
-    tr.delete(from2, to);
+    tr2.delete(from2, to);
   }
   function coveredDepths($from, $to) {
     let result = [], minDepth = Math.min($from.depth, $to.depth);
-    for (let d2 = minDepth; d2 >= 0; d2--) {
-      let start = $from.start(d2);
-      if (start < $from.pos - ($from.depth - d2) || $to.end(d2) > $to.pos + ($to.depth - d2) || $from.node(d2).type.spec.isolating || $to.node(d2).type.spec.isolating)
+    for (let d3 = minDepth; d3 >= 0; d3--) {
+      let start = $from.start(d3);
+      if (start < $from.pos - ($from.depth - d3) || $to.end(d3) > $to.pos + ($to.depth - d3) || $from.node(d3).type.spec.isolating || $to.node(d3).type.spec.isolating)
         break;
-      if (start == $to.start(d2) || d2 == $from.depth && d2 == $to.depth && $from.parent.inlineContent && $to.parent.inlineContent && d2 && $to.start(d2 - 1) == start - 1)
-        result.push(d2);
+      if (start == $to.start(d3) || d3 == $from.depth && d3 == $to.depth && $from.parent.inlineContent && $to.parent.inlineContent && d3 && $to.start(d3 - 1) == start - 1)
+        result.push(d3);
     }
     return result;
   }
@@ -6519,8 +4961,8 @@
     [`liftTarget`](https://prosemirror.net/docs/ref/#transform.liftTarget) to compute `target`, to make
     sure the lift is valid.
     */
-    lift(range, target) {
-      lift(this, range, target);
+    lift(range2, target) {
+      lift(this, range2, target);
       return this;
     }
     /**
@@ -6536,8 +4978,8 @@
     The wrappers are assumed to be valid in this position, and should
     probably be computed with [`findWrapping`](https://prosemirror.net/docs/ref/#transform.findWrapping).
     */
-    wrap(range, wrappers) {
-      wrap(this, range, wrappers);
+    wrap(range2, wrappers) {
+      wrap(this, range2, wrappers);
       return this;
     }
     /**
@@ -6575,29 +5017,29 @@
     /**
     Add a mark to the node at position `pos`.
     */
-    addNodeMark(pos, mark) {
-      this.step(new AddNodeMarkStep(pos, mark));
+    addNodeMark(pos, mark2) {
+      this.step(new AddNodeMarkStep(pos, mark2));
       return this;
     }
     /**
     Remove a mark (or all marks of the given type) from the node at
     position `pos`.
     */
-    removeNodeMark(pos, mark) {
+    removeNodeMark(pos, mark2) {
       let node = this.doc.nodeAt(pos);
       if (!node)
         throw new RangeError("No node at position " + pos);
-      if (mark instanceof Mark) {
-        if (mark.isInSet(node.marks))
-          this.step(new RemoveNodeMarkStep(pos, mark));
+      if (mark2 instanceof Mark) {
+        if (mark2.isInSet(node.marks))
+          this.step(new RemoveNodeMarkStep(pos, mark2));
       } else {
         let set = node.marks, found2, steps = [];
-        while (found2 = mark.isInSet(set)) {
+        while (found2 = mark2.isInSet(set)) {
           steps.push(new RemoveNodeMarkStep(pos, found2));
           set = found2.removeFromSet(set);
         }
-        for (let i = steps.length - 1; i >= 0; i--)
-          this.step(steps[i]);
+        for (let i2 = steps.length - 1; i2 >= 0; i2--)
+          this.step(steps[i2]);
       }
       return this;
     }
@@ -6615,8 +5057,8 @@
     /**
     Add the given mark to the inline content between `from` and `to`.
     */
-    addMark(from2, to, mark) {
-      addMark(this, from2, to, mark);
+    addMark(from2, to, mark2) {
+      addMark(this, from2, to, mark2);
       return this;
     }
     /**
@@ -6625,8 +5067,8 @@
     a mark type, remove all marks of that type. When it is null,
     remove all marks of any type.
     */
-    removeMark(from2, to, mark) {
-      removeMark(this, from2, to, mark);
+    removeMark(from2, to, mark2) {
+      removeMark(this, from2, to, mark2);
       return this;
     }
     /**
@@ -6695,8 +5137,8 @@
     */
     get empty() {
       let ranges = this.ranges;
-      for (let i = 0; i < ranges.length; i++)
-        if (ranges[i].$from.pos != ranges[i].$to.pos)
+      for (let i2 = 0; i2 < ranges.length; i2++)
+        if (ranges[i2].$from.pos != ranges[i2].$to.pos)
           return false;
       return true;
     }
@@ -6710,34 +5152,34 @@
     Replace the selection with a slice or, if no slice is given,
     delete the selection. Will append to the given transaction.
     */
-    replace(tr, content = Slice.empty) {
+    replace(tr2, content = Slice.empty) {
       let lastNode = content.content.lastChild, lastParent = null;
-      for (let i = 0; i < content.openEnd; i++) {
+      for (let i2 = 0; i2 < content.openEnd; i2++) {
         lastParent = lastNode;
         lastNode = lastNode.lastChild;
       }
-      let mapFrom = tr.steps.length, ranges = this.ranges;
-      for (let i = 0; i < ranges.length; i++) {
-        let { $from, $to } = ranges[i], mapping = tr.mapping.slice(mapFrom);
-        tr.replaceRange(mapping.map($from.pos), mapping.map($to.pos), i ? Slice.empty : content);
-        if (i == 0)
-          selectionToInsertionEnd(tr, mapFrom, (lastNode ? lastNode.isInline : lastParent && lastParent.isTextblock) ? -1 : 1);
+      let mapFrom = tr2.steps.length, ranges = this.ranges;
+      for (let i2 = 0; i2 < ranges.length; i2++) {
+        let { $from, $to } = ranges[i2], mapping = tr2.mapping.slice(mapFrom);
+        tr2.replaceRange(mapping.map($from.pos), mapping.map($to.pos), i2 ? Slice.empty : content);
+        if (i2 == 0)
+          selectionToInsertionEnd(tr2, mapFrom, (lastNode ? lastNode.isInline : lastParent && lastParent.isTextblock) ? -1 : 1);
       }
     }
     /**
     Replace the selection with the given node, appending the changes
     to the given transaction.
     */
-    replaceWith(tr, node) {
-      let mapFrom = tr.steps.length, ranges = this.ranges;
-      for (let i = 0; i < ranges.length; i++) {
-        let { $from, $to } = ranges[i], mapping = tr.mapping.slice(mapFrom);
+    replaceWith(tr2, node) {
+      let mapFrom = tr2.steps.length, ranges = this.ranges;
+      for (let i2 = 0; i2 < ranges.length; i2++) {
+        let { $from, $to } = ranges[i2], mapping = tr2.mapping.slice(mapFrom);
         let from2 = mapping.map($from.pos), to = mapping.map($to.pos);
-        if (i) {
-          tr.deleteRange(from2, to);
+        if (i2) {
+          tr2.deleteRange(from2, to);
         } else {
-          tr.replaceRangeWith(from2, to, node);
-          selectionToInsertionEnd(tr, mapFrom, node.isInline ? -1 : 1);
+          tr2.replaceRangeWith(from2, to, node);
+          selectionToInsertionEnd(tr2, mapFrom, node.isInline ? -1 : 1);
         }
       }
     }
@@ -6861,12 +5303,12 @@
       let $anchor = doc3.resolve(mapping.map(this.anchor));
       return new _TextSelection($anchor.parent.inlineContent ? $anchor : $head, $head);
     }
-    replace(tr, content = Slice.empty) {
-      super.replace(tr, content);
+    replace(tr2, content = Slice.empty) {
+      super.replace(tr2, content);
       if (content == Slice.empty) {
         let marks2 = this.$from.marksAcross(this.$to);
         if (marks2)
-          tr.ensureMarks(marks2);
+          tr2.ensureMarks(marks2);
       }
     }
     eq(other) {
@@ -6889,9 +5331,9 @@
     /**
     Create a text selection from non-resolved positions.
     */
-    static create(doc3, anchor, head = anchor) {
+    static create(doc3, anchor, head2 = anchor) {
       let $anchor = doc3.resolve(anchor);
-      return new this($anchor, head == anchor ? $anchor : doc3.resolve(head));
+      return new this($anchor, head2 == anchor ? $anchor : doc3.resolve(head2));
     }
     /**
     Return a text selection that spans the given positions or, if
@@ -6926,9 +5368,9 @@
   };
   Selection.jsonID("text", TextSelection);
   var TextBookmark = class _TextBookmark {
-    constructor(anchor, head) {
+    constructor(anchor, head2) {
       this.anchor = anchor;
-      this.head = head;
+      this.head = head2;
     }
     map(mapping) {
       return new _TextBookmark(mapping.map(this.anchor), mapping.map(this.head));
@@ -7013,14 +5455,14 @@
     constructor(doc3) {
       super(doc3.resolve(0), doc3.resolve(doc3.content.size));
     }
-    replace(tr, content = Slice.empty) {
+    replace(tr2, content = Slice.empty) {
       if (content == Slice.empty) {
-        tr.delete(0, tr.doc.content.size);
-        let sel = Selection.atStart(tr.doc);
-        if (!sel.eq(tr.selection))
-          tr.setSelection(sel);
+        tr2.delete(0, tr2.doc.content.size);
+        let sel = Selection.atStart(tr2.doc);
+        if (!sel.eq(tr2.selection))
+          tr2.setSelection(sel);
       } else {
-        super.replace(tr, content);
+        super.replace(tr2, content);
       }
     }
     toJSON() {
@@ -7051,35 +5493,35 @@
       return new AllSelection(doc3);
     }
   };
-  function findSelectionIn(doc3, node, pos, index, dir, text2 = false) {
+  function findSelectionIn(doc3, node, pos, index, dir, text3 = false) {
     if (node.inlineContent)
       return TextSelection.create(doc3, pos);
-    for (let i = index - (dir > 0 ? 0 : 1); dir > 0 ? i < node.childCount : i >= 0; i += dir) {
-      let child = node.child(i);
+    for (let i2 = index - (dir > 0 ? 0 : 1); dir > 0 ? i2 < node.childCount : i2 >= 0; i2 += dir) {
+      let child = node.child(i2);
       if (!child.isAtom) {
-        let inner2 = findSelectionIn(doc3, child, pos + dir, dir < 0 ? child.childCount : 0, dir, text2);
+        let inner2 = findSelectionIn(doc3, child, pos + dir, dir < 0 ? child.childCount : 0, dir, text3);
         if (inner2)
           return inner2;
-      } else if (!text2 && NodeSelection.isSelectable(child)) {
+      } else if (!text3 && NodeSelection.isSelectable(child)) {
         return NodeSelection.create(doc3, pos - (dir < 0 ? child.nodeSize : 0));
       }
       pos += child.nodeSize * dir;
     }
     return null;
   }
-  function selectionToInsertionEnd(tr, startLen, bias) {
-    let last = tr.steps.length - 1;
+  function selectionToInsertionEnd(tr2, startLen, bias) {
+    let last = tr2.steps.length - 1;
     if (last < startLen)
       return;
-    let step = tr.steps[last];
+    let step = tr2.steps[last];
     if (!(step instanceof ReplaceStep || step instanceof ReplaceAroundStep))
       return;
-    let map2 = tr.mapping.maps[last], end;
+    let map2 = tr2.mapping.maps[last], end;
     map2.forEach((_from, _to, _newFrom, newTo) => {
       if (end == null)
         end = newTo;
     });
-    tr.setSelection(Selection.near(tr.doc.resolve(end), bias));
+    tr2.setSelection(Selection.near(tr2.doc.resolve(end), bias));
   }
   var UPDATED_SEL = 1;
   var UPDATED_MARKS = 2;
@@ -7150,14 +5592,14 @@
     /**
     Add a mark to the set of stored marks.
     */
-    addStoredMark(mark) {
-      return this.ensureMarks(mark.addToSet(this.storedMarks || this.selection.$head.marks()));
+    addStoredMark(mark2) {
+      return this.ensureMarks(mark2.addToSet(this.storedMarks || this.selection.$head.marks()));
     }
     /**
     Remove a mark or mark type from the set of stored marks.
     */
-    removeStoredMark(mark) {
-      return this.ensureMarks(mark.removeFromSet(this.storedMarks || this.selection.$head.marks()));
+    removeStoredMark(mark2) {
+      return this.ensureMarks(mark2.removeFromSet(this.storedMarks || this.selection.$head.marks()));
     }
     /**
     Whether the stored marks were explicitly set for this transaction.
@@ -7210,24 +5652,24 @@
     Replace the given range, or the selection if no range is given,
     with a text node containing the given string.
     */
-    insertText(text2, from2, to) {
+    insertText(text3, from2, to) {
       let schema3 = this.doc.type.schema;
       if (from2 == null) {
-        if (!text2)
+        if (!text3)
           return this.deleteSelection();
-        return this.replaceSelectionWith(schema3.text(text2), true);
+        return this.replaceSelectionWith(schema3.text(text3), true);
       } else {
         if (to == null)
           to = from2;
-        if (!text2)
+        if (!text3)
           return this.deleteRange(from2, to);
         let marks2 = this.storedMarks;
         if (!marks2) {
           let $from = this.doc.resolve(from2);
           marks2 = to == from2 ? $from.marks() : $from.marksAcross(this.doc.resolve(to));
         }
-        this.replaceRangeWith(from2, to, schema3.text(text2, marks2));
-        if (!this.selection.empty && this.selection.to == from2 + text2.length)
+        this.replaceRangeWith(from2, to, schema3.text(text3, marks2));
+        if (!this.selection.empty && this.selection.to == from2 + text3.length)
           this.setSelection(Selection.near(this.selection.$to));
         return this;
       }
@@ -7236,22 +5678,22 @@
     Store a metadata property in this transaction, keyed either by
     name or by plugin.
     */
-    setMeta(key, value) {
-      this.meta[typeof key == "string" ? key : key.key] = value;
+    setMeta(key2, value) {
+      this.meta[typeof key2 == "string" ? key2 : key2.key] = value;
       return this;
     }
     /**
     Retrieve a metadata property for a given name or plugin.
     */
-    getMeta(key) {
-      return this.meta[typeof key == "string" ? key : key.key];
+    getMeta(key2) {
+      return this.meta[typeof key2 == "string" ? key2 : key2.key];
     }
     /**
     Returns true if this transaction doesn't contain any metadata,
     and can thus safely be extended.
     */
     get isGeneric() {
-      for (let _2 in this.meta)
+      for (let _4 in this.meta)
         return false;
       return true;
     }
@@ -7270,8 +5712,8 @@
       return (this.updated & UPDATED_SCROLL) > 0;
     }
   };
-  function bind(f, self) {
-    return !self || !f ? f : f.bind(self);
+  function bind(f2, self) {
+    return !self || !f2 ? f2 : f2.bind(self);
   }
   var FieldDesc = class {
     constructor(name, desc, self) {
@@ -7285,32 +5727,32 @@
       init(config) {
         return config.doc || config.schema.topNodeType.createAndFill();
       },
-      apply(tr) {
-        return tr.doc;
+      apply(tr2) {
+        return tr2.doc;
       }
     }),
     new FieldDesc("selection", {
       init(config, instance) {
         return config.selection || Selection.atStart(instance.doc);
       },
-      apply(tr) {
-        return tr.selection;
+      apply(tr2) {
+        return tr2.selection;
       }
     }),
     new FieldDesc("storedMarks", {
       init(config) {
         return config.storedMarks || null;
       },
-      apply(tr, _marks, _old, state) {
-        return state.selection.$cursor ? tr.storedMarks : null;
+      apply(tr2, _marks, _old, state) {
+        return state.selection.$cursor ? tr2.storedMarks : null;
       }
     }),
     new FieldDesc("scrollToSelection", {
       init() {
         return 0;
       },
-      apply(tr, prev) {
-        return tr.scrolledIntoView ? prev + 1 : prev;
+      apply(tr2, prev) {
+        return tr2.scrolledIntoView ? prev + 1 : prev;
       }
     })
   ];
@@ -7353,17 +5795,17 @@
     /**
     Apply the given transaction to produce a new state.
     */
-    apply(tr) {
-      return this.applyTransaction(tr).state;
+    apply(tr2) {
+      return this.applyTransaction(tr2).state;
     }
     /**
     @internal
     */
-    filterTransaction(tr, ignore = -1) {
-      for (let i = 0; i < this.config.plugins.length; i++)
-        if (i != ignore) {
-          let plugin = this.config.plugins[i];
-          if (plugin.spec.filterTransaction && !plugin.spec.filterTransaction.call(plugin, tr, this))
+    filterTransaction(tr2, ignore = -1) {
+      for (let i2 = 0; i2 < this.config.plugins.length; i2++)
+        if (i2 != ignore) {
+          let plugin = this.config.plugins[i2];
+          if (plugin.spec.filterTransaction && !plugin.spec.filterTransaction.call(plugin, tr2, this))
             return false;
         }
       return true;
@@ -7381,24 +5823,24 @@
       let trs = [rootTr], newState = this.applyInner(rootTr), seen = null;
       for (; ; ) {
         let haveNew = false;
-        for (let i = 0; i < this.config.plugins.length; i++) {
-          let plugin = this.config.plugins[i];
+        for (let i2 = 0; i2 < this.config.plugins.length; i2++) {
+          let plugin = this.config.plugins[i2];
           if (plugin.spec.appendTransaction) {
-            let n = seen ? seen[i].n : 0, oldState = seen ? seen[i].state : this;
-            let tr = n < trs.length && plugin.spec.appendTransaction.call(plugin, n ? trs.slice(n) : trs, oldState, newState);
-            if (tr && newState.filterTransaction(tr, i)) {
-              tr.setMeta("appendedTransaction", rootTr);
+            let n = seen ? seen[i2].n : 0, oldState = seen ? seen[i2].state : this;
+            let tr2 = n < trs.length && plugin.spec.appendTransaction.call(plugin, n ? trs.slice(n) : trs, oldState, newState);
+            if (tr2 && newState.filterTransaction(tr2, i2)) {
+              tr2.setMeta("appendedTransaction", rootTr);
               if (!seen) {
                 seen = [];
-                for (let j2 = 0; j2 < this.config.plugins.length; j2++)
-                  seen.push(j2 < i ? { state: newState, n: trs.length } : { state: this, n: 0 });
+                for (let j3 = 0; j3 < this.config.plugins.length; j3++)
+                  seen.push(j3 < i2 ? { state: newState, n: trs.length } : { state: this, n: 0 });
               }
-              trs.push(tr);
-              newState = newState.applyInner(tr);
+              trs.push(tr2);
+              newState = newState.applyInner(tr2);
               haveNew = true;
             }
             if (seen)
-              seen[i] = { state: newState, n: trs.length };
+              seen[i2] = { state: newState, n: trs.length };
           }
         }
         if (!haveNew)
@@ -7408,13 +5850,13 @@
     /**
     @internal
     */
-    applyInner(tr) {
-      if (!tr.before.eq(this.doc))
+    applyInner(tr2) {
+      if (!tr2.before.eq(this.doc))
         throw new RangeError("Applying a mismatched transaction");
       let newInstance = new _EditorState(this.config), fields = this.config.fields;
-      for (let i = 0; i < fields.length; i++) {
-        let field = fields[i];
-        newInstance[field.name] = field.apply(tr, this[field.name], this, newInstance);
+      for (let i2 = 0; i2 < fields.length; i2++) {
+        let field = fields[i2];
+        newInstance[field.name] = field.apply(tr2, this[field.name], this, newInstance);
       }
       return newInstance;
     }
@@ -7430,8 +5872,8 @@
     static create(config) {
       let $config = new Configuration(config.doc ? config.doc.type.schema : config.schema, config.plugins);
       let instance = new _EditorState($config);
-      for (let i = 0; i < $config.fields.length; i++)
-        instance[$config.fields[i].name] = $config.fields[i].init(config, instance);
+      for (let i2 = 0; i2 < $config.fields.length; i2++)
+        instance[$config.fields[i2].name] = $config.fields[i2].init(config, instance);
       return instance;
     }
     /**
@@ -7445,9 +5887,9 @@
     reconfigure(config) {
       let $config = new Configuration(this.schema, config.plugins);
       let fields = $config.fields, instance = new _EditorState($config);
-      for (let i = 0; i < fields.length; i++) {
-        let name = fields[i].name;
-        instance[name] = this.hasOwnProperty(name) ? this[name] : fields[i].init(config, instance);
+      for (let i2 = 0; i2 < fields.length; i2++) {
+        let name = fields[i2].name;
+        instance[name] = this.hasOwnProperty(name) ? this[name] : fields[i2].init(config, instance);
       }
       return instance;
     }
@@ -7461,7 +5903,7 @@
     toJSON(pluginFields) {
       let result = { doc: this.doc.toJSON(), selection: this.selection.toJSON() };
       if (this.storedMarks)
-        result.storedMarks = this.storedMarks.map((m2) => m2.toJSON());
+        result.storedMarks = this.storedMarks.map((m4) => m4.toJSON());
       if (pluginFields && typeof pluginFields == "object")
         for (let prop in pluginFields) {
           if (prop == "doc" || prop == "selection")
@@ -7581,10 +6023,10 @@
   };
   var reusedRange = null;
   var textRange = function(node, from2, to) {
-    let range = reusedRange || (reusedRange = document.createRange());
-    range.setEnd(node, to == null ? node.nodeValue.length : to);
-    range.setStart(node, from2 || 0);
-    return range;
+    let range2 = reusedRange || (reusedRange = document.createRange());
+    range2.setEnd(node, to == null ? node.nodeValue.length : to);
+    range2.setStart(node, from2 || 0);
+    return range2;
   };
   var clearReusedRange = function() {
     reusedRange = null;
@@ -7679,11 +6121,11 @@
   var selectionCollapsed = function(domSel) {
     return domSel.focusNode && isEquivalentPosition(domSel.focusNode, domSel.focusOffset, domSel.anchorNode, domSel.anchorOffset);
   };
-  function keyEvent(keyCode, key) {
+  function keyEvent(keyCode, key2) {
     let event = document.createEvent("Event");
     event.initEvent("keydown", true, true);
     event.keyCode = keyCode;
-    event.key = event.code = key;
+    event.key = event.code = key2;
     return event;
   }
   function deepActiveElement(doc3) {
@@ -7692,19 +6134,19 @@
       elt = elt.shadowRoot.activeElement;
     return elt;
   }
-  function caretFromPoint(doc3, x2, y2) {
+  function caretFromPoint(doc3, x4, y4) {
     if (doc3.caretPositionFromPoint) {
       try {
-        let pos = doc3.caretPositionFromPoint(x2, y2);
+        let pos = doc3.caretPositionFromPoint(x4, y4);
         if (pos)
           return { node: pos.offsetNode, offset: Math.min(nodeSize(pos.offsetNode), pos.offset) };
-      } catch (_2) {
+      } catch (_4) {
       }
     }
     if (doc3.caretRangeFromPoint) {
-      let range = doc3.caretRangeFromPoint(x2, y2);
-      if (range)
-        return { node: range.startContainer, offset: Math.min(nodeSize(range.startContainer), range.startOffset) };
+      let range2 = doc3.caretRangeFromPoint(x4, y4);
+      if (range2)
+        return { node: range2.startContainer, offset: Math.min(nodeSize(range2.startContainer), range2.startOffset) };
     }
   }
   var nav = typeof navigator != "undefined" ? navigator : null;
@@ -7801,8 +6243,8 @@
   function storeScrollPos(view2) {
     let rect = view2.dom.getBoundingClientRect(), startY = Math.max(0, rect.top);
     let refDOM, refTop;
-    for (let x2 = (rect.left + rect.right) / 2, y2 = startY + 1; y2 < Math.min(innerHeight, rect.bottom); y2 += 5) {
-      let dom = view2.root.elementFromPoint(x2, y2);
+    for (let x4 = (rect.left + rect.right) / 2, y4 = startY + 1; y4 < Math.min(innerHeight, rect.bottom); y4 += 5) {
+      let dom = view2.root.elementFromPoint(x4, y4);
       if (!dom || dom == view2.dom || !view2.dom.contains(dom))
         continue;
       let localRect = dom.getBoundingClientRect();
@@ -7828,8 +6270,8 @@
     restoreScrollStack(stack, newRefTop == 0 ? 0 : newRefTop - refTop);
   }
   function restoreScrollStack(stack, dTop) {
-    for (let i = 0; i < stack.length; i++) {
-      let { dom, top, left } = stack[i];
+    for (let i2 = 0; i2 < stack.length; i2++) {
+      let { dom, top, left } = stack[i2];
       if (dom.scrollTop != top + dTop)
         dom.scrollTop = top + dTop;
       if (dom.scrollLeft != left)
@@ -7866,8 +6308,8 @@
         rects = textRange(child).getClientRects();
       else
         continue;
-      for (let i = 0; i < rects.length; i++) {
-        let rect = rects[i];
+      for (let i2 = 0; i2 < rects.length; i2++) {
+        let rect = rects[i2];
         if (rect.top <= rowBot && rect.bottom >= rowTop) {
           rowBot = Math.max(rect.bottom, rowBot);
           rowTop = Math.min(rect.top, rowTop);
@@ -7904,15 +6346,15 @@
   }
   function findOffsetInText(node, coords) {
     let len = node.nodeValue.length;
-    let range = document.createRange();
-    for (let i = 0; i < len; i++) {
-      range.setEnd(node, i + 1);
-      range.setStart(node, i);
-      let rect = singleRect(range, 1);
+    let range2 = document.createRange();
+    for (let i2 = 0; i2 < len; i2++) {
+      range2.setEnd(node, i2 + 1);
+      range2.setStart(node, i2);
+      let rect = singleRect(range2, 1);
       if (rect.top == rect.bottom)
         continue;
       if (inRect(coords, rect))
-        return { node, offset: i + (coords.left >= (rect.left + rect.right) / 2 ? 1 : 0) };
+        return { node, offset: i2 + (coords.left >= (rect.left + rect.right) / 2 ? 1 : 0) };
     }
     return { node, offset: 0 };
   }
@@ -7959,24 +6401,24 @@
     }
     return outsideBlock > -1 ? outsideBlock : view2.docView.posFromDOM(node, offset, -1);
   }
-  function elementFromPoint(element, coords, box) {
-    let len = element.childNodes.length;
+  function elementFromPoint(element2, coords, box) {
+    let len = element2.childNodes.length;
     if (len && box.top < box.bottom) {
-      for (let startI = Math.max(0, Math.min(len - 1, Math.floor(len * (coords.top - box.top) / (box.bottom - box.top)) - 2)), i = startI; ; ) {
-        let child = element.childNodes[i];
+      for (let startI = Math.max(0, Math.min(len - 1, Math.floor(len * (coords.top - box.top) / (box.bottom - box.top)) - 2)), i2 = startI; ; ) {
+        let child = element2.childNodes[i2];
         if (child.nodeType == 1) {
           let rects = child.getClientRects();
-          for (let j2 = 0; j2 < rects.length; j2++) {
-            let rect = rects[j2];
+          for (let j3 = 0; j3 < rects.length; j3++) {
+            let rect = rects[j3];
             if (inRect(coords, rect))
               return elementFromPoint(child, coords, rect);
           }
         }
-        if ((i = (i + 1) % len) == startI)
+        if ((i2 = (i2 + 1) % len) == startI)
           break;
       }
     }
-    return element;
+    return element2;
   }
   function posAtCoords(view2, coords) {
     let doc3 = view2.dom.ownerDocument, node, offset = 0;
@@ -7994,8 +6436,8 @@
         return null;
     }
     if (safari) {
-      for (let p = elt; node && p; p = parentNode(p))
-        if (p.draggable)
+      for (let p2 = elt; node && p2; p2 = parentNode(p2))
+        if (p2.draggable)
           node = void 0;
     }
     elt = targetKludge(elt, coords);
@@ -8098,23 +6540,23 @@
   function flattenV(rect, left) {
     if (rect.width == 0)
       return rect;
-    let x2 = left ? rect.left : rect.right;
-    return { top: rect.top, bottom: rect.bottom, left: x2, right: x2 };
+    let x4 = left ? rect.left : rect.right;
+    return { top: rect.top, bottom: rect.bottom, left: x4, right: x4 };
   }
   function flattenH(rect, top) {
     if (rect.height == 0)
       return rect;
-    let y2 = top ? rect.top : rect.bottom;
-    return { top: y2, bottom: y2, left: rect.left, right: rect.right };
+    let y4 = top ? rect.top : rect.bottom;
+    return { top: y4, bottom: y4, left: rect.left, right: rect.right };
   }
-  function withFlushedState(view2, state, f) {
+  function withFlushedState(view2, state, f2) {
     let viewState = view2.state, active = view2.root.activeElement;
     if (viewState != state)
       view2.updateState(state);
     if (active != view2.dom)
       view2.focus();
     try {
-      return f();
+      return f2();
     } finally {
       if (viewState != state)
         view2.updateState(viewState);
@@ -8146,8 +6588,8 @@
           boxes = textRange(child, 0, child.nodeValue.length).getClientRects();
         else
           continue;
-        for (let i = 0; i < boxes.length; i++) {
-          let box = boxes[i];
+        for (let i2 = 0; i2 < boxes.length; i2++) {
+          let box = boxes[i2];
           if (box.bottom > box.top + 1 && (dir == "up" ? coords.top - box.top > (box.bottom - coords.top) * 2 : box.bottom - coords.bottom > (coords.bottom - box.top) * 2))
             return false;
         }
@@ -8177,7 +6619,7 @@
         sel.collapse(anchorNode, anchorOffset);
         if (oldNode && (oldNode != anchorNode || oldOff != anchorOffset) && sel.extend)
           sel.extend(oldNode, oldOff);
-      } catch (_2) {
+      } catch (_4) {
       }
       if (oldBidiLevel != null)
         sel.caretBidiLevel = oldBidiLevel;
@@ -8212,7 +6654,7 @@
     matchesWidget(widget) {
       return false;
     }
-    matchesMark(mark) {
+    matchesMark(mark2) {
       return false;
     }
     matchesNode(node, outerDeco, innerDeco) {
@@ -8235,8 +6677,8 @@
     // The size of the content represented by this desc.
     get size() {
       let size = 0;
-      for (let i = 0; i < this.children.length; i++)
-        size += this.children[i].size;
+      for (let i2 = 0; i2 < this.children.length; i2++)
+        size += this.children[i2].size;
       return size;
     }
     // For block nodes, this represents the space taken up by their
@@ -8248,12 +6690,12 @@
       this.parent = void 0;
       if (this.dom.pmViewDesc == this)
         this.dom.pmViewDesc = void 0;
-      for (let i = 0; i < this.children.length; i++)
-        this.children[i].destroy();
+      for (let i2 = 0; i2 < this.children.length; i2++)
+        this.children[i2].destroy();
     }
     posBeforeChild(child) {
-      for (let i = 0, pos = this.posAtStart; ; i++) {
-        let cur = this.children[i];
+      for (let i2 = 0, pos = this.posAtStart; ; i2++) {
+        let cur = this.children[i2];
         if (cur == child)
           return pos;
         pos += cur.size;
@@ -8354,12 +6796,12 @@
     // Find the desc for the node after the given pos, if any. (When a
     // parent node overrode rendering, there might not be one.)
     descAt(pos) {
-      for (let i = 0, offset = 0; i < this.children.length; i++) {
-        let child = this.children[i], end = offset + child.size;
+      for (let i2 = 0, offset = 0; i2 < this.children.length; i2++) {
+        let child = this.children[i2], end = offset + child.size;
         if (offset == pos && end != offset) {
           while (!child.border && child.children.length) {
-            for (let i2 = 0; i2 < child.children.length; i2++) {
-              let inner2 = child.children[i2];
+            for (let i3 = 0; i3 < child.children.length; i3++) {
+              let inner2 = child.children[i3];
               if (inner2.size) {
                 child = inner2;
                 break;
@@ -8376,9 +6818,9 @@
     domFromPos(pos, side) {
       if (!this.contentDOM)
         return { node: this.dom, offset: 0, atom: pos + 1 };
-      let i = 0, offset = 0;
-      for (let curPos = 0; i < this.children.length; i++) {
-        let child = this.children[i], end = curPos + child.size;
+      let i2 = 0, offset = 0;
+      for (let curPos = 0; i2 < this.children.length; i2++) {
+        let child = this.children[i2], end = curPos + child.size;
         if (end > pos || child instanceof TrailingHackViewDesc) {
           offset = pos - curPos;
           break;
@@ -8386,13 +6828,13 @@
         curPos = end;
       }
       if (offset)
-        return this.children[i].domFromPos(offset - this.children[i].border, side);
-      for (let prev; i && !(prev = this.children[i - 1]).size && prev instanceof WidgetViewDesc && prev.side >= 0; i--) {
+        return this.children[i2].domFromPos(offset - this.children[i2].border, side);
+      for (let prev; i2 && !(prev = this.children[i2 - 1]).size && prev instanceof WidgetViewDesc && prev.side >= 0; i2--) {
       }
       if (side <= 0) {
         let prev, enter = true;
-        for (; ; i--, enter = false) {
-          prev = i ? this.children[i - 1] : null;
+        for (; ; i2--, enter = false) {
+          prev = i2 ? this.children[i2 - 1] : null;
           if (!prev || prev.dom.parentNode == this.contentDOM)
             break;
         }
@@ -8401,8 +6843,8 @@
         return { node: this.contentDOM, offset: prev ? domIndex(prev.dom) + 1 : 0 };
       } else {
         let next, enter = true;
-        for (; ; i++, enter = false) {
-          next = i < this.children.length ? this.children[i] : null;
+        for (; ; i2++, enter = false) {
+          next = i2 < this.children.length ? this.children[i2] : null;
           if (!next || next.dom.parentNode == this.contentDOM)
             break;
         }
@@ -8417,15 +6859,15 @@
       if (this.children.length == 0)
         return { node: this.contentDOM, from: from2, to, fromOffset: 0, toOffset: this.contentDOM.childNodes.length };
       let fromOffset = -1, toOffset = -1;
-      for (let offset = base2, i = 0; ; i++) {
-        let child = this.children[i], end = offset + child.size;
+      for (let offset = base2, i2 = 0; ; i2++) {
+        let child = this.children[i2], end = offset + child.size;
         if (fromOffset == -1 && from2 <= end) {
           let childBase = offset + child.border;
           if (from2 >= childBase && to <= end - child.border && child.node && child.contentDOM && this.contentDOM.contains(child.contentDOM))
             return child.parseRange(from2, to, childBase);
           from2 = offset;
-          for (let j2 = i; j2 > 0; j2--) {
-            let prev = this.children[j2 - 1];
+          for (let j3 = i2; j3 > 0; j3--) {
+            let prev = this.children[j3 - 1];
             if (prev.size && prev.dom.parentNode == this.contentDOM && !prev.emptyChildAt(1)) {
               fromOffset = domIndex(prev.dom) + 1;
               break;
@@ -8435,10 +6877,10 @@
           if (fromOffset == -1)
             fromOffset = 0;
         }
-        if (fromOffset > -1 && (end > to || i == this.children.length - 1)) {
+        if (fromOffset > -1 && (end > to || i2 == this.children.length - 1)) {
           to = end;
-          for (let j2 = i + 1; j2 < this.children.length; j2++) {
-            let next = this.children[j2];
+          for (let j3 = i2 + 1; j3 < this.children.length; j3++) {
+            let next = this.children[j3];
             if (next.size && next.dom.parentNode == this.contentDOM && !next.emptyChildAt(-1)) {
               toOffset = domIndex(next.dom);
               break;
@@ -8470,20 +6912,20 @@
     // custom things with the selection. Note that this falls apart when
     // a selection starts in such a node and ends in another, in which
     // case we just use whatever domFromPos produces as a best effort.
-    setSelection(anchor, head, view2, force = false) {
-      let from2 = Math.min(anchor, head), to = Math.max(anchor, head);
-      for (let i = 0, offset = 0; i < this.children.length; i++) {
-        let child = this.children[i], end = offset + child.size;
+    setSelection(anchor, head2, view2, force = false) {
+      let from2 = Math.min(anchor, head2), to = Math.max(anchor, head2);
+      for (let i2 = 0, offset = 0; i2 < this.children.length; i2++) {
+        let child = this.children[i2], end = offset + child.size;
         if (from2 > offset && to < end)
-          return child.setSelection(anchor - offset - child.border, head - offset - child.border, view2, force);
+          return child.setSelection(anchor - offset - child.border, head2 - offset - child.border, view2, force);
         offset = end;
       }
       let anchorDOM = this.domFromPos(anchor, anchor ? -1 : 1);
-      let headDOM = head == anchor ? anchorDOM : this.domFromPos(head, head ? -1 : 1);
+      let headDOM = head2 == anchor ? anchorDOM : this.domFromPos(head2, head2 ? -1 : 1);
       let domSel = view2.root.getSelection();
       let selRange = view2.domSelectionRange();
       let brKludge = false;
-      if ((gecko || safari) && anchor == head) {
+      if ((gecko || safari) && anchor == head2) {
         let { node, offset } = anchorDOM;
         if (node.nodeType == 3) {
           brKludge = !!(offset && node.nodeValue[offset - 1] == "\n");
@@ -8512,26 +6954,26 @@
       if (!(force || brKludge && safari) && isEquivalentPosition(anchorDOM.node, anchorDOM.offset, selRange.anchorNode, selRange.anchorOffset) && isEquivalentPosition(headDOM.node, headDOM.offset, selRange.focusNode, selRange.focusOffset))
         return;
       let domSelExtended = false;
-      if ((domSel.extend || anchor == head) && !(brKludge && gecko)) {
+      if ((domSel.extend || anchor == head2) && !(brKludge && gecko)) {
         domSel.collapse(anchorDOM.node, anchorDOM.offset);
         try {
-          if (anchor != head)
+          if (anchor != head2)
             domSel.extend(headDOM.node, headDOM.offset);
           domSelExtended = true;
-        } catch (_2) {
+        } catch (_4) {
         }
       }
       if (!domSelExtended) {
-        if (anchor > head) {
+        if (anchor > head2) {
           let tmp = anchorDOM;
           anchorDOM = headDOM;
           headDOM = tmp;
         }
-        let range = document.createRange();
-        range.setEnd(headDOM.node, headDOM.offset);
-        range.setStart(anchorDOM.node, anchorDOM.offset);
+        let range2 = document.createRange();
+        range2.setEnd(headDOM.node, headDOM.offset);
+        range2.setStart(anchorDOM.node, anchorDOM.offset);
         domSel.removeAllRanges();
-        domSel.addRange(range);
+        domSel.addRange(range2);
       }
     }
     ignoreMutation(mutation) {
@@ -8543,8 +6985,8 @@
     // Remove a subtree of the element tree that has been touched
     // by a DOM change, so that the next update will redraw it.
     markDirty(from2, to) {
-      for (let offset = 0, i = 0; i < this.children.length; i++) {
-        let child = this.children[i], end = offset + child.size;
+      for (let offset = 0, i2 = 0; i2 < this.children.length; i2++) {
+        let child = this.children[i2], end = offset + child.size;
         if (offset == end ? from2 <= end && to >= offset : from2 < end && to > offset) {
           let startInside = offset + child.border, endInside = end - child.border;
           if (from2 >= startInside && to <= endInside) {
@@ -8579,7 +7021,7 @@
     get ignoreForSelection() {
       return false;
     }
-    isText(text2) {
+    isText(text3) {
       return false;
     }
   };
@@ -8635,10 +7077,10 @@
     }
   };
   var CompositionViewDesc = class extends ViewDesc {
-    constructor(parent, dom, textDOM, text2) {
+    constructor(parent, dom, textDOM, text3) {
       super(parent, [], dom, null);
       this.textDOM = textDOM;
-      this.text = text2;
+      this.text = text3;
     }
     get size() {
       return this.text.length;
@@ -8656,25 +7098,25 @@
     }
   };
   var MarkViewDesc = class _MarkViewDesc extends ViewDesc {
-    constructor(parent, mark, dom, contentDOM, spec) {
+    constructor(parent, mark2, dom, contentDOM, spec) {
       super(parent, [], dom, contentDOM);
-      this.mark = mark;
+      this.mark = mark2;
       this.spec = spec;
     }
-    static create(parent, mark, inline, view2) {
-      let custom = view2.nodeViews[mark.type.name];
-      let spec = custom && custom(mark, view2, inline);
+    static create(parent, mark2, inline, view2) {
+      let custom = view2.nodeViews[mark2.type.name];
+      let spec = custom && custom(mark2, view2, inline);
       if (!spec || !spec.dom)
-        spec = DOMSerializer.renderSpec(document, mark.type.spec.toDOM(mark, inline), null, mark.attrs);
-      return new _MarkViewDesc(parent, mark, spec.dom, spec.contentDOM || spec.dom, spec);
+        spec = DOMSerializer.renderSpec(document, mark2.type.spec.toDOM(mark2, inline), null, mark2.attrs);
+      return new _MarkViewDesc(parent, mark2, spec.dom, spec.contentDOM || spec.dom, spec);
     }
     parseRule() {
       if (this.dirty & NODE_DIRTY || this.mark.type.spec.reparseInView)
         return null;
       return { mark: this.mark.type.name, attrs: this.mark.attrs, contentElement: this.contentDOM };
     }
-    matchesMark(mark) {
-      return this.dirty != NODE_DIRTY && this.mark.eq(mark);
+    matchesMark(mark2) {
+      return this.dirty != NODE_DIRTY && this.mark.eq(mark2);
     }
     markDirty(from2, to) {
       super.markDirty(from2, to);
@@ -8694,8 +7136,8 @@
         nodes3 = replaceNodes(nodes3, to, size, view2);
       if (from2 > 0)
         nodes3 = replaceNodes(nodes3, 0, from2, view2);
-      for (let i = 0; i < nodes3.length; i++)
-        nodes3[i].parent = copy2;
+      for (let i2 = 0; i2 < nodes3.length; i2++)
+        nodes3[i2].parent = copy2;
       copy2.children = nodes3;
       return copy2;
     }
@@ -8769,8 +7211,8 @@
       } else if (!this.contentLost) {
         rule.contentElement = this.contentDOM;
       } else {
-        for (let i = this.children.length - 1; i >= 0; i--) {
-          let child = this.children[i];
+        for (let i2 = this.children.length - 1; i2 >= 0; i2--) {
+          let child = this.children[i2];
           if (this.dom.contains(child.dom.parentNode)) {
             rule.contentElement = child.dom.parentNode;
             break;
@@ -8800,18 +7242,18 @@
       let localComposition = composition && composition.pos > -1 ? composition : null;
       let compositionInChild = composition && composition.pos < 0;
       let updater = new ViewTreeUpdater(this, localComposition && localComposition.node, view2);
-      iterDeco(this.node, this.innerDeco, (widget, i, insideNode) => {
+      iterDeco(this.node, this.innerDeco, (widget, i2, insideNode) => {
         if (widget.spec.marks)
           updater.syncToMarks(widget.spec.marks, inline, view2);
         else if (widget.type.side >= 0 && !insideNode)
-          updater.syncToMarks(i == this.node.childCount ? Mark.none : this.node.child(i).marks, inline, view2);
+          updater.syncToMarks(i2 == this.node.childCount ? Mark.none : this.node.child(i2).marks, inline, view2);
         updater.placeWidget(widget, view2, off);
-      }, (child, outerDeco, innerDeco, i) => {
+      }, (child, outerDeco, innerDeco, i2) => {
         updater.syncToMarks(child.marks, inline, view2);
         let compIndex;
-        if (updater.findNodeMatch(child, outerDeco, innerDeco, i)) ;
+        if (updater.findNodeMatch(child, outerDeco, innerDeco, i2)) ;
         else if (compositionInChild && view2.state.selection.from > off && view2.state.selection.to < off + child.nodeSize && (compIndex = updater.findIndexWithChild(composition.node)) > -1 && updater.updateNodeAt(child, outerDeco, innerDeco, compIndex, view2)) ;
-        else if (updater.updateNextNode(child, outerDeco, innerDeco, view2, i, off)) ;
+        else if (updater.updateNextNode(child, outerDeco, innerDeco, view2, i2, off)) ;
         else {
           updater.addNode(child, outerDeco, innerDeco, view2, off);
         }
@@ -8837,14 +7279,14 @@
       if (!textNode || !this.dom.contains(textNode.parentNode))
         return null;
       if (this.node.inlineContent) {
-        let text2 = textNode.nodeValue;
-        let textPos = findTextInFragment(this.node.content, text2, from2 - pos, to - pos);
-        return textPos < 0 ? null : { node: textNode, pos: textPos, text: text2 };
+        let text3 = textNode.nodeValue;
+        let textPos = findTextInFragment(this.node.content, text3, from2 - pos, to - pos);
+        return textPos < 0 ? null : { node: textNode, pos: textPos, text: text3 };
       } else {
         return { node: textNode, pos: -1, text: "" };
       }
     }
-    protectLocalComposition(view2, { node, pos, text: text2 }) {
+    protectLocalComposition(view2, { node, pos, text: text3 }) {
       if (this.getDesc(node))
         return;
       let topNode = node;
@@ -8858,9 +7300,9 @@
         if (topNode.pmViewDesc)
           topNode.pmViewDesc = void 0;
       }
-      let desc = new CompositionViewDesc(this, topNode, node, text2);
+      let desc = new CompositionViewDesc(this, topNode, node, text3);
       view2.input.compositionNodes.push(desc);
-      this.children = replaceNodes(this.children, pos, pos + text2.length, view2, desc);
+      this.children = replaceNodes(this.children, pos, pos + text3.length, view2, desc);
     }
     // If this desc must be updated to match the given node decoration,
     // do so and return true.
@@ -8970,8 +7412,8 @@
     get domAtom() {
       return false;
     }
-    isText(text2) {
-      return this.node.text == text2;
+    isText(text3) {
+      return this.node.text == text3;
     }
   };
   var TrailingHackViewDesc = class extends ViewDesc {
@@ -9016,8 +7458,8 @@
     deselectNode() {
       this.spec.deselectNode ? this.spec.deselectNode() : super.deselectNode();
     }
-    setSelection(anchor, head, view2, force) {
-      this.spec.setSelection ? this.spec.setSelection(anchor, head, view2.root) : super.setSelection(anchor, head, view2, force);
+    setSelection(anchor, head2, view2, force) {
+      this.spec.setSelection ? this.spec.setSelection(anchor, head2, view2.root) : super.setSelection(anchor, head2, view2, force);
     }
     destroy() {
       if (this.spec.destroy)
@@ -9033,8 +7475,8 @@
   };
   function renderDescs(parentDOM, descs, view2) {
     let dom = parentDOM.firstChild, written = false;
-    for (let i = 0; i < descs.length; i++) {
-      let desc = descs[i], childDOM = desc.dom;
+    for (let i2 = 0; i2 < descs.length; i2++) {
+      let desc = descs[i2], childDOM = desc.dom;
       if (childDOM.parentNode == parentDOM) {
         while (childDOM != dom) {
           dom = rm(dom);
@@ -9068,8 +7510,8 @@
     if (outerDeco.length == 0)
       return noDeco;
     let top = needsWrap ? noDeco[0] : new OuterDecoLevel(), result = [top];
-    for (let i = 0; i < outerDeco.length; i++) {
-      let attrs = outerDeco[i].type.attrs;
+    for (let i2 = 0; i2 < outerDeco.length; i2++) {
+      let attrs = outerDeco[i2].type.attrs;
       if (!attrs)
         continue;
       if (attrs.nodeName)
@@ -9094,9 +7536,9 @@
     if (prevComputed == noDeco && curComputed == noDeco)
       return nodeDOM;
     let curDOM = nodeDOM;
-    for (let i = 0; i < curComputed.length; i++) {
-      let deco = curComputed[i], prev = prevComputed[i];
-      if (i) {
+    for (let i2 = 0; i2 < curComputed.length; i2++) {
+      let deco = curComputed[i2], prev = prevComputed[i2];
+      if (i2) {
         let parent;
         if (prev && prev.nodeName == deco.nodeName && curDOM != outerDOM && (parent = curDOM.parentNode) && parent.nodeName.toLowerCase() == deco.nodeName) {
           curDOM = parent;
@@ -9122,20 +7564,20 @@
     if (prev.class != cur.class) {
       let prevList = prev.class ? prev.class.split(" ").filter(Boolean) : [];
       let curList = cur.class ? cur.class.split(" ").filter(Boolean) : [];
-      for (let i = 0; i < prevList.length; i++)
-        if (curList.indexOf(prevList[i]) == -1)
-          dom.classList.remove(prevList[i]);
-      for (let i = 0; i < curList.length; i++)
-        if (prevList.indexOf(curList[i]) == -1)
-          dom.classList.add(curList[i]);
+      for (let i2 = 0; i2 < prevList.length; i2++)
+        if (curList.indexOf(prevList[i2]) == -1)
+          dom.classList.remove(prevList[i2]);
+      for (let i2 = 0; i2 < curList.length; i2++)
+        if (prevList.indexOf(curList[i2]) == -1)
+          dom.classList.add(curList[i2]);
       if (dom.classList.length == 0)
         dom.removeAttribute("class");
     }
     if (prev.style != cur.style) {
       if (prev.style) {
-        let prop = /\s*([\w\-\xa1-\uffff]+)\s*:(?:"(?:\\.|[^"])*"|'(?:\\.|[^'])*'|\(.*?\)|[^;])*/g, m2;
-        while (m2 = prop.exec(prev.style))
-          dom.style.removeProperty(m2[1]);
+        let prop = /\s*([\w\-\xa1-\uffff]+)\s*:(?:"(?:\\.|[^"])*"|'(?:\\.|[^'])*'|\(.*?\)|[^;])*/g, m4;
+        while (m4 = prop.exec(prev.style))
+          dom.style.removeProperty(m4[1]);
       }
       if (cur.style)
         dom.style.cssText += cur.style;
@@ -9144,11 +7586,11 @@
   function applyOuterDeco(dom, deco, node) {
     return patchOuterDeco(dom, dom, noDeco, computeOuterDeco(deco, node, dom.nodeType != 1));
   }
-  function sameOuterDeco(a, b2) {
-    if (a.length != b2.length)
+  function sameOuterDeco(a2, b4) {
+    if (a2.length != b4.length)
       return false;
-    for (let i = 0; i < a.length; i++)
-      if (!a[i].type.eq(b2[i].type))
+    for (let i2 = 0; i2 < a2.length; i2++)
+      if (!a2[i2].type.eq(b4[i2].type))
         return false;
     return true;
   }
@@ -9172,8 +7614,8 @@
     destroyBetween(start, end) {
       if (start == end)
         return;
-      for (let i = start; i < end; i++)
-        this.top.children[i].destroy();
+      for (let i2 = start; i2 < end; i2++)
+        this.top.children[i2].destroy();
       this.top.children.splice(start, end - start);
       this.changed = true;
     }
@@ -9198,10 +7640,10 @@
       while (depth < marks2.length) {
         this.stack.push(this.top, this.index + 1);
         let found2 = -1;
-        for (let i = this.index; i < Math.min(this.index + 3, this.top.children.length); i++) {
-          let next = this.top.children[i];
+        for (let i2 = this.index; i2 < Math.min(this.index + 3, this.top.children.length); i2++) {
+          let next = this.top.children[i2];
           if (next.matchesMark(marks2[depth]) && !this.isLocked(next.dom)) {
-            found2 = i;
+            found2 = i2;
             break;
           }
         }
@@ -9228,10 +7670,10 @@
       if (index >= this.preMatch.index && (targetDesc = this.preMatch.matches[index - this.preMatch.index]).parent == this.top && targetDesc.matchesNode(node, outerDeco, innerDeco)) {
         found2 = this.top.children.indexOf(targetDesc, this.index);
       } else {
-        for (let i = this.index, e = Math.min(this.top.children.length, i + 5); i < e; i++) {
-          let child = this.top.children[i];
+        for (let i2 = this.index, e = Math.min(this.top.children.length, i2 + 5); i2 < e; i2++) {
+          let child = this.top.children[i2];
           if (child.matchesNode(node, outerDeco, innerDeco) && !this.preMatch.matched.has(child)) {
-            found2 = i;
+            found2 = i2;
             break;
           }
         }
@@ -9260,9 +7702,9 @@
         if (parent == this.top.contentDOM) {
           let desc = domNode.pmViewDesc;
           if (desc)
-            for (let i = this.index; i < this.top.children.length; i++) {
-              if (this.top.children[i] == desc)
-                return i;
+            for (let i2 = this.index; i2 < this.top.children.length; i2++) {
+              if (this.top.children[i2] == desc)
+                return i2;
             }
           return -1;
         }
@@ -9272,8 +7714,8 @@
     // Try to update the next node, if any, to the given data. Checks
     // pre-matches to avoid overwriting nodes that could still be used.
     updateNextNode(node, outerDeco, innerDeco, view2, index, pos) {
-      for (let i = this.index; i < this.top.children.length; i++) {
-        let next = this.top.children[i];
+      for (let i2 = this.index; i2 < this.top.children.length; i2++) {
+        let next = this.top.children[i2];
         if (next instanceof NodeViewDesc) {
           let preMatch2 = this.preMatch.matched.get(next);
           if (preMatch2 != null && preMatch2 != index)
@@ -9281,13 +7723,13 @@
           let nextDOM = next.dom, updated;
           let locked = this.isLocked(nextDOM) && !(node.isText && next.node && next.node.isText && next.nodeDOM.nodeValue == node.text && next.dirty != NODE_DIRTY && sameOuterDeco(outerDeco, next.outerDeco));
           if (!locked && next.update(node, outerDeco, innerDeco, view2)) {
-            this.destroyBetween(this.index, i);
+            this.destroyBetween(this.index, i2);
             if (next.dom != nextDOM)
               this.changed = true;
             this.index++;
             return true;
           } else if (!locked && (updated = this.recreateWrapper(next, node, outerDeco, innerDeco, view2, pos))) {
-            this.destroyBetween(this.index, i);
+            this.destroyBetween(this.index, i2);
             this.top.children[this.index] = updated;
             if (updated.contentDOM) {
               updated.dirty = CONTENT_DIRTY;
@@ -9376,7 +7818,7 @@
   };
   function preMatch(frag, parentDesc) {
     let curDesc = parentDesc, descI = curDesc.children.length;
-    let fI = frag.childCount, matched = /* @__PURE__ */ new Map(), matches2 = [];
+    let fI = frag.childCount, matched = /* @__PURE__ */ new Map(), matches3 = [];
     outer: while (fI > 0) {
       let desc;
       for (; ; ) {
@@ -9404,19 +7846,19 @@
         break;
       --fI;
       matched.set(desc, fI);
-      matches2.push(desc);
+      matches3.push(desc);
     }
-    return { index: fI, matched, matches: matches2.reverse() };
+    return { index: fI, matched, matches: matches3.reverse() };
   }
-  function compareSide(a, b2) {
-    return a.type.side - b2.type.side;
+  function compareSide(a2, b4) {
+    return a2.type.side - b4.type.side;
   }
   function iterDeco(parent, deco, onWidget, onNode) {
     let locals = deco.locals(parent), offset = 0;
     if (locals.length == 0) {
-      for (let i = 0; i < parent.childCount; i++) {
-        let child = parent.child(i);
-        onNode(child, locals, deco.forChild(offset, child), i);
+      for (let i2 = 0; i2 < parent.childCount; i2++) {
+        let child = parent.child(i2);
+        onNode(child, locals, deco.forChild(offset, child), i2);
         offset += child.nodeSize;
       }
       return;
@@ -9436,8 +7878,8 @@
       if (widget) {
         if (widgets) {
           widgets.sort(compareSide);
-          for (let i = 0; i < widgets.length; i++)
-            onWidget(widgets[i], parentIndex, !!restNode);
+          for (let i2 = 0; i2 < widgets.length; i2++)
+            onWidget(widgets[i2], parentIndex, !!restNode);
         } else {
           onWidget(widget, parentIndex, !!restNode);
         }
@@ -9453,9 +7895,9 @@
       } else {
         break;
       }
-      for (let i = 0; i < active.length; i++)
-        if (active[i].to <= offset)
-          active.splice(i--, 1);
+      for (let i2 = 0; i2 < active.length; i2++)
+        if (active[i2].to <= offset)
+          active.splice(i2--, 1);
       while (decoIndex < locals.length && locals[decoIndex].from <= offset && locals[decoIndex].to > offset)
         active.push(locals[decoIndex++]);
       let end = offset + child.nodeSize;
@@ -9463,9 +7905,9 @@
         let cutAt = end;
         if (decoIndex < locals.length && locals[decoIndex].from < cutAt)
           cutAt = locals[decoIndex].from;
-        for (let i = 0; i < active.length; i++)
-          if (active[i].to < cutAt)
-            cutAt = active[i].to;
+        for (let i2 = 0; i2 < active.length; i2++)
+          if (active[i2].to < cutAt)
+            cutAt = active[i2].to;
         if (cutAt < end) {
           restNode = child.cut(cutAt - offset);
           child = child.cut(0, cutAt - offset);
@@ -9476,7 +7918,7 @@
         while (decoIndex < locals.length && locals[decoIndex].to < end)
           decoIndex++;
       }
-      let outerDeco = child.isInline && !child.isLeaf ? active.filter((d2) => !d2.inline) : active.slice();
+      let outerDeco = child.isInline && !child.isLeaf ? active.filter((d3) => !d3.inline) : active.slice();
       onNode(child, outerDeco, deco.forChild(offset, child), index);
       offset = end;
     }
@@ -9489,27 +7931,27 @@
       dom.style.cssText = oldCSS;
     }
   }
-  function findTextInFragment(frag, text2, from2, to) {
-    for (let i = 0, pos = 0; i < frag.childCount && pos <= to; ) {
-      let child = frag.child(i++), childStart = pos;
+  function findTextInFragment(frag, text3, from2, to) {
+    for (let i2 = 0, pos = 0; i2 < frag.childCount && pos <= to; ) {
+      let child = frag.child(i2++), childStart = pos;
       pos += child.nodeSize;
       if (!child.isText)
         continue;
       let str = child.text;
-      while (i < frag.childCount) {
-        let next = frag.child(i++);
+      while (i2 < frag.childCount) {
+        let next = frag.child(i2++);
         pos += next.nodeSize;
         if (!next.isText)
           break;
         str += next.text;
       }
       if (pos >= from2) {
-        if (pos >= to && str.slice(to - text2.length - childStart, to - childStart) == text2)
-          return to - text2.length;
-        let found2 = childStart < to ? str.lastIndexOf(text2, to - childStart - 1) : -1;
-        if (found2 >= 0 && found2 + text2.length + childStart >= from2)
+        if (pos >= to && str.slice(to - text3.length - childStart, to - childStart) == text3)
+          return to - text3.length;
+        let found2 = childStart < to ? str.lastIndexOf(text3, to - childStart - 1) : -1;
+        if (found2 >= 0 && found2 + text3.length + childStart >= from2)
           return childStart + found2;
-        if (from2 == to && str.length >= to + text2.length - childStart && str.slice(to - childStart, to - childStart + text2.length) == text2)
+        if (from2 == to && str.length >= to + text3.length - childStart && str.slice(to - childStart, to - childStart + text3.length) == text3)
           return to;
       }
     }
@@ -9517,8 +7959,8 @@
   }
   function replaceNodes(nodes3, from2, to, view2, replacement) {
     let result = [];
-    for (let i = 0, off = 0; i < nodes3.length; i++) {
-      let child = nodes3[i], start = off, end = off += child.size;
+    for (let i2 = 0, off = 0; i2 < nodes3.length; i2++) {
+      let child = nodes3[i2], start = off, end = off += child.size;
       if (start >= to || end <= from2) {
         result.push(child);
       } else {
@@ -9539,31 +7981,31 @@
     if (!domSel.focusNode)
       return null;
     let nearestDesc = view2.docView.nearestDesc(domSel.focusNode), inWidget = nearestDesc && nearestDesc.size == 0;
-    let head = view2.docView.posFromDOM(domSel.focusNode, domSel.focusOffset, 1);
-    if (head < 0)
+    let head2 = view2.docView.posFromDOM(domSel.focusNode, domSel.focusOffset, 1);
+    if (head2 < 0)
       return null;
-    let $head = doc3.resolve(head), anchor, selection;
+    let $head = doc3.resolve(head2), anchor, selection;
     if (selectionCollapsed(domSel)) {
-      anchor = head;
+      anchor = head2;
       while (nearestDesc && !nearestDesc.node)
         nearestDesc = nearestDesc.parent;
       let nearestDescNode = nearestDesc.node;
       if (nearestDesc && nearestDescNode.isAtom && NodeSelection.isSelectable(nearestDescNode) && nearestDesc.parent && !(nearestDescNode.isInline && isOnEdge(domSel.focusNode, domSel.focusOffset, nearestDesc.dom))) {
         let pos = nearestDesc.posBefore;
-        selection = new NodeSelection(head == pos ? $head : doc3.resolve(pos));
+        selection = new NodeSelection(head2 == pos ? $head : doc3.resolve(pos));
       }
     } else {
       if (domSel instanceof view2.dom.ownerDocument.defaultView.Selection && domSel.rangeCount > 1) {
-        let min = head, max = head;
-        for (let i = 0; i < domSel.rangeCount; i++) {
-          let range = domSel.getRangeAt(i);
-          min = Math.min(min, view2.docView.posFromDOM(range.startContainer, range.startOffset, 1));
-          max = Math.max(max, view2.docView.posFromDOM(range.endContainer, range.endOffset, -1));
+        let min = head2, max = head2;
+        for (let i2 = 0; i2 < domSel.rangeCount; i2++) {
+          let range2 = domSel.getRangeAt(i2);
+          min = Math.min(min, view2.docView.posFromDOM(range2.startContainer, range2.startOffset, 1));
+          max = Math.max(max, view2.docView.posFromDOM(range2.endContainer, range2.endOffset, -1));
         }
         if (min < 0)
           return null;
-        [anchor, head] = max == view2.state.selection.anchor ? [max, min] : [min, max];
-        $head = doc3.resolve(head);
+        [anchor, head2] = max == view2.state.selection.anchor ? [max, min] : [min, max];
+        $head = doc3.resolve(head2);
       } else {
         anchor = view2.docView.posFromDOM(domSel.anchorNode, domSel.anchorOffset, 1);
       }
@@ -9597,14 +8039,14 @@
     if (view2.cursorWrapper) {
       selectCursorWrapper(view2);
     } else {
-      let { anchor, head } = sel, resetEditableFrom, resetEditableTo;
+      let { anchor, head: head2 } = sel, resetEditableFrom, resetEditableTo;
       if (brokenSelectBetweenUneditable && !(sel instanceof TextSelection)) {
         if (!sel.$from.parent.inlineContent)
           resetEditableFrom = temporarilyEditableNear(view2, sel.from);
         if (!sel.empty && !sel.$from.parent.inlineContent)
           resetEditableTo = temporarilyEditableNear(view2, sel.to);
       }
-      view2.docView.setSelection(anchor, head, view2, force);
+      view2.docView.setSelection(anchor, head2, view2, force);
       if (brokenSelectBetweenUneditable) {
         if (resetEditableFrom)
           resetEditable(resetEditableFrom);
@@ -9636,19 +8078,19 @@
         return setEditable(before);
     }
   }
-  function setEditable(element) {
-    element.contentEditable = "true";
-    if (safari && element.draggable) {
-      element.draggable = false;
-      element.wasDraggable = true;
+  function setEditable(element2) {
+    element2.contentEditable = "true";
+    if (safari && element2.draggable) {
+      element2.draggable = false;
+      element2.wasDraggable = true;
     }
-    return element;
+    return element2;
   }
-  function resetEditable(element) {
-    element.contentEditable = "false";
-    if (element.wasDraggable) {
-      element.draggable = true;
-      element.wasDraggable = null;
+  function resetEditable(element2) {
+    element2.contentEditable = "false";
+    if (element2.wasDraggable) {
+      element2.draggable = true;
+      element2.wasDraggable = null;
     }
   }
   function removeClassOnSelectionChange(view2) {
@@ -9701,7 +8143,7 @@
     }
   }
   function selectionBetween(view2, $anchor, $head, bias) {
-    return view2.someProp("createSelectionBetween", (f) => f(view2, $anchor, $head)) || TextSelection.between($anchor, $head, bias);
+    return view2.someProp("createSelectionBetween", (f2) => f2(view2, $anchor, $head)) || TextSelection.between($anchor, $head, bias);
   }
   function hasFocusAndSelection(view2) {
     if (view2.editable && !view2.hasFocus())
@@ -9714,7 +8156,7 @@
       return false;
     try {
       return view2.dom.contains(sel.anchorNode.nodeType == 3 ? sel.anchorNode.parentNode : sel.anchorNode) && (view2.editable || view2.dom.contains(sel.focusNode.nodeType == 3 ? sel.focusNode.parentNode : sel.focusNode));
-    } catch (_2) {
+    } catch (_4) {
       return false;
     }
   }
@@ -9921,11 +8363,11 @@
     if (!sel)
       return;
     if (selectionCollapsed(sel)) {
-      let range = document.createRange();
-      range.setEnd(node, offset);
-      range.setStart(node, offset);
+      let range2 = document.createRange();
+      range2.setEnd(node, offset);
+      range2.setStart(node, offset);
       sel.removeAllRanges();
-      sel.addRange(range);
+      sel.addRange(range2);
     } else if (sel.extend) {
       sel.extend(node, offset);
     }
@@ -9978,21 +8420,21 @@
   function stopNativeHorizontalDelete(view2, dir) {
     if (!(view2.state.selection instanceof TextSelection))
       return true;
-    let { $head, $anchor, empty: empty2 } = view2.state.selection;
+    let { $head, $anchor, empty: empty3 } = view2.state.selection;
     if (!$head.sameParent($anchor))
       return true;
-    if (!empty2)
+    if (!empty3)
       return false;
     if (view2.endOfTextblock(dir > 0 ? "forward" : "backward"))
       return true;
     let nextNode = !$head.textOffset && (dir < 0 ? $head.nodeBefore : $head.nodeAfter);
     if (nextNode && !nextNode.isText) {
-      let tr = view2.state.tr;
+      let tr2 = view2.state.tr;
       if (dir < 0)
-        tr.delete($head.pos - nextNode.nodeSize, $head.pos);
+        tr2.delete($head.pos - nextNode.nodeSize, $head.pos);
       else
-        tr.delete($head.pos, $head.pos + nextNode.nodeSize);
-      view2.dispatch(tr);
+        tr2.delete($head.pos, $head.pos + nextNode.nodeSize);
+      view2.dispatch(tr2);
       return true;
     }
     return false;
@@ -10049,8 +8491,8 @@
     return false;
   }
   function serializeForClipboard(view2, slice2) {
-    view2.someProp("transformCopied", (f) => {
-      slice2 = f(slice2, view2);
+    view2.someProp("transformCopied", (f2) => {
+      slice2 = f2(slice2, view2);
     });
     let context = [], { content, openStart, openEnd } = slice2;
     while (openStart > 1 && openEnd > 1 && content.childCount == 1 && content.firstChild.childCount == 1) {
@@ -10065,8 +8507,8 @@
     wrap2.appendChild(serializer.serializeFragment(content, { document: doc3 }));
     let firstChild = wrap2.firstChild, needsWrap, wrappers = 0;
     while (firstChild && firstChild.nodeType == 1 && (needsWrap = wrapMap[firstChild.nodeName.toLowerCase()])) {
-      for (let i = needsWrap.length - 1; i >= 0; i--) {
-        let wrapper = doc3.createElement(needsWrap[i]);
+      for (let i2 = needsWrap.length - 1; i2 >= 0; i2--) {
+        let wrapper = doc3.createElement(needsWrap[i2]);
         while (wrap2.firstChild)
           wrapper.appendChild(wrap2.firstChild);
         wrap2.appendChild(wrapper);
@@ -10076,51 +8518,51 @@
     }
     if (firstChild && firstChild.nodeType == 1)
       firstChild.setAttribute("data-pm-slice", `${openStart} ${openEnd}${wrappers ? ` -${wrappers}` : ""} ${JSON.stringify(context)}`);
-    let text2 = view2.someProp("clipboardTextSerializer", (f) => f(slice2, view2)) || slice2.content.textBetween(0, slice2.content.size, "\n\n");
-    return { dom: wrap2, text: text2, slice: slice2 };
+    let text3 = view2.someProp("clipboardTextSerializer", (f2) => f2(slice2, view2)) || slice2.content.textBetween(0, slice2.content.size, "\n\n");
+    return { dom: wrap2, text: text3, slice: slice2 };
   }
-  function parseFromClipboard(view2, text2, html, plainText, $context) {
+  function parseFromClipboard(view2, text3, html5, plainText, $context) {
     let inCode = $context.parent.type.spec.code;
     let dom, slice2;
-    if (!html && !text2)
+    if (!html5 && !text3)
       return null;
-    let asText = !!text2 && (plainText || inCode || !html);
+    let asText = !!text3 && (plainText || inCode || !html5);
     if (asText) {
-      view2.someProp("transformPastedText", (f) => {
-        text2 = f(text2, inCode || plainText, view2);
+      view2.someProp("transformPastedText", (f2) => {
+        text3 = f2(text3, inCode || plainText, view2);
       });
       if (inCode) {
-        slice2 = new Slice(Fragment.from(view2.state.schema.text(text2.replace(/\r\n?/g, "\n"))), 0, 0);
-        view2.someProp("transformPasted", (f) => {
-          slice2 = f(slice2, view2, true);
+        slice2 = new Slice(Fragment.from(view2.state.schema.text(text3.replace(/\r\n?/g, "\n"))), 0, 0);
+        view2.someProp("transformPasted", (f2) => {
+          slice2 = f2(slice2, view2, true);
         });
         return slice2;
       }
-      let parsed = view2.someProp("clipboardTextParser", (f) => f(text2, $context, plainText, view2));
+      let parsed = view2.someProp("clipboardTextParser", (f2) => f2(text3, $context, plainText, view2));
       if (parsed) {
         slice2 = parsed;
       } else {
         let marks2 = $context.marks();
         let { schema: schema3 } = view2.state, serializer = DOMSerializer.fromSchema(schema3);
         dom = document.createElement("div");
-        text2.split(/(?:\r\n?|\n)+/).forEach((block) => {
-          let p = dom.appendChild(document.createElement("p"));
+        text3.split(/(?:\r\n?|\n)+/).forEach((block) => {
+          let p2 = dom.appendChild(document.createElement("p"));
           if (block)
-            p.appendChild(serializer.serializeNode(schema3.text(block, marks2)));
+            p2.appendChild(serializer.serializeNode(schema3.text(block, marks2)));
         });
       }
     } else {
-      view2.someProp("transformPastedHTML", (f) => {
-        html = f(html, view2);
+      view2.someProp("transformPastedHTML", (f2) => {
+        html5 = f2(html5, view2);
       });
-      dom = readHTML(html);
+      dom = readHTML(html5);
       if (webkit)
         restoreReplacedSpaces(dom);
     }
     let contextNode = dom && dom.querySelector("[data-pm-slice]");
     let sliceData = contextNode && /^(\d+) (\d+)(?: -(\d+))? (.*)/.exec(contextNode.getAttribute("data-pm-slice") || "");
     if (sliceData && sliceData[3])
-      for (let i = +sliceData[3]; i > 0; i--) {
+      for (let i2 = +sliceData[3]; i2 > 0; i2--) {
         let child = dom.firstChild;
         while (child && child.nodeType != 1)
           child = child.nextSibling;
@@ -10153,8 +8595,8 @@
         slice2 = closeSlice(slice2, openStart, openEnd);
       }
     }
-    view2.someProp("transformPasted", (f) => {
-      slice2 = f(slice2, view2, asText);
+    view2.someProp("transformPasted", (f2) => {
+      slice2 = f2(slice2, view2, asText);
     });
     return slice2;
   }
@@ -10162,9 +8604,9 @@
   function normalizeSiblings(fragment, $context) {
     if (fragment.childCount < 2)
       return fragment;
-    for (let d2 = $context.depth; d2 >= 0; d2--) {
-      let parent = $context.node(d2);
-      let match = parent.contentMatchAt($context.index(d2));
+    for (let d3 = $context.depth; d3 >= 0; d3--) {
+      let parent = $context.node(d3);
+      let match = parent.contentMatchAt($context.index(d3));
       let lastWrap, result = [];
       fragment.forEach((node) => {
         if (!result)
@@ -10189,8 +8631,8 @@
     return fragment;
   }
   function withWrappers(node, wrap2, from2 = 0) {
-    for (let i = wrap2.length - 1; i >= from2; i--)
-      node = wrap2[i].create(null, Fragment.from(node));
+    for (let i2 = wrap2.length - 1; i2 >= from2; i2--)
+      node = wrap2[i2].create(null, Fragment.from(node));
     return node;
   }
   function addToSibling(wrap2, lastWrap, node, sibling, depth) {
@@ -10243,32 +8685,32 @@
     return _detachedDoc || (_detachedDoc = document.implementation.createHTMLDocument("title"));
   }
   var _policy = null;
-  function maybeWrapTrusted(html) {
+  function maybeWrapTrusted(html5) {
     let trustedTypes = window.trustedTypes;
     if (!trustedTypes)
-      return html;
+      return html5;
     if (!_policy)
-      _policy = trustedTypes.defaultPolicy || trustedTypes.createPolicy("ProseMirrorClipboard", { createHTML: (s) => s });
-    return _policy.createHTML(html);
+      _policy = trustedTypes.defaultPolicy || trustedTypes.createPolicy("ProseMirrorClipboard", { createHTML: (s2) => s2 });
+    return _policy.createHTML(html5);
   }
-  function readHTML(html) {
-    let metas = /^(\s*<meta [^>]*>)*/.exec(html);
+  function readHTML(html5) {
+    let metas = /^(\s*<meta [^>]*>)*/.exec(html5);
     if (metas)
-      html = html.slice(metas[0].length);
+      html5 = html5.slice(metas[0].length);
     let elt = detachedDoc().createElement("div");
-    let firstTag = /<([a-z][^>\s]+)/i.exec(html), wrap2;
+    let firstTag = /<([a-z][^>\s]+)/i.exec(html5), wrap2;
     if (wrap2 = firstTag && wrapMap[firstTag[1].toLowerCase()])
-      html = wrap2.map((n) => "<" + n + ">").join("") + html + wrap2.map((n) => "</" + n + ">").reverse().join("");
-    elt.innerHTML = maybeWrapTrusted(html);
+      html5 = wrap2.map((n) => "<" + n + ">").join("") + html5 + wrap2.map((n) => "</" + n + ">").reverse().join("");
+    elt.innerHTML = maybeWrapTrusted(html5);
     if (wrap2)
-      for (let i = 0; i < wrap2.length; i++)
-        elt = elt.querySelector(wrap2[i]) || elt;
+      for (let i2 = 0; i2 < wrap2.length; i2++)
+        elt = elt.querySelector(wrap2[i2]) || elt;
     return elt;
   }
   function restoreReplacedSpaces(dom) {
     let nodes3 = dom.querySelectorAll(chrome ? "span:not([class]):not([style])" : "span.Apple-converted-space");
-    for (let i = 0; i < nodes3.length; i++) {
-      let node = nodes3[i];
+    for (let i2 = 0; i2 < nodes3.length; i2++) {
+      let node = nodes3[i2];
       if (node.childNodes.length == 1 && node.textContent == "\xA0" && node.parentNode)
         node.parentNode.replaceChild(dom.ownerDocument.createTextNode(" "), node);
     }
@@ -10283,11 +8725,11 @@
       return slice2;
     }
     let { content, openStart, openEnd } = slice2;
-    for (let i = array.length - 2; i >= 0; i -= 2) {
-      let type = schema3.nodes[array[i]];
+    for (let i2 = array.length - 2; i2 >= 0; i2 -= 2) {
+      let type = schema3.nodes[array[i2]];
       if (!type || type.hasRequiredAttrs())
         break;
-      content = Fragment.from(type.create(array[i + 1], content));
+      content = Fragment.from(type.create(array[i2 + 1], content));
       openStart++;
       openEnd++;
     }
@@ -10388,11 +8830,11 @@
       view2.input.lastIOSEnter = now;
       view2.input.lastIOSEnterFallbackTimeout = setTimeout(() => {
         if (view2.input.lastIOSEnter == now) {
-          view2.someProp("handleKeyDown", (f) => f(view2, keyEvent(13, "Enter")));
+          view2.someProp("handleKeyDown", (f2) => f2(view2, keyEvent(13, "Enter")));
           view2.input.lastIOSEnter = 0;
         }
       }, 200);
-    } else if (view2.someProp("handleKeyDown", (f) => f(view2, event)) || captureKeyDown(view2, event)) {
+    } else if (view2.someProp("handleKeyDown", (f2) => f2(view2, event)) || captureKeyDown(view2, event)) {
       event.preventDefault();
     } else {
       setSelectionOrigin(view2, "key");
@@ -10406,15 +8848,15 @@
     let event = _event;
     if (inOrNearComposition(view2, event) || !event.charCode || event.ctrlKey && !event.altKey || mac && event.metaKey)
       return;
-    if (view2.someProp("handleKeyPress", (f) => f(view2, event))) {
+    if (view2.someProp("handleKeyPress", (f2) => f2(view2, event))) {
       event.preventDefault();
       return;
     }
     let sel = view2.state.selection;
     if (!(sel instanceof TextSelection) || !sel.$from.sameParent(sel.$to)) {
-      let text2 = String.fromCharCode(event.charCode);
-      let deflt3 = () => view2.state.tr.insertText(text2).scrollIntoView();
-      if (!/[\r\n]/.test(text2) && !view2.someProp("handleTextInput", (f) => f(view2, sel.$from.pos, sel.$to.pos, text2, deflt3)))
+      let text3 = String.fromCharCode(event.charCode);
+      let deflt3 = () => view2.state.tr.insertText(text3).scrollIntoView();
+      if (!/[\r\n]/.test(text3) && !view2.someProp("handleTextInput", (f2) => f2(view2, sel.$from.pos, sel.$to.pos, text3, deflt3)))
         view2.dispatch(deflt3());
       event.preventDefault();
     }
@@ -10430,8 +8872,8 @@
     if (inside == -1)
       return false;
     let $pos = view2.state.doc.resolve(inside);
-    for (let i = $pos.depth + 1; i > 0; i--) {
-      if (view2.someProp(propName, (f) => i > $pos.depth ? f(view2, pos, $pos.nodeAfter, $pos.before(i), event, true) : f(view2, pos, $pos.node(i), $pos.before(i), event, false)))
+    for (let i2 = $pos.depth + 1; i2 > 0; i2--) {
+      if (view2.someProp(propName, (f2) => i2 > $pos.depth ? f2(view2, pos, $pos.nodeAfter, $pos.before(i2), event, true) : f2(view2, pos, $pos.node(i2), $pos.before(i2), event, false)))
         return true;
     }
     return false;
@@ -10441,10 +8883,10 @@
       view2.focus();
     if (view2.state.selection.eq(selection))
       return;
-    let tr = view2.state.tr.setSelection(selection);
+    let tr2 = view2.state.tr.setSelection(selection);
     if (origin == "pointer")
-      tr.setMeta("pointer", true);
-    view2.dispatch(tr);
+      tr2.setMeta("pointer", true);
+    view2.dispatch(tr2);
   }
   function selectClickedLeaf(view2, inside) {
     if (inside == -1)
@@ -10463,13 +8905,13 @@
     if (sel instanceof NodeSelection)
       selectedNode = sel.node;
     let $pos = view2.state.doc.resolve(inside);
-    for (let i = $pos.depth + 1; i > 0; i--) {
-      let node = i > $pos.depth ? $pos.nodeAfter : $pos.node(i);
+    for (let i2 = $pos.depth + 1; i2 > 0; i2--) {
+      let node = i2 > $pos.depth ? $pos.nodeAfter : $pos.node(i2);
       if (NodeSelection.isSelectable(node)) {
-        if (selectedNode && sel.$from.depth > 0 && i >= sel.$from.depth && $pos.before(sel.$from.depth + 1) == sel.$from.pos)
+        if (selectedNode && sel.$from.depth > 0 && i2 >= sel.$from.depth && $pos.before(sel.$from.depth + 1) == sel.$from.pos)
           selectAt = $pos.before(sel.$from.depth);
         else
-          selectAt = $pos.before(i);
+          selectAt = $pos.before(i2);
         break;
       }
     }
@@ -10481,13 +8923,13 @@
     }
   }
   function handleSingleClick(view2, pos, inside, event, selectNode) {
-    return runHandlerOnContext(view2, "handleClickOn", pos, inside, event) || view2.someProp("handleClick", (f) => f(view2, pos, event)) || (selectNode ? selectClickedNode(view2, inside) : selectClickedLeaf(view2, inside));
+    return runHandlerOnContext(view2, "handleClickOn", pos, inside, event) || view2.someProp("handleClick", (f2) => f2(view2, pos, event)) || (selectNode ? selectClickedNode(view2, inside) : selectClickedLeaf(view2, inside));
   }
   function handleDoubleClick(view2, pos, inside, event) {
-    return runHandlerOnContext(view2, "handleDoubleClickOn", pos, inside, event) || view2.someProp("handleDoubleClick", (f) => f(view2, pos, event));
+    return runHandlerOnContext(view2, "handleDoubleClickOn", pos, inside, event) || view2.someProp("handleDoubleClick", (f2) => f2(view2, pos, event));
   }
   function handleTripleClick(view2, pos, inside, event) {
-    return runHandlerOnContext(view2, "handleTripleClickOn", pos, inside, event) || view2.someProp("handleTripleClick", (f) => f(view2, pos, event)) || defaultTripleClick(view2, inside, event);
+    return runHandlerOnContext(view2, "handleTripleClickOn", pos, inside, event) || view2.someProp("handleTripleClick", (f2) => f2(view2, pos, event)) || defaultTripleClick(view2, inside, event);
   }
   function defaultTripleClick(view2, inside, event) {
     if (event.button != 0)
@@ -10501,9 +8943,9 @@
       return false;
     }
     let $pos = doc3.resolve(inside);
-    for (let i = $pos.depth + 1; i > 0; i--) {
-      let node = i > $pos.depth ? $pos.nodeAfter : $pos.node(i);
-      let nodePos = $pos.before(i);
+    for (let i2 = $pos.depth + 1; i2 > 0; i2--) {
+      let node = i2 > $pos.depth ? $pos.nodeAfter : $pos.node(i2);
+      let nodePos = $pos.before(i2);
       if (node.inlineContent)
         updateSelection(view2, TextSelection.create(doc3, nodePos + 1, nodePos + 1 + node.content.size), "pointer");
       else if (NodeSelection.isSelectable(node))
@@ -10665,7 +9107,7 @@
     if (!view2.composing) {
       view2.domObserver.flush();
       let { state } = view2, $pos = state.selection.$to;
-      if (state.selection instanceof TextSelection && (state.storedMarks || !$pos.textOffset && $pos.parentOffset && $pos.nodeBefore.marks.some((m2) => m2.type.spec.inclusive === false))) {
+      if (state.selection instanceof TextSelection && (state.storedMarks || !$pos.textOffset && $pos.parentOffset && $pos.nodeBefore.marks.some((m4) => m4.type.spec.inclusive === false))) {
         view2.markCursor = view2.state.storedMarks || $pos.marks();
         endComposition(view2, true);
         view2.markCursor = null;
@@ -10766,11 +9208,11 @@
     let wrap2 = view2.dom.parentNode.appendChild(document.createElement("div"));
     wrap2.appendChild(dom);
     wrap2.style.cssText = "position: fixed; left: -10000px; top: 10px";
-    let sel = getSelection(), range = document.createRange();
-    range.selectNodeContents(dom);
+    let sel = getSelection(), range2 = document.createRange();
+    range2.selectNodeContents(dom);
     view2.dom.blur();
     sel.removeAllRanges();
-    sel.addRange(range);
+    sel.addRange(range2);
     setTimeout(() => {
       if (wrap2.parentNode)
         wrap2.parentNode.removeChild(wrap2);
@@ -10784,12 +9226,12 @@
     if (sel.empty)
       return;
     let data = brokenClipboardAPI ? null : event.clipboardData;
-    let slice2 = sel.content(), { dom, text: text2 } = serializeForClipboard(view2, slice2);
+    let slice2 = sel.content(), { dom, text: text3 } = serializeForClipboard(view2, slice2);
     if (data) {
       event.preventDefault();
       data.clearData();
       data.setData("text/html", dom.innerHTML);
-      data.setData("text/plain", text2);
+      data.setData("text/plain", text3);
     } else {
       captureCopy(view2, dom);
     }
@@ -10819,21 +9261,21 @@
         doPaste(view2, target.textContent, target.innerHTML, plain, event);
     }, 50);
   }
-  function doPaste(view2, text2, html, preferPlain, event) {
-    let slice2 = parseFromClipboard(view2, text2, html, preferPlain, view2.state.selection.$from);
-    if (view2.someProp("handlePaste", (f) => f(view2, event, slice2 || Slice.empty)))
+  function doPaste(view2, text3, html5, preferPlain, event) {
+    let slice2 = parseFromClipboard(view2, text3, html5, preferPlain, view2.state.selection.$from);
+    if (view2.someProp("handlePaste", (f2) => f2(view2, event, slice2 || Slice.empty)))
       return true;
     if (!slice2)
       return false;
     let singleNode = sliceSingleNode(slice2);
-    let tr = singleNode ? view2.state.tr.replaceSelectionWith(singleNode, preferPlain) : view2.state.tr.replaceSelection(slice2);
-    view2.dispatch(tr.scrollIntoView().setMeta("paste", true).setMeta("uiEvent", "paste"));
+    let tr2 = singleNode ? view2.state.tr.replaceSelectionWith(singleNode, preferPlain) : view2.state.tr.replaceSelection(slice2);
+    view2.dispatch(tr2.scrollIntoView().setMeta("paste", true).setMeta("uiEvent", "paste"));
     return true;
   }
   function getText(clipboardData) {
-    let text2 = clipboardData.getData("text/plain") || clipboardData.getData("Text");
-    if (text2)
-      return text2;
+    let text3 = clipboardData.getData("text/plain") || clipboardData.getData("Text");
+    if (text3)
+      return text3;
     let uris = clipboardData.getData("text/uri-list");
     return uris ? uris.replace(/\r?\n/g, " ") : "";
   }
@@ -10879,13 +9321,13 @@
         node = NodeSelection.create(view2.state.doc, desc.posBefore);
     }
     let draggedSlice = (node || view2.state.selection).content();
-    let { dom, text: text2, slice: slice2 } = serializeForClipboard(view2, draggedSlice);
+    let { dom, text: text3, slice: slice2 } = serializeForClipboard(view2, draggedSlice);
     if (!event.dataTransfer.files.length || !chrome || chrome_version > 120)
       event.dataTransfer.clearData();
     event.dataTransfer.setData(brokenClipboardAPI ? "Text" : "text/html", dom.innerHTML);
     event.dataTransfer.effectAllowed = "copyMove";
     if (!brokenClipboardAPI)
-      event.dataTransfer.setData("text/plain", text2);
+      event.dataTransfer.setData("text/plain", text3);
     view2.dragging = new Dragging(slice2, dragMoves(view2, event), node);
   };
   handlers.dragend = (view2) => {
@@ -10895,7 +9337,7 @@
         view2.dragging = null;
     }, 50);
   };
-  editHandlers.dragover = editHandlers.dragenter = (_2, e) => e.preventDefault();
+  editHandlers.dragover = editHandlers.dragenter = (_4, e) => e.preventDefault();
   editHandlers.drop = (view2, _event) => {
     let event = _event;
     let dragging = view2.dragging;
@@ -10908,14 +9350,14 @@
     let $mouse = view2.state.doc.resolve(eventPos.pos);
     let slice2 = dragging && dragging.slice;
     if (slice2) {
-      view2.someProp("transformPasted", (f) => {
-        slice2 = f(slice2, view2, false);
+      view2.someProp("transformPasted", (f2) => {
+        slice2 = f2(slice2, view2, false);
       });
     } else {
       slice2 = parseFromClipboard(view2, getText(event.dataTransfer), brokenClipboardAPI ? null : event.dataTransfer.getData("text/html"), false, $mouse);
     }
     let move = !!(dragging && dragMoves(view2, event));
-    if (view2.someProp("handleDrop", (f) => f(view2, event, slice2 || Slice.empty, move))) {
+    if (view2.someProp("handleDrop", (f2) => f2(view2, event, slice2 || Slice.empty, move))) {
       event.preventDefault();
       return;
     }
@@ -10925,33 +9367,33 @@
     let insertPos = slice2 ? dropPoint(view2.state.doc, $mouse.pos, slice2) : $mouse.pos;
     if (insertPos == null)
       insertPos = $mouse.pos;
-    let tr = view2.state.tr;
+    let tr2 = view2.state.tr;
     if (move) {
       let { node } = dragging;
       if (node)
-        node.replace(tr);
+        node.replace(tr2);
       else
-        tr.deleteSelection();
+        tr2.deleteSelection();
     }
-    let pos = tr.mapping.map(insertPos);
+    let pos = tr2.mapping.map(insertPos);
     let isNode = slice2.openStart == 0 && slice2.openEnd == 0 && slice2.content.childCount == 1;
-    let beforeInsert = tr.doc;
+    let beforeInsert = tr2.doc;
     if (isNode)
-      tr.replaceRangeWith(pos, pos, slice2.content.firstChild);
+      tr2.replaceRangeWith(pos, pos, slice2.content.firstChild);
     else
-      tr.replaceRange(pos, pos, slice2);
-    if (tr.doc.eq(beforeInsert))
+      tr2.replaceRange(pos, pos, slice2);
+    if (tr2.doc.eq(beforeInsert))
       return;
-    let $pos = tr.doc.resolve(pos);
+    let $pos = tr2.doc.resolve(pos);
     if (isNode && NodeSelection.isSelectable(slice2.content.firstChild) && $pos.nodeAfter && $pos.nodeAfter.sameMarkup(slice2.content.firstChild)) {
-      tr.setSelection(new NodeSelection($pos));
+      tr2.setSelection(new NodeSelection($pos));
     } else {
-      let end = tr.mapping.map(insertPos);
-      tr.mapping.maps[tr.mapping.maps.length - 1].forEach((_from, _to, _newFrom, newTo) => end = newTo);
-      tr.setSelection(selectionBetween(view2, $pos, tr.doc.resolve(end)));
+      let end = tr2.mapping.map(insertPos);
+      tr2.mapping.maps[tr2.mapping.maps.length - 1].forEach((_from, _to, _newFrom, newTo) => end = newTo);
+      tr2.setSelection(selectionBetween(view2, $pos, tr2.doc.resolve(end)));
     }
     view2.focus();
-    view2.dispatch(tr.setMeta("uiEvent", "drop"));
+    view2.dispatch(tr2.setMeta("uiEvent", "drop"));
   };
   handlers.focus = (view2) => {
     view2.input.lastFocus = Date.now();
@@ -10987,7 +9429,7 @@
           return;
         view2.dom.blur();
         view2.focus();
-        if (view2.someProp("handleKeyDown", (f) => f(view2, keyEvent(8, "Backspace"))))
+        if (view2.someProp("handleKeyDown", (f2) => f2(view2, keyEvent(8, "Backspace"))))
           return;
         let { $cursor } = view2.state.selection;
         if ($cursor && $cursor.pos > 0)
@@ -10997,14 +9439,14 @@
   };
   for (let prop in editHandlers)
     handlers[prop] = editHandlers[prop];
-  function compareObjs(a, b2) {
-    if (a == b2)
+  function compareObjs(a2, b4) {
+    if (a2 == b4)
       return true;
-    for (let p in a)
-      if (a[p] !== b2[p])
+    for (let p2 in a2)
+      if (a2[p2] !== b4[p2])
         return false;
-    for (let p in b2)
-      if (!(p in a))
+    for (let p2 in b4)
+      if (!(p2 in a2))
         return false;
     return true;
   }
@@ -11039,7 +9481,7 @@
       let to = mapping.map(span.to + oldOffset, this.spec.inclusiveEnd ? 1 : -1) - offset;
       return from2 >= to ? null : new Decoration(from2, to, this);
     }
-    valid(_2, span) {
+    valid(_4, span) {
       return span.from < span.to;
     }
     eq(other) {
@@ -11163,8 +9605,8 @@
     document. This will consume (modify) the `decorations` array, so
     you must make a copy if you want need to preserve that.
     */
-    static create(doc3, decorations) {
-      return decorations.length ? buildTree(decorations, doc3, 0, noSpec) : empty;
+    static create(doc3, decorations2) {
+      return decorations2.length ? buildTree(decorations2, doc3, 0, noSpec) : empty;
     }
     /**
     Find all decorations in this set which touch the given range
@@ -11180,15 +9622,15 @@
       return result;
     }
     findInner(start, end, result, offset, predicate) {
-      for (let i = 0; i < this.local.length; i++) {
-        let span = this.local[i];
+      for (let i2 = 0; i2 < this.local.length; i2++) {
+        let span = this.local[i2];
         if (span.from <= end && span.to >= start && (!predicate || predicate(span.spec)))
           result.push(span.copy(span.from + offset, span.to + offset));
       }
-      for (let i = 0; i < this.children.length; i += 3) {
-        if (this.children[i] < end && this.children[i + 1] > start) {
-          let childOff = this.children[i] + 1;
-          this.children[i + 2].findInner(start - childOff, end - childOff, result, offset + childOff, predicate);
+      for (let i2 = 0; i2 < this.children.length; i2 += 3) {
+        if (this.children[i2] < end && this.children[i2 + 1] > start) {
+          let childOff = this.children[i2] + 1;
+          this.children[i2 + 2].findInner(start - childOff, end - childOff, result, offset + childOff, predicate);
         }
       }
     }
@@ -11206,12 +9648,12 @@
     */
     mapInner(mapping, node, offset, oldOffset, options) {
       let newLocal;
-      for (let i = 0; i < this.local.length; i++) {
-        let mapped = this.local[i].map(mapping, offset, oldOffset);
+      for (let i2 = 0; i2 < this.local.length; i2++) {
+        let mapped = this.local[i2].map(mapping, offset, oldOffset);
         if (mapped && mapped.type.valid(node, mapped))
           (newLocal || (newLocal = [])).push(mapped);
         else if (options.onRemove)
-          options.onRemove(this.local[i].spec);
+          options.onRemove(this.local[i2].spec);
       }
       if (this.children.length)
         return mapChildren(this.children, newLocal || [], mapping, node, offset, oldOffset, options);
@@ -11224,18 +9666,18 @@
     access to the current document to create the appropriate tree
     structure.
     */
-    add(doc3, decorations) {
-      if (!decorations.length)
+    add(doc3, decorations2) {
+      if (!decorations2.length)
         return this;
       if (this == empty)
-        return _DecorationSet.create(doc3, decorations);
-      return this.addInner(doc3, decorations, 0);
+        return _DecorationSet.create(doc3, decorations2);
+      return this.addInner(doc3, decorations2, 0);
     }
-    addInner(doc3, decorations, offset) {
+    addInner(doc3, decorations2, offset) {
       let children, childIndex = 0;
       doc3.forEach((childNode, childOffset) => {
         let baseOffset = childOffset + offset, found2;
-        if (!(found2 = takeSpansForNode(decorations, childNode, baseOffset)))
+        if (!(found2 = takeSpansForNode(decorations2, childNode, baseOffset)))
           return;
         if (!children)
           children = this.children.slice();
@@ -11247,30 +9689,30 @@
           children.splice(childIndex, 0, childOffset, childOffset + childNode.nodeSize, buildTree(found2, childNode, baseOffset + 1, noSpec));
         childIndex += 3;
       });
-      let local = moveSpans(childIndex ? withoutNulls(decorations) : decorations, -offset);
-      for (let i = 0; i < local.length; i++)
-        if (!local[i].type.valid(doc3, local[i]))
-          local.splice(i--, 1);
+      let local = moveSpans(childIndex ? withoutNulls(decorations2) : decorations2, -offset);
+      for (let i2 = 0; i2 < local.length; i2++)
+        if (!local[i2].type.valid(doc3, local[i2]))
+          local.splice(i2--, 1);
       return new _DecorationSet(local.length ? this.local.concat(local).sort(byPos) : this.local, children || this.children);
     }
     /**
     Create a new set that contains the decorations in this set, minus
     the ones in the given array.
     */
-    remove(decorations) {
-      if (decorations.length == 0 || this == empty)
+    remove(decorations2) {
+      if (decorations2.length == 0 || this == empty)
         return this;
-      return this.removeInner(decorations, 0);
+      return this.removeInner(decorations2, 0);
     }
-    removeInner(decorations, offset) {
+    removeInner(decorations2, offset) {
       let children = this.children, local = this.local;
-      for (let i = 0; i < children.length; i += 3) {
+      for (let i2 = 0; i2 < children.length; i2 += 3) {
         let found2;
-        let from2 = children[i] + offset, to = children[i + 1] + offset;
-        for (let j2 = 0, span; j2 < decorations.length; j2++)
-          if (span = decorations[j2]) {
+        let from2 = children[i2] + offset, to = children[i2 + 1] + offset;
+        for (let j3 = 0, span; j3 < decorations2.length; j3++)
+          if (span = decorations2[j3]) {
             if (span.from > from2 && span.to < to) {
-              decorations[j2] = null;
+              decorations2[j3] = null;
               (found2 || (found2 = [])).push(span);
             }
           }
@@ -11278,22 +9720,22 @@
           continue;
         if (children == this.children)
           children = this.children.slice();
-        let removed = children[i + 2].removeInner(found2, from2 + 1);
+        let removed = children[i2 + 2].removeInner(found2, from2 + 1);
         if (removed != empty) {
-          children[i + 2] = removed;
+          children[i2 + 2] = removed;
         } else {
-          children.splice(i, 3);
-          i -= 3;
+          children.splice(i2, 3);
+          i2 -= 3;
         }
       }
       if (local.length) {
-        for (let i = 0, span; i < decorations.length; i++)
-          if (span = decorations[i]) {
-            for (let j2 = 0; j2 < local.length; j2++)
-              if (local[j2].eq(span, offset)) {
+        for (let i2 = 0, span; i2 < decorations2.length; i2++)
+          if (span = decorations2[i2]) {
+            for (let j3 = 0; j3 < local.length; j3++)
+              if (local[j3].eq(span, offset)) {
                 if (local == this.local)
                   local = this.local.slice();
-                local.splice(j2--, 1);
+                local.splice(j3--, 1);
               }
           }
       }
@@ -11307,15 +9749,15 @@
       if (node.isLeaf)
         return _DecorationSet.empty;
       let child, local;
-      for (let i = 0; i < this.children.length; i += 3)
-        if (this.children[i] >= offset) {
-          if (this.children[i] == offset)
-            child = this.children[i + 2];
+      for (let i2 = 0; i2 < this.children.length; i2 += 3)
+        if (this.children[i2] >= offset) {
+          if (this.children[i2] == offset)
+            child = this.children[i2 + 2];
           break;
         }
       let start = offset + 1, end = start + node.content.size;
-      for (let i = 0; i < this.local.length; i++) {
-        let dec = this.local[i];
+      for (let i2 = 0; i2 < this.local.length; i2++) {
+        let dec = this.local[i2];
         if (dec.from < end && dec.to > start && dec.type instanceof InlineType) {
           let from2 = Math.max(start, dec.from) - start, to = Math.min(end, dec.to) - start;
           if (from2 < to)
@@ -11336,11 +9778,11 @@
         return true;
       if (!(other instanceof _DecorationSet) || this.local.length != other.local.length || this.children.length != other.children.length)
         return false;
-      for (let i = 0; i < this.local.length; i++)
-        if (!this.local[i].eq(other.local[i]))
+      for (let i2 = 0; i2 < this.local.length; i2++)
+        if (!this.local[i2].eq(other.local[i2]))
           return false;
-      for (let i = 0; i < this.children.length; i += 3)
-        if (this.children[i] != other.children[i] || this.children[i + 1] != other.children[i + 1] || !this.children[i + 2].eq(other.children[i + 2]))
+      for (let i2 = 0; i2 < this.children.length; i2 += 3)
+        if (this.children[i2] != other.children[i2] || this.children[i2 + 1] != other.children[i2 + 1] || !this.children[i2 + 2].eq(other.children[i2 + 2]))
           return false;
       return true;
     }
@@ -11359,14 +9801,14 @@
       if (node.inlineContent || !this.local.some(InlineType.is))
         return this.local;
       let result = [];
-      for (let i = 0; i < this.local.length; i++) {
-        if (!(this.local[i].type instanceof InlineType))
-          result.push(this.local[i]);
+      for (let i2 = 0; i2 < this.local.length; i2++) {
+        if (!(this.local[i2].type instanceof InlineType))
+          result.push(this.local[i2]);
       }
       return result;
     }
-    forEachSet(f) {
-      f(this);
+    forEachSet(f2) {
+      f2(this);
     }
   };
   DecorationSet.empty = new DecorationSet([], []);
@@ -11384,8 +9826,8 @@
       if (child.isLeaf)
         return DecorationSet.empty;
       let found2 = [];
-      for (let i = 0; i < this.members.length; i++) {
-        let result = this.members[i].forChild(offset, child);
+      for (let i2 = 0; i2 < this.members.length; i2++) {
+        let result = this.members[i2].forChild(offset, child);
         if (result == empty)
           continue;
         if (result instanceof _DecorationGroup)
@@ -11398,15 +9840,15 @@
     eq(other) {
       if (!(other instanceof _DecorationGroup) || other.members.length != this.members.length)
         return false;
-      for (let i = 0; i < this.members.length; i++)
-        if (!this.members[i].eq(other.members[i]))
+      for (let i2 = 0; i2 < this.members.length; i2++)
+        if (!this.members[i2].eq(other.members[i2]))
           return false;
       return true;
     }
     locals(node) {
       let result, sorted = true;
-      for (let i = 0; i < this.members.length; i++) {
-        let locals = this.members[i].localsInner(node);
+      for (let i2 = 0; i2 < this.members.length; i2++) {
+        let locals = this.members[i2].localsInner(node);
         if (!locals.length)
           continue;
         if (!result) {
@@ -11416,8 +9858,8 @@
             result = result.slice();
             sorted = false;
           }
-          for (let j2 = 0; j2 < locals.length; j2++)
-            result.push(locals[j2]);
+          for (let j3 = 0; j3 < locals.length; j3++)
+            result.push(locals[j3]);
         }
       }
       return result ? removeOverlap(sorted ? result : result.sort(byPos)) : none;
@@ -11431,60 +9873,60 @@
         case 1:
           return members[0];
         default:
-          return new _DecorationGroup(members.every((m2) => m2 instanceof DecorationSet) ? members : members.reduce((r, m2) => r.concat(m2 instanceof DecorationSet ? m2 : m2.members), []));
+          return new _DecorationGroup(members.every((m4) => m4 instanceof DecorationSet) ? members : members.reduce((r4, m4) => r4.concat(m4 instanceof DecorationSet ? m4 : m4.members), []));
       }
     }
-    forEachSet(f) {
-      for (let i = 0; i < this.members.length; i++)
-        this.members[i].forEachSet(f);
+    forEachSet(f2) {
+      for (let i2 = 0; i2 < this.members.length; i2++)
+        this.members[i2].forEachSet(f2);
     }
   };
   function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, options) {
     let children = oldChildren.slice();
-    for (let i = 0, baseOffset = oldOffset; i < mapping.maps.length; i++) {
+    for (let i2 = 0, baseOffset = oldOffset; i2 < mapping.maps.length; i2++) {
       let moved = 0;
-      mapping.maps[i].forEach((oldStart, oldEnd, newStart, newEnd) => {
+      mapping.maps[i2].forEach((oldStart, oldEnd, newStart, newEnd) => {
         let dSize = newEnd - newStart - (oldEnd - oldStart);
-        for (let i2 = 0; i2 < children.length; i2 += 3) {
-          let end = children[i2 + 1];
+        for (let i3 = 0; i3 < children.length; i3 += 3) {
+          let end = children[i3 + 1];
           if (end < 0 || oldStart > end + baseOffset - moved)
             continue;
-          let start = children[i2] + baseOffset - moved;
+          let start = children[i3] + baseOffset - moved;
           if (oldEnd >= start) {
-            children[i2 + 1] = oldStart <= start ? -2 : -1;
+            children[i3 + 1] = oldStart <= start ? -2 : -1;
           } else if (oldStart >= baseOffset && dSize) {
-            children[i2] += dSize;
-            children[i2 + 1] += dSize;
+            children[i3] += dSize;
+            children[i3 + 1] += dSize;
           }
         }
         moved += dSize;
       });
-      baseOffset = mapping.maps[i].map(baseOffset, -1);
+      baseOffset = mapping.maps[i2].map(baseOffset, -1);
     }
     let mustRebuild = false;
-    for (let i = 0; i < children.length; i += 3)
-      if (children[i + 1] < 0) {
-        if (children[i + 1] == -2) {
+    for (let i2 = 0; i2 < children.length; i2 += 3)
+      if (children[i2 + 1] < 0) {
+        if (children[i2 + 1] == -2) {
           mustRebuild = true;
-          children[i + 1] = -1;
+          children[i2 + 1] = -1;
           continue;
         }
-        let from2 = mapping.map(oldChildren[i] + oldOffset), fromLocal = from2 - offset;
+        let from2 = mapping.map(oldChildren[i2] + oldOffset), fromLocal = from2 - offset;
         if (fromLocal < 0 || fromLocal >= node.content.size) {
           mustRebuild = true;
           continue;
         }
-        let to = mapping.map(oldChildren[i + 1] + oldOffset, -1), toLocal = to - offset;
+        let to = mapping.map(oldChildren[i2 + 1] + oldOffset, -1), toLocal = to - offset;
         let { index, offset: childOffset } = node.content.findIndex(fromLocal);
         let childNode = node.maybeChild(index);
         if (childNode && childOffset == fromLocal && childOffset + childNode.nodeSize == toLocal) {
-          let mapped = children[i + 2].mapInner(mapping, childNode, from2 + 1, oldChildren[i] + oldOffset + 1, options);
+          let mapped = children[i2 + 2].mapInner(mapping, childNode, from2 + 1, oldChildren[i2] + oldOffset + 1, options);
           if (mapped != empty) {
-            children[i] = fromLocal;
-            children[i + 1] = toLocal;
-            children[i + 2] = mapped;
+            children[i2] = fromLocal;
+            children[i2 + 1] = toLocal;
+            children[i2 + 2] = mapped;
           } else {
-            children[i + 1] = -2;
+            children[i2 + 1] = -2;
             mustRebuild = true;
           }
         } else {
@@ -11492,19 +9934,19 @@
         }
       }
     if (mustRebuild) {
-      let decorations = mapAndGatherRemainingDecorations(children, oldChildren, newLocal, mapping, offset, oldOffset, options);
-      let built = buildTree(decorations, node, 0, options);
+      let decorations2 = mapAndGatherRemainingDecorations(children, oldChildren, newLocal, mapping, offset, oldOffset, options);
+      let built = buildTree(decorations2, node, 0, options);
       newLocal = built.local;
-      for (let i = 0; i < children.length; i += 3)
-        if (children[i + 1] < 0) {
-          children.splice(i, 3);
-          i -= 3;
+      for (let i2 = 0; i2 < children.length; i2 += 3)
+        if (children[i2 + 1] < 0) {
+          children.splice(i2, 3);
+          i2 -= 3;
         }
-      for (let i = 0, j2 = 0; i < built.children.length; i += 3) {
-        let from2 = built.children[i];
-        while (j2 < children.length && children[j2] < from2)
-          j2 += 3;
-        children.splice(j2, 0, built.children[i], built.children[i + 1], built.children[i + 2]);
+      for (let i2 = 0, j3 = 0; i2 < built.children.length; i2 += 3) {
+        let from2 = built.children[i2];
+        while (j3 < children.length && children[j3] < from2)
+          j3 += 3;
+        children.splice(j3, 0, built.children[i2], built.children[i2 + 1], built.children[i2 + 2]);
       }
     }
     return new DecorationSet(newLocal.sort(byPos), children);
@@ -11513,46 +9955,46 @@
     if (!offset || !spans.length)
       return spans;
     let result = [];
-    for (let i = 0; i < spans.length; i++) {
-      let span = spans[i];
+    for (let i2 = 0; i2 < spans.length; i2++) {
+      let span = spans[i2];
       result.push(new Decoration(span.from + offset, span.to + offset, span.type));
     }
     return result;
   }
-  function mapAndGatherRemainingDecorations(children, oldChildren, decorations, mapping, offset, oldOffset, options) {
+  function mapAndGatherRemainingDecorations(children, oldChildren, decorations2, mapping, offset, oldOffset, options) {
     function gather(set, oldOffset2) {
-      for (let i = 0; i < set.local.length; i++) {
-        let mapped = set.local[i].map(mapping, offset, oldOffset2);
+      for (let i2 = 0; i2 < set.local.length; i2++) {
+        let mapped = set.local[i2].map(mapping, offset, oldOffset2);
         if (mapped)
-          decorations.push(mapped);
+          decorations2.push(mapped);
         else if (options.onRemove)
-          options.onRemove(set.local[i].spec);
+          options.onRemove(set.local[i2].spec);
       }
-      for (let i = 0; i < set.children.length; i += 3)
-        gather(set.children[i + 2], set.children[i] + oldOffset2 + 1);
+      for (let i2 = 0; i2 < set.children.length; i2 += 3)
+        gather(set.children[i2 + 2], set.children[i2] + oldOffset2 + 1);
     }
-    for (let i = 0; i < children.length; i += 3)
-      if (children[i + 1] == -1)
-        gather(children[i + 2], oldChildren[i] + oldOffset + 1);
-    return decorations;
+    for (let i2 = 0; i2 < children.length; i2 += 3)
+      if (children[i2 + 1] == -1)
+        gather(children[i2 + 2], oldChildren[i2] + oldOffset + 1);
+    return decorations2;
   }
   function takeSpansForNode(spans, node, offset) {
     if (node.isLeaf)
       return null;
     let end = offset + node.nodeSize, found2 = null;
-    for (let i = 0, span; i < spans.length; i++) {
-      if ((span = spans[i]) && span.from > offset && span.to < end) {
+    for (let i2 = 0, span; i2 < spans.length; i2++) {
+      if ((span = spans[i2]) && span.from > offset && span.to < end) {
         (found2 || (found2 = [])).push(span);
-        spans[i] = null;
+        spans[i2] = null;
       }
     }
     return found2;
   }
   function withoutNulls(array) {
     let result = [];
-    for (let i = 0; i < array.length; i++)
-      if (array[i] != null)
-        result.push(array[i]);
+    for (let i2 = 0; i2 < array.length; i2++)
+      if (array[i2] != null)
+        result.push(array[i2]);
     return result;
   }
   function buildTree(spans, node, offset, options) {
@@ -11567,38 +10009,38 @@
       }
     });
     let locals = moveSpans(hasNulls ? withoutNulls(spans) : spans, -offset).sort(byPos);
-    for (let i = 0; i < locals.length; i++)
-      if (!locals[i].type.valid(node, locals[i])) {
+    for (let i2 = 0; i2 < locals.length; i2++)
+      if (!locals[i2].type.valid(node, locals[i2])) {
         if (options.onRemove)
-          options.onRemove(locals[i].spec);
-        locals.splice(i--, 1);
+          options.onRemove(locals[i2].spec);
+        locals.splice(i2--, 1);
       }
     return locals.length || children.length ? new DecorationSet(locals, children) : empty;
   }
-  function byPos(a, b2) {
-    return a.from - b2.from || a.to - b2.to;
+  function byPos(a2, b4) {
+    return a2.from - b4.from || a2.to - b4.to;
   }
   function removeOverlap(spans) {
     let working = spans;
-    for (let i = 0; i < working.length - 1; i++) {
-      let span = working[i];
+    for (let i2 = 0; i2 < working.length - 1; i2++) {
+      let span = working[i2];
       if (span.from != span.to)
-        for (let j2 = i + 1; j2 < working.length; j2++) {
-          let next = working[j2];
+        for (let j3 = i2 + 1; j3 < working.length; j3++) {
+          let next = working[j3];
           if (next.from == span.from) {
             if (next.to != span.to) {
               if (working == spans)
                 working = spans.slice();
-              working[j2] = next.copy(next.from, span.to);
-              insertAhead(working, j2 + 1, next.copy(span.to, next.to));
+              working[j3] = next.copy(next.from, span.to);
+              insertAhead(working, j3 + 1, next.copy(span.to, next.to));
             }
             continue;
           } else {
             if (next.from < span.to) {
               if (working == spans)
                 working = spans.slice();
-              working[i] = span.copy(span.from, next.from);
-              insertAhead(working, j2, span.copy(next.from, span.to));
+              working[i2] = span.copy(span.from, next.from);
+              insertAhead(working, j3, span.copy(next.from, span.to));
             }
             break;
           }
@@ -11606,15 +10048,15 @@
     }
     return working;
   }
-  function insertAhead(array, i, deco) {
-    while (i < array.length && byPos(deco, array[i]) > 0)
-      i++;
-    array.splice(i, 0, deco);
+  function insertAhead(array, i2, deco) {
+    while (i2 < array.length && byPos(deco, array[i2]) > 0)
+      i2++;
+    array.splice(i2, 0, deco);
   }
   function viewDecorations(view2) {
     let found2 = [];
-    view2.someProp("decorations", (f) => {
-      let result = f(view2.state);
+    view2.someProp("decorations", (f2) => {
+      let result = f2(view2.state);
       if (result && result != empty)
         found2.push(result);
     });
@@ -11663,9 +10105,9 @@
       this.suppressingSelectionUpdates = false;
       this.lastChangedTextNode = null;
       this.observer = window.MutationObserver && new window.MutationObserver((mutations) => {
-        for (let i = 0; i < mutations.length; i++)
-          this.queue.push(mutations[i]);
-        if (ie && ie_version <= 11 && mutations.some((m2) => m2.type == "childList" && m2.removedNodes.length || m2.type == "characterData" && m2.oldValue.length > m2.target.nodeValue.length))
+        for (let i2 = 0; i2 < mutations.length; i2++)
+          this.queue.push(mutations[i2]);
+        if (ie && ie_version <= 11 && mutations.some((m4) => m4.type == "childList" && m4.removedNodes.length || m4.type == "characterData" && m4.oldValue.length > m4.target.nodeValue.length))
           this.flushSoon();
         else
           this.flush();
@@ -11705,8 +10147,8 @@
       if (this.observer) {
         let take = this.observer.takeRecords();
         if (take.length) {
-          for (let i = 0; i < take.length; i++)
-            this.queue.push(take[i]);
+          for (let i2 = 0; i2 < take.length; i2++)
+            this.queue.push(take[i2]);
           window.setTimeout(() => this.flush(), 20);
         }
         this.observer.disconnect();
@@ -11777,8 +10219,8 @@
       let newSel = !this.suppressingSelectionUpdates && !this.currentSelection.eq(sel) && hasFocusAndSelection(view2) && !this.ignoreSelectionChange(sel);
       let from2 = -1, to = -1, typeOver = false, added = [];
       if (view2.editable) {
-        for (let i = 0; i < mutations.length; i++) {
-          let result = this.registerMutation(mutations[i], added);
+        for (let i2 = 0; i2 < mutations.length; i2++) {
+          let result = this.registerMutation(mutations[i2], added);
           if (result) {
             from2 = from2 < 0 ? result.from : Math.min(result.from, from2);
             to = to < 0 ? result.to : Math.max(result.to, to);
@@ -11790,11 +10232,11 @@
       if (gecko && added.length) {
         let brs = added.filter((n) => n.nodeName == "BR");
         if (brs.length == 2) {
-          let [a, b2] = brs;
-          if (a.parentNode && a.parentNode.parentNode == b2.parentNode)
-            b2.remove();
+          let [a2, b4] = brs;
+          if (a2.parentNode && a2.parentNode.parentNode == b4.parentNode)
+            b4.remove();
           else
-            a.remove();
+            a2.remove();
         } else {
           let { focusNode } = this.currentSelection;
           for (let br of brs) {
@@ -11833,8 +10275,8 @@
       if (!desc || desc.ignoreMutation(mut))
         return null;
       if (mut.type == "childList") {
-        for (let i = 0; i < mut.addedNodes.length; i++) {
-          let node = mut.addedNodes[i];
+        for (let i2 = 0; i2 < mut.addedNodes.length; i2++) {
+          let node = mut.addedNodes[i2];
           added.push(node);
           if (node.nodeType == 3)
             this.lastChangedTextNode = node;
@@ -11843,8 +10285,8 @@
           return { from: desc.posBefore, to: desc.posAfter };
         let prev = mut.previousSibling, next = mut.nextSibling;
         if (ie && ie_version <= 11 && mut.addedNodes.length) {
-          for (let i = 0; i < mut.addedNodes.length; i++) {
-            let { previousSibling, nextSibling } = mut.addedNodes[i];
+          for (let i2 = 0; i2 < mut.addedNodes.length; i2++) {
+            let { previousSibling, nextSibling } = mut.addedNodes[i2];
             if (!previousSibling || Array.prototype.indexOf.call(mut.addedNodes, previousSibling) < 0)
               prev = previousSibling;
             if (!nextSibling || Array.prototype.indexOf.call(mut.addedNodes, nextSibling) < 0)
@@ -11886,9 +10328,9 @@
       cssCheckWarned = true;
     }
   }
-  function rangeToSelectionRange(view2, range) {
-    let anchorNode = range.startContainer, anchorOffset = range.startOffset;
-    let focusNode = range.endContainer, focusOffset = range.endOffset;
+  function rangeToSelectionRange(view2, range2) {
+    let anchorNode = range2.startContainer, anchorOffset = range2.startOffset;
+    let focusNode = range2.endContainer, focusOffset = range2.endOffset;
     let currentAnchor = view2.domAtPos(view2.state.selection.anchor);
     if (isEquivalentPosition(currentAnchor.node, currentAnchor.offset, focusNode, focusOffset))
       [anchorNode, anchorOffset, focusNode, focusOffset] = [focusNode, focusOffset, anchorNode, anchorOffset];
@@ -11896,9 +10338,9 @@
   }
   function safariShadowSelectionRange(view2, selection) {
     if (selection.getComposedRanges) {
-      let range = selection.getComposedRanges(view2.root)[0];
-      if (range)
-        return rangeToSelectionRange(view2, range);
+      let range2 = selection.getComposedRanges(view2.root)[0];
+      if (range2)
+        return rangeToSelectionRange(view2, range2);
     }
     let found2;
     function read(event) {
@@ -11912,22 +10354,22 @@
     return found2 ? rangeToSelectionRange(view2, found2) : null;
   }
   function blockParent(view2, node) {
-    for (let p = node.parentNode; p && p != view2.dom; p = p.parentNode) {
-      let desc = view2.docView.nearestDesc(p, true);
+    for (let p2 = node.parentNode; p2 && p2 != view2.dom; p2 = p2.parentNode) {
+      let desc = view2.docView.nearestDesc(p2, true);
       if (desc && desc.node.isBlock)
-        return p;
+        return p2;
     }
     return null;
   }
   function parseBetween(view2, from_, to_) {
     let { node: parent, fromOffset, toOffset, from: from2, to } = view2.docView.parseRange(from_, to_);
     let domSel = view2.domSelectionRange();
-    let find;
+    let find2;
     let anchor = domSel.anchorNode;
     if (anchor && view2.dom.contains(anchor.nodeType == 1 ? anchor : anchor.parentNode)) {
-      find = [{ node: anchor, offset: domSel.anchorOffset }];
+      find2 = [{ node: anchor, offset: domSel.anchorOffset }];
       if (!selectionCollapsed(domSel))
-        find.push({ node: domSel.focusNode, offset: domSel.focusOffset });
+        find2.push({ node: domSel.focusNode, offset: domSel.focusOffset });
     }
     if (chrome && view2.input.lastKeyCode === 8) {
       for (let off = toOffset; off > fromOffset; off--) {
@@ -11950,15 +10392,15 @@
       from: fromOffset,
       to: toOffset,
       preserveWhitespace: $from.parent.type.whitespace == "pre" ? "full" : true,
-      findPositions: find,
+      findPositions: find2,
       ruleFromNode,
       context: $from
     });
-    if (find && find[0].pos != null) {
-      let anchor2 = find[0].pos, head = find[1] && find[1].pos;
-      if (head == null)
-        head = anchor2;
-      sel = { anchor: anchor2 + from2, head: head + from2 };
+    if (find2 && find2[0].pos != null) {
+      let anchor2 = find2[0].pos, head2 = find2[1] && find2[1].pos;
+      if (head2 == null)
+        head2 = anchor2;
+      sel = { anchor: anchor2 + from2, head: head2 + from2 };
     }
     return { doc: doc3, sel, from: from2, to };
   }
@@ -11987,16 +10429,16 @@
       let origin = view2.input.lastSelectionTime > Date.now() - 50 ? view2.input.lastSelectionOrigin : null;
       let newSel = selectionFromDOM(view2, origin);
       if (newSel && !view2.state.selection.eq(newSel)) {
-        if (chrome && android && view2.input.lastKeyCode === 13 && Date.now() - 100 < view2.input.lastKeyCodeTime && view2.someProp("handleKeyDown", (f) => f(view2, keyEvent(13, "Enter"))))
+        if (chrome && android && view2.input.lastKeyCode === 13 && Date.now() - 100 < view2.input.lastKeyCodeTime && view2.someProp("handleKeyDown", (f2) => f2(view2, keyEvent(13, "Enter"))))
           return;
-        let tr = view2.state.tr.setSelection(newSel);
+        let tr2 = view2.state.tr.setSelection(newSel);
         if (origin == "pointer")
-          tr.setMeta("pointer", true);
+          tr2.setMeta("pointer", true);
         else if (origin == "key")
-          tr.scrollIntoView();
+          tr2.scrollIntoView();
         if (compositionID)
-          tr.setMeta("composition", compositionID);
-        view2.dispatch(tr);
+          tr2.setMeta("composition", compositionID);
+        view2.dispatch(tr2);
       }
       return;
     }
@@ -12019,7 +10461,7 @@
     let change = findDiff(compare.content, parse.doc.content, parse.from, preferredPos, preferredSide);
     if (change)
       view2.input.domChangeCount++;
-    if ((ios && view2.input.lastIOSEnter > Date.now() - 225 || android) && addedNodes.some((n) => n.nodeType == 1 && !isInline.test(n.nodeName)) && (!change || change.endA >= change.endB) && view2.someProp("handleKeyDown", (f) => f(view2, keyEvent(13, "Enter")))) {
+    if ((ios && view2.input.lastIOSEnter > Date.now() - 225 || android) && addedNodes.some((n) => n.nodeType == 1 && !isInline.test(n.nodeName)) && (!change || change.endA >= change.endB) && view2.someProp("handleKeyDown", (f2) => f2(view2, keyEvent(13, "Enter")))) {
       view2.input.lastIOSEnter = 0;
       return;
     }
@@ -12030,10 +10472,10 @@
         if (parse.sel) {
           let sel2 = resolveSelection(view2, view2.state.doc, parse.sel);
           if (sel2 && !sel2.eq(view2.state.selection)) {
-            let tr = view2.state.tr.setSelection(sel2);
+            let tr2 = view2.state.tr.setSelection(sel2);
             if (compositionID)
-              tr.setMeta("composition", compositionID);
-            view2.dispatch(tr);
+              tr2.setMeta("composition", compositionID);
+            view2.dispatch(tr2);
           }
         }
         return;
@@ -12056,11 +10498,11 @@
     let $to = parse.doc.resolveNoCache(change.endB - parse.from);
     let $fromA = doc3.resolve(change.start);
     let inlineChange = $from.sameParent($to) && $from.parent.inlineContent && $fromA.end() >= change.endA;
-    if ((ios && view2.input.lastIOSEnter > Date.now() - 225 && (!inlineChange || addedNodes.some((n) => n.nodeName == "DIV" || n.nodeName == "P")) || !inlineChange && $from.pos < parse.doc.content.size && (!$from.sameParent($to) || !$from.parent.inlineContent) && $from.pos < $to.pos && !/\S/.test(parse.doc.textBetween($from.pos, $to.pos, "", ""))) && view2.someProp("handleKeyDown", (f) => f(view2, keyEvent(13, "Enter")))) {
+    if ((ios && view2.input.lastIOSEnter > Date.now() - 225 && (!inlineChange || addedNodes.some((n) => n.nodeName == "DIV" || n.nodeName == "P")) || !inlineChange && $from.pos < parse.doc.content.size && (!$from.sameParent($to) || !$from.parent.inlineContent) && $from.pos < $to.pos && !/\S/.test(parse.doc.textBetween($from.pos, $to.pos, "", ""))) && view2.someProp("handleKeyDown", (f2) => f2(view2, keyEvent(13, "Enter")))) {
       view2.input.lastIOSEnter = 0;
       return;
     }
-    if (view2.state.selection.anchor > change.start && looksLikeBackspace(doc3, change.start, change.endA, $from, $to) && view2.someProp("handleKeyDown", (f) => f(view2, keyEvent(8, "Backspace")))) {
+    if (view2.state.selection.anchor > change.start && looksLikeBackspace(doc3, change.start, change.endA, $from, $to) && view2.someProp("handleKeyDown", (f2) => f2(view2, keyEvent(8, "Backspace")))) {
       if (android && chrome)
         view2.domObserver.suppressSelectionUpdates();
       return;
@@ -12071,22 +10513,22 @@
       change.endB -= 2;
       $to = parse.doc.resolveNoCache(change.endB - parse.from);
       setTimeout(() => {
-        view2.someProp("handleKeyDown", function(f) {
-          return f(view2, keyEvent(13, "Enter"));
+        view2.someProp("handleKeyDown", function(f2) {
+          return f2(view2, keyEvent(13, "Enter"));
         });
       }, 20);
     }
     let chFrom = change.start, chTo = change.endA;
     let mkTr = (base2) => {
-      let tr = base2 || view2.state.tr.replace(chFrom, chTo, parse.doc.slice(change.start - parse.from, change.endB - parse.from));
+      let tr2 = base2 || view2.state.tr.replace(chFrom, chTo, parse.doc.slice(change.start - parse.from, change.endB - parse.from));
       if (parse.sel) {
-        let sel2 = resolveSelection(view2, tr.doc, parse.sel);
-        if (sel2 && !(chrome && view2.composing && sel2.empty && (change.start != change.endB || view2.input.lastChromeDelete < Date.now() - 100) && (sel2.head == chFrom || sel2.head == tr.mapping.map(chTo) - 1) || ie && sel2.empty && sel2.head == chFrom))
-          tr.setSelection(sel2);
+        let sel2 = resolveSelection(view2, tr2.doc, parse.sel);
+        if (sel2 && !(chrome && view2.composing && sel2.empty && (change.start != change.endB || view2.input.lastChromeDelete < Date.now() - 100) && (sel2.head == chFrom || sel2.head == tr2.mapping.map(chTo) - 1) || ie && sel2.empty && sel2.head == chFrom))
+          tr2.setSelection(sel2);
       }
       if (compositionID)
-        tr.setMeta("composition", compositionID);
-      return tr.scrollIntoView();
+        tr2.setMeta("composition", compositionID);
+      return tr2.scrollIntoView();
     };
     let markChange;
     if (inlineChange) {
@@ -12095,25 +10537,25 @@
           view2.domObserver.suppressSelectionUpdates();
           setTimeout(() => selectionToDOM(view2), 20);
         }
-        let tr = mkTr(view2.state.tr.delete(chFrom, chTo));
+        let tr2 = mkTr(view2.state.tr.delete(chFrom, chTo));
         let marks2 = doc3.resolve(change.start).marksAcross(doc3.resolve(change.endA));
         if (marks2)
-          tr.ensureMarks(marks2);
-        view2.dispatch(tr);
+          tr2.ensureMarks(marks2);
+        view2.dispatch(tr2);
       } else if (
         // Adding or removing a mark
         change.endA == change.endB && (markChange = isMarkChange($from.parent.content.cut($from.parentOffset, $to.parentOffset), $fromA.parent.content.cut($fromA.parentOffset, change.endA - $fromA.start())))
       ) {
-        let tr = mkTr(view2.state.tr);
+        let tr2 = mkTr(view2.state.tr);
         if (markChange.type == "add")
-          tr.addMark(chFrom, chTo, markChange.mark);
+          tr2.addMark(chFrom, chTo, markChange.mark);
         else
-          tr.removeMark(chFrom, chTo, markChange.mark);
-        view2.dispatch(tr);
+          tr2.removeMark(chFrom, chTo, markChange.mark);
+        view2.dispatch(tr2);
       } else if ($from.parent.child($from.index()).isText && $from.index() == $to.index() - ($to.textOffset ? 0 : 1)) {
-        let text2 = $from.parent.textBetween($from.parentOffset, $to.parentOffset);
-        let deflt3 = () => mkTr(view2.state.tr.insertText(text2, chFrom, chTo));
-        if (!view2.someProp("handleTextInput", (f) => f(view2, chFrom, chTo, text2, deflt3)))
+        let text3 = $from.parent.textBetween($from.parentOffset, $to.parentOffset);
+        let deflt3 = () => mkTr(view2.state.tr.insertText(text3, chFrom, chTo));
+        if (!view2.someProp("handleTextInput", (f2) => f2(view2, chFrom, chTo, text3, deflt3)))
           view2.dispatch(deflt3());
       } else {
         view2.dispatch(mkTr());
@@ -12129,27 +10571,27 @@
   }
   function isMarkChange(cur, prev) {
     let curMarks = cur.firstChild.marks, prevMarks = prev.firstChild.marks;
-    let added = curMarks, removed = prevMarks, type, mark, update;
-    for (let i = 0; i < prevMarks.length; i++)
-      added = prevMarks[i].removeFromSet(added);
-    for (let i = 0; i < curMarks.length; i++)
-      removed = curMarks[i].removeFromSet(removed);
+    let added = curMarks, removed = prevMarks, type, mark2, update;
+    for (let i2 = 0; i2 < prevMarks.length; i2++)
+      added = prevMarks[i2].removeFromSet(added);
+    for (let i2 = 0; i2 < curMarks.length; i2++)
+      removed = curMarks[i2].removeFromSet(removed);
     if (added.length == 1 && removed.length == 0) {
-      mark = added[0];
+      mark2 = added[0];
       type = "add";
-      update = (node) => node.mark(mark.addToSet(node.marks));
+      update = (node) => node.mark(mark2.addToSet(node.marks));
     } else if (added.length == 0 && removed.length == 1) {
-      mark = removed[0];
+      mark2 = removed[0];
       type = "remove";
-      update = (node) => node.mark(mark.removeFromSet(node.marks));
+      update = (node) => node.mark(mark2.removeFromSet(node.marks));
     } else {
       return null;
     }
     let updated = [];
-    for (let i = 0; i < prev.childCount; i++)
-      updated.push(update(prev.child(i)));
+    for (let i2 = 0; i2 < prev.childCount; i2++)
+      updated.push(update(prev.child(i2)));
     if (Fragment.from(updated).eq(cur))
-      return { mark, type };
+      return { mark: mark2, type };
   }
   function looksLikeBackspace(old, start, end, $newStart, $newEnd) {
     if (
@@ -12186,26 +10628,26 @@
     }
     return end;
   }
-  function findDiff(a, b2, pos, preferredPos, preferredSide) {
-    let start = a.findDiffStart(b2, pos);
+  function findDiff(a2, b4, pos, preferredPos, preferredSide) {
+    let start = a2.findDiffStart(b4, pos);
     if (start == null)
       return null;
-    let { a: endA, b: endB } = a.findDiffEnd(b2, pos + a.size, pos + b2.size);
+    let { a: endA, b: endB } = a2.findDiffEnd(b4, pos + a2.size, pos + b4.size);
     if (preferredSide == "end") {
       let adjust = Math.max(0, start - Math.min(endA, endB));
       preferredPos -= endA + adjust - start;
     }
-    if (endA < start && a.size < b2.size) {
+    if (endA < start && a2.size < b4.size) {
       let move = preferredPos <= start && preferredPos >= endA ? start - preferredPos : 0;
       start -= move;
-      if (start && start < b2.size && isSurrogatePair(b2.textBetween(start - 1, start + 1)))
+      if (start && start < b4.size && isSurrogatePair(b4.textBetween(start - 1, start + 1)))
         start += move ? 1 : -1;
       endB = start + (endB - endA);
       endA = start;
     } else if (endB < start) {
       let move = preferredPos <= start && preferredPos >= endB ? start - preferredPos : 0;
       start -= move;
-      if (start && start < a.size && isSurrogatePair(a.textBetween(start - 1, start + 1)))
+      if (start && start < a2.size && isSurrogatePair(a2.textBetween(start - 1, start + 1)))
         start += move ? 1 : -1;
       endA = start + (endA - endB);
       endB = start;
@@ -12215,8 +10657,8 @@
   function isSurrogatePair(str) {
     if (str.length != 2)
       return false;
-    let a = str.charCodeAt(0), b2 = str.charCodeAt(1);
-    return a >= 56320 && a <= 57343 && b2 >= 55296 && b2 <= 56319;
+    let a2 = str.charCodeAt(0), b4 = str.charCodeAt(1);
+    return a2 >= 56320 && a2 <= 57343 && b4 >= 55296 && b4 <= 56319;
   }
   var EditorView = class {
     /**
@@ -12386,7 +10828,7 @@
     scrollToSelection() {
       let startDOM = this.domSelectionRange().focusNode;
       if (!startDOM || !this.dom.contains(startDOM.nodeType == 1 ? startDOM : startDOM.parentNode)) ;
-      else if (this.someProp("handleScrollToSelection", (f) => f(this))) ;
+      else if (this.someProp("handleScrollToSelection", (f2) => f2(this))) ;
       else if (this.state.selection instanceof NodeSelection) {
         let target = this.docView.domAfterPos(this.state.selection.from);
         if (target.nodeType == 1)
@@ -12405,19 +10847,19 @@
       if (!prevState || prevState.plugins != this.state.plugins || this.directPlugins != this.prevDirectPlugins) {
         this.prevDirectPlugins = this.directPlugins;
         this.destroyPluginViews();
-        for (let i = 0; i < this.directPlugins.length; i++) {
-          let plugin = this.directPlugins[i];
+        for (let i2 = 0; i2 < this.directPlugins.length; i2++) {
+          let plugin = this.directPlugins[i2];
           if (plugin.spec.view)
             this.pluginViews.push(plugin.spec.view(this));
         }
-        for (let i = 0; i < this.state.plugins.length; i++) {
-          let plugin = this.state.plugins[i];
+        for (let i2 = 0; i2 < this.state.plugins.length; i2++) {
+          let plugin = this.state.plugins[i2];
           if (plugin.spec.view)
             this.pluginViews.push(plugin.spec.view(this));
         }
       } else {
-        for (let i = 0; i < this.pluginViews.length; i++) {
-          let pluginView = this.pluginViews[i];
+        for (let i2 = 0; i2 < this.pluginViews.length; i2++) {
+          let pluginView = this.pluginViews[i2];
           if (pluginView.update)
             pluginView.update(this, prevState);
         }
@@ -12435,20 +10877,20 @@
       }
       this.dragging = new Dragging(dragging.slice, dragging.move, found2 < 0 ? void 0 : NodeSelection.create(this.state.doc, found2));
     }
-    someProp(propName, f) {
+    someProp(propName, f2) {
       let prop = this._props && this._props[propName], value;
-      if (prop != null && (value = f ? f(prop) : prop))
+      if (prop != null && (value = f2 ? f2(prop) : prop))
         return value;
-      for (let i = 0; i < this.directPlugins.length; i++) {
-        let prop2 = this.directPlugins[i].props[propName];
-        if (prop2 != null && (value = f ? f(prop2) : prop2))
+      for (let i2 = 0; i2 < this.directPlugins.length; i2++) {
+        let prop2 = this.directPlugins[i2].props[propName];
+        if (prop2 != null && (value = f2 ? f2(prop2) : prop2))
           return value;
       }
       let plugins2 = this.state.plugins;
       if (plugins2)
-        for (let i = 0; i < plugins2.length; i++) {
-          let prop2 = plugins2[i].props[propName];
-          if (prop2 != null && (value = f ? f(prop2) : prop2))
+        for (let i2 = 0; i2 < plugins2.length; i2++) {
+          let prop2 = plugins2[i2].props[propName];
+          if (prop2 != null && (value = f2 ? f2(prop2) : prop2))
             return value;
         }
     }
@@ -12588,14 +11030,14 @@
     `event`, if given, will be passed to the
     [`handlePaste`](https://prosemirror.net/docs/ref/#view.EditorProps.handlePaste) hook.
     */
-    pasteHTML(html, event) {
-      return doPaste(this, "", html, false, event || new ClipboardEvent("paste"));
+    pasteHTML(html5, event) {
+      return doPaste(this, "", html5, false, event || new ClipboardEvent("paste"));
     }
     /**
     Run the editor's paste logic with the given plain-text input.
     */
-    pasteText(text2, event) {
-      return doPaste(this, text2, null, true, event || new ClipboardEvent("paste"));
+    pasteText(text3, event) {
+      return doPaste(this, text3, null, true, event || new ClipboardEvent("paste"));
     }
     /**
     Serialize the given slice as it would be if it was copied from
@@ -12657,12 +11099,12 @@
       return this.root.getSelection();
     }
   };
-  EditorView.prototype.dispatch = function(tr) {
+  EditorView.prototype.dispatch = function(tr2) {
     let dispatchTransaction = this._props.dispatchTransaction;
     if (dispatchTransaction)
-      dispatchTransaction.call(this, tr);
+      dispatchTransaction.call(this, tr2);
     else
-      this.updateState(this.state.apply(tr));
+      this.updateState(this.state.apply(tr2));
   };
   function computeDocDeco(view2) {
     let attrs = /* @__PURE__ */ Object.create(null);
@@ -12714,14 +11156,14 @@
     view2.someProp("markViews", add);
     return result;
   }
-  function changedNodeViews(a, b2) {
+  function changedNodeViews(a2, b4) {
     let nA = 0, nB = 0;
-    for (let prop in a) {
-      if (a[prop] != b2[prop])
+    for (let prop in a2) {
+      if (a2[prop] != b4[prop])
         return true;
       nA++;
     }
-    for (let _2 in b2)
+    for (let _4 in b4)
       nB++;
     return nA != nB;
   }
@@ -12892,7 +11334,7 @@
         { tag: "i" },
         { tag: "em" },
         { style: "font-style=italic" },
-        { style: "font-style=normal", clearMark: (m2) => m2.type.name == "em" }
+        { style: "font-style=normal", clearMark: (m4) => m4.type.name == "em" }
       ],
       toDOM() {
         return emDOM;
@@ -12909,7 +11351,7 @@
         // pasted content will be inexplicably wrapped in `<b>`
         // tags with a font-weight normal.
         { tag: "b", getAttrs: (node) => node.style.fontWeight != "normal" && null },
-        { style: "font-weight=400", clearMark: (m2) => m2.type.name == "strong" },
+        { style: "font-weight=400", clearMark: (m4) => m4.type.name == "strong" },
         { style: "font-weight", getAttrs: (value) => /^(bold(er)?|[5-9]\d{2,})$/.test(value) && null }
       ],
       toDOM() {
@@ -12957,27 +11399,27 @@
     }
     return this.sliceInner(Math.max(0, from2), Math.min(this.length, to));
   };
-  RopeSequence.prototype.get = function get(i) {
-    if (i < 0 || i >= this.length) {
+  RopeSequence.prototype.get = function get(i2) {
+    if (i2 < 0 || i2 >= this.length) {
       return void 0;
     }
-    return this.getInner(i);
+    return this.getInner(i2);
   };
-  RopeSequence.prototype.forEach = function forEach(f, from2, to) {
+  RopeSequence.prototype.forEach = function forEach(f2, from2, to) {
     if (from2 === void 0) from2 = 0;
     if (to === void 0) to = this.length;
     if (from2 <= to) {
-      this.forEachInner(f, from2, to, 0);
+      this.forEachInner(f2, from2, to, 0);
     } else {
-      this.forEachInvertedInner(f, from2, to, 0);
+      this.forEachInvertedInner(f2, from2, to, 0);
     }
   };
-  RopeSequence.prototype.map = function map(f, from2, to) {
+  RopeSequence.prototype.map = function map(f2, from2, to) {
     if (from2 === void 0) from2 = 0;
     if (to === void 0) to = this.length;
     var result = [];
-    this.forEach(function(elt, i) {
-      return result.push(f(elt, i));
+    this.forEach(function(elt, i2) {
+      return result.push(f2(elt, i2));
     }, from2, to);
     return result;
   };
@@ -13005,19 +11447,19 @@
       }
       return new Leaf2(this.values.slice(from2, to));
     };
-    Leaf2.prototype.getInner = function getInner(i) {
-      return this.values[i];
+    Leaf2.prototype.getInner = function getInner(i2) {
+      return this.values[i2];
     };
-    Leaf2.prototype.forEachInner = function forEachInner(f, from2, to, start) {
-      for (var i = from2; i < to; i++) {
-        if (f(this.values[i], start + i) === false) {
+    Leaf2.prototype.forEachInner = function forEachInner(f2, from2, to, start) {
+      for (var i2 = from2; i2 < to; i2++) {
+        if (f2(this.values[i2], start + i2) === false) {
           return false;
         }
       }
     };
-    Leaf2.prototype.forEachInvertedInner = function forEachInvertedInner(f, from2, to, start) {
-      for (var i = from2 - 1; i >= to; i--) {
-        if (f(this.values[i], start + i) === false) {
+    Leaf2.prototype.forEachInvertedInner = function forEachInvertedInner(f2, from2, to, start) {
+      for (var i2 = from2 - 1; i2 >= to; i2--) {
+        if (f2(this.values[i2], start + i2) === false) {
           return false;
         }
       }
@@ -13056,24 +11498,24 @@
     Append2.prototype.flatten = function flatten() {
       return this.left.flatten().concat(this.right.flatten());
     };
-    Append2.prototype.getInner = function getInner(i) {
-      return i < this.left.length ? this.left.get(i) : this.right.get(i - this.left.length);
+    Append2.prototype.getInner = function getInner(i2) {
+      return i2 < this.left.length ? this.left.get(i2) : this.right.get(i2 - this.left.length);
     };
-    Append2.prototype.forEachInner = function forEachInner(f, from2, to, start) {
+    Append2.prototype.forEachInner = function forEachInner(f2, from2, to, start) {
       var leftLen = this.left.length;
-      if (from2 < leftLen && this.left.forEachInner(f, from2, Math.min(to, leftLen), start) === false) {
+      if (from2 < leftLen && this.left.forEachInner(f2, from2, Math.min(to, leftLen), start) === false) {
         return false;
       }
-      if (to > leftLen && this.right.forEachInner(f, Math.max(from2 - leftLen, 0), Math.min(this.length, to) - leftLen, start + leftLen) === false) {
+      if (to > leftLen && this.right.forEachInner(f2, Math.max(from2 - leftLen, 0), Math.min(this.length, to) - leftLen, start + leftLen) === false) {
         return false;
       }
     };
-    Append2.prototype.forEachInvertedInner = function forEachInvertedInner(f, from2, to, start) {
+    Append2.prototype.forEachInvertedInner = function forEachInvertedInner(f2, from2, to, start) {
       var leftLen = this.left.length;
-      if (from2 > leftLen && this.right.forEachInvertedInner(f, from2 - leftLen, Math.max(to, leftLen) - leftLen, start + leftLen) === false) {
+      if (from2 > leftLen && this.right.forEachInvertedInner(f2, from2 - leftLen, Math.max(to, leftLen) - leftLen, start + leftLen) === false) {
         return false;
       }
-      if (to < leftLen && this.left.forEachInvertedInner(f, Math.min(from2, leftLen), to, start) === false) {
+      if (to < leftLen && this.left.forEachInvertedInner(f2, Math.min(from2, leftLen), to, start) === false) {
         return false;
       }
     };
@@ -13137,13 +11579,13 @@
         remap = this.remapping(end, this.items.length);
         mapFrom = remap.maps.length;
       }
-      let transform = state.tr;
+      let transform2 = state.tr;
       let selection, remaining;
       let addAfter = [], addBefore = [];
-      this.items.forEach((item, i) => {
+      this.items.forEach((item, i2) => {
         if (!item.step) {
           if (!remap) {
-            remap = this.remapping(end, i + 1);
+            remap = this.remapping(end, i2 + 1);
             mapFrom = remap.maps.length;
           }
           mapFrom--;
@@ -13153,15 +11595,15 @@
         if (remap) {
           addBefore.push(new Item(item.map));
           let step = item.step.map(remap.slice(mapFrom)), map2;
-          if (step && transform.maybeStep(step).doc) {
-            map2 = transform.mapping.maps[transform.mapping.maps.length - 1];
+          if (step && transform2.maybeStep(step).doc) {
+            map2 = transform2.mapping.maps[transform2.mapping.maps.length - 1];
             addAfter.push(new Item(map2, void 0, void 0, addAfter.length + addBefore.length));
           }
           mapFrom--;
           if (map2)
             remap.appendMap(map2, mapFrom);
         } else {
-          transform.maybeStep(item.step);
+          transform2.maybeStep(item.step);
         }
         if (item.selection) {
           selection = remap ? item.selection.map(remap.slice(mapFrom)) : item.selection;
@@ -13169,18 +11611,18 @@
           return false;
         }
       }, this.items.length, 0);
-      return { remaining, transform, selection };
+      return { remaining, transform: transform2, selection };
     }
     // Create a new branch with the given transform added.
-    addTransform(transform, selection, histOptions, preserveItems) {
+    addTransform(transform2, selection, histOptions, preserveItems) {
       let newItems = [], eventCount = this.eventCount;
       let oldItems = this.items, lastItem = !preserveItems && oldItems.length ? oldItems.get(oldItems.length - 1) : null;
-      for (let i = 0; i < transform.steps.length; i++) {
-        let step = transform.steps[i].invert(transform.docs[i]);
-        let item = new Item(transform.mapping.maps[i], step, selection), merged;
+      for (let i2 = 0; i2 < transform2.steps.length; i2++) {
+        let step = transform2.steps[i2].invert(transform2.docs[i2]);
+        let item = new Item(transform2.mapping.maps[i2], step, selection), merged;
         if (merged = lastItem && lastItem.merge(item)) {
           item = merged;
-          if (i)
+          if (i2)
             newItems.pop();
           else
             oldItems = oldItems.slice(0, oldItems.length - 1);
@@ -13202,8 +11644,8 @@
     }
     remapping(from2, to) {
       let maps = new Mapping();
-      this.items.forEach((item, i) => {
-        let mirrorPos = item.mirrorOffset != null && i - item.mirrorOffset >= from2 ? maps.maps.length - item.mirrorOffset : void 0;
+      this.items.forEach((item, i2) => {
+        let mirrorPos = item.mirrorOffset != null && i2 - item.mirrorOffset >= from2 ? maps.maps.length - item.mirrorOffset : void 0;
         maps.appendMap(item.map, mirrorPos);
       }, from2, to);
       return maps;
@@ -13246,8 +11688,8 @@
         }
       }, start);
       let newMaps = [];
-      for (let i = rebasedCount; i < newUntil; i++)
-        newMaps.push(new Item(mapping.maps[i]));
+      for (let i2 = rebasedCount; i2 < newUntil; i2++)
+        newMaps.push(new Item(mapping.maps[i2]));
       let items = this.items.slice(0, start).append(newMaps).append(rebasedItems);
       let branch = new _Branch(items, eventCount);
       if (branch.emptyItemCount() > max_empty_items)
@@ -13271,8 +11713,8 @@
     compress(upto = this.items.length) {
       let remap = this.remapping(0, upto), mapFrom = remap.maps.length;
       let items = [], events = 0;
-      this.items.forEach((item, i) => {
-        if (i >= upto) {
+      this.items.forEach((item, i2) => {
+        if (i2 >= upto) {
           items.push(item);
           if (item.selection)
             events++;
@@ -13301,9 +11743,9 @@
   Branch.empty = new Branch(dist_default2.empty, 0);
   function cutOffEvents(items, n) {
     let cutPoint;
-    items.forEach((item, i) => {
+    items.forEach((item, i2) => {
       if (item.selection && n-- == 0) {
-        cutPoint = i;
+        cutPoint = i2;
         return false;
       }
     });
@@ -13334,56 +11776,56 @@
     }
   };
   var DEPTH_OVERFLOW = 20;
-  function applyTransaction(history2, state, tr, options) {
-    let historyTr = tr.getMeta(historyKey), rebased;
+  function applyTransaction(history2, state, tr2, options) {
+    let historyTr = tr2.getMeta(historyKey), rebased;
     if (historyTr)
       return historyTr.historyState;
-    if (tr.getMeta(closeHistoryKey))
+    if (tr2.getMeta(closeHistoryKey))
       history2 = new HistoryState(history2.done, history2.undone, null, 0, -1);
-    let appended = tr.getMeta("appendedTransaction");
-    if (tr.steps.length == 0) {
+    let appended = tr2.getMeta("appendedTransaction");
+    if (tr2.steps.length == 0) {
       return history2;
     } else if (appended && appended.getMeta(historyKey)) {
       if (appended.getMeta(historyKey).redo)
-        return new HistoryState(history2.done.addTransform(tr, void 0, options, mustPreserveItems(state)), history2.undone, rangesFor(tr.mapping.maps), history2.prevTime, history2.prevComposition);
+        return new HistoryState(history2.done.addTransform(tr2, void 0, options, mustPreserveItems(state)), history2.undone, rangesFor(tr2.mapping.maps), history2.prevTime, history2.prevComposition);
       else
-        return new HistoryState(history2.done, history2.undone.addTransform(tr, void 0, options, mustPreserveItems(state)), null, history2.prevTime, history2.prevComposition);
-    } else if (tr.getMeta("addToHistory") !== false && !(appended && appended.getMeta("addToHistory") === false)) {
-      let composition = tr.getMeta("composition");
-      let newGroup = history2.prevTime == 0 || !appended && history2.prevComposition != composition && (history2.prevTime < (tr.time || 0) - options.newGroupDelay || !isAdjacentTo(tr, history2.prevRanges));
-      let prevRanges = appended ? mapRanges(history2.prevRanges, tr.mapping) : rangesFor(tr.mapping.maps);
-      return new HistoryState(history2.done.addTransform(tr, newGroup ? state.selection.getBookmark() : void 0, options, mustPreserveItems(state)), Branch.empty, prevRanges, tr.time, composition == null ? history2.prevComposition : composition);
-    } else if (rebased = tr.getMeta("rebased")) {
-      return new HistoryState(history2.done.rebased(tr, rebased), history2.undone.rebased(tr, rebased), mapRanges(history2.prevRanges, tr.mapping), history2.prevTime, history2.prevComposition);
+        return new HistoryState(history2.done, history2.undone.addTransform(tr2, void 0, options, mustPreserveItems(state)), null, history2.prevTime, history2.prevComposition);
+    } else if (tr2.getMeta("addToHistory") !== false && !(appended && appended.getMeta("addToHistory") === false)) {
+      let composition = tr2.getMeta("composition");
+      let newGroup = history2.prevTime == 0 || !appended && history2.prevComposition != composition && (history2.prevTime < (tr2.time || 0) - options.newGroupDelay || !isAdjacentTo(tr2, history2.prevRanges));
+      let prevRanges = appended ? mapRanges(history2.prevRanges, tr2.mapping) : rangesFor(tr2.mapping.maps);
+      return new HistoryState(history2.done.addTransform(tr2, newGroup ? state.selection.getBookmark() : void 0, options, mustPreserveItems(state)), Branch.empty, prevRanges, tr2.time, composition == null ? history2.prevComposition : composition);
+    } else if (rebased = tr2.getMeta("rebased")) {
+      return new HistoryState(history2.done.rebased(tr2, rebased), history2.undone.rebased(tr2, rebased), mapRanges(history2.prevRanges, tr2.mapping), history2.prevTime, history2.prevComposition);
     } else {
-      return new HistoryState(history2.done.addMaps(tr.mapping.maps), history2.undone.addMaps(tr.mapping.maps), mapRanges(history2.prevRanges, tr.mapping), history2.prevTime, history2.prevComposition);
+      return new HistoryState(history2.done.addMaps(tr2.mapping.maps), history2.undone.addMaps(tr2.mapping.maps), mapRanges(history2.prevRanges, tr2.mapping), history2.prevTime, history2.prevComposition);
     }
   }
-  function isAdjacentTo(transform, prevRanges) {
+  function isAdjacentTo(transform2, prevRanges) {
     if (!prevRanges)
       return false;
-    if (!transform.docChanged)
+    if (!transform2.docChanged)
       return true;
     let adjacent = false;
-    transform.mapping.maps[0].forEach((start, end) => {
-      for (let i = 0; i < prevRanges.length; i += 2)
-        if (start <= prevRanges[i + 1] && end >= prevRanges[i])
+    transform2.mapping.maps[0].forEach((start, end) => {
+      for (let i2 = 0; i2 < prevRanges.length; i2 += 2)
+        if (start <= prevRanges[i2 + 1] && end >= prevRanges[i2])
           adjacent = true;
     });
     return adjacent;
   }
   function rangesFor(maps) {
     let result = [];
-    for (let i = maps.length - 1; i >= 0 && result.length == 0; i--)
-      maps[i].forEach((_from, _to, from2, to) => result.push(from2, to));
+    for (let i2 = maps.length - 1; i2 >= 0 && result.length == 0; i2--)
+      maps[i2].forEach((_from, _to, from2, to) => result.push(from2, to));
     return result;
   }
   function mapRanges(ranges, mapping) {
     if (!ranges)
       return null;
     let result = [];
-    for (let i = 0; i < ranges.length; i += 2) {
-      let from2 = mapping.map(ranges[i], 1), to = mapping.map(ranges[i + 1], -1);
+    for (let i2 = 0; i2 < ranges.length; i2 += 2) {
+      let from2 = mapping.map(ranges[i2], 1), to = mapping.map(ranges[i2 + 1], -1);
       if (from2 <= to)
         result.push(from2, to);
     }
@@ -13407,8 +11849,8 @@
     if (cachedPreserveItemsPlugins != plugins2) {
       cachedPreserveItems = false;
       cachedPreserveItemsPlugins = plugins2;
-      for (let i = 0; i < plugins2.length; i++)
-        if (plugins2[i].spec.historyPreserveItems) {
+      for (let i2 = 0; i2 < plugins2.length; i2++)
+        if (plugins2[i2].spec.historyPreserveItems) {
           cachedPreserveItems = true;
           break;
         }
@@ -13428,8 +11870,8 @@
         init() {
           return new HistoryState(Branch.empty, Branch.empty, null, 0, -1);
         },
-        apply(tr, hist, state) {
-          return applyTransaction(hist, state, tr, config);
+        apply(tr2, hist, state) {
+          return applyTransaction(hist, state, tr2, config);
         }
       },
       config,
@@ -13453,9 +11895,9 @@
       if (!hist || (redo2 ? hist.undone : hist.done).eventCount == 0)
         return false;
       if (dispatch) {
-        let tr = histTransaction(hist, state, redo2);
-        if (tr)
-          dispatch(scroll ? tr.scrollIntoView() : tr);
+        let tr2 = histTransaction(hist, state, redo2);
+        if (tr2)
+          dispatch(scroll ? tr2.scrollIntoView() : tr2);
       }
       return true;
     };
@@ -13548,15 +11990,15 @@
   };
   var mac2 = typeof navigator != "undefined" && /Mac/.test(navigator.platform);
   var ie2 = typeof navigator != "undefined" && /MSIE \d|Trident\/(?:[7-9]|\d{2,})\..*rv:(\d+)/.exec(navigator.userAgent);
-  for (i = 0; i < 10; i++) base[48 + i] = base[96 + i] = String(i);
-  var i;
-  for (i = 1; i <= 24; i++) base[i + 111] = "F" + i;
-  var i;
-  for (i = 65; i <= 90; i++) {
-    base[i] = String.fromCharCode(i + 32);
-    shift[i] = String.fromCharCode(i);
+  for (i2 = 0; i2 < 10; i2++) base[48 + i2] = base[96 + i2] = String(i2);
+  var i2;
+  for (i2 = 1; i2 <= 24; i2++) base[i2 + 111] = "F" + i2;
+  var i2;
+  for (i2 = 65; i2 <= 90; i2++) {
+    base[i2] = String.fromCharCode(i2 + 32);
+    shift[i2] = String.fromCharCode(i2);
   }
-  var i;
+  var i2;
   for (code in base) if (!shift.hasOwnProperty(code)) shift[code] = base[code];
   var code;
   function keyName(event) {
@@ -13579,8 +12021,8 @@
     if (result == "Space")
       result = " ";
     let alt, ctrl, shift2, meta;
-    for (let i = 0; i < parts.length - 1; i++) {
-      let mod = parts[i];
+    for (let i2 = 0; i2 < parts.length - 1; i2++) {
+      let mod = parts[i2];
       if (/^(cmd|meta|m)$/i.test(mod))
         meta = true;
       else if (/^a(lt)?$/i.test(mod))
@@ -13670,11 +12112,11 @@
       return false;
     let $cut = findCutBefore($cursor);
     if (!$cut) {
-      let range = $cursor.blockRange(), target = range && liftTarget(range);
+      let range2 = $cursor.blockRange(), target = range2 && liftTarget(range2);
       if (target == null)
         return false;
       if (dispatch)
-        dispatch(state.tr.lift(range, target).scrollIntoView());
+        dispatch(state.tr.lift(range2, target).scrollIntoView());
       return true;
     }
     let before = $cut.nodeBefore;
@@ -13685,9 +12127,9 @@
         let delStep = replaceStep(state.doc, $cursor.before(depth), $cursor.after(depth), Slice.empty);
         if (delStep && delStep.slice.size < delStep.to - delStep.from) {
           if (dispatch) {
-            let tr = state.tr.step(delStep);
-            tr.setSelection(textblockAt(before, "end") ? Selection.findFrom(tr.doc.resolve(tr.mapping.map($cut.pos, -1)), -1) : NodeSelection.create(tr.doc, $cut.pos - before.nodeSize));
-            dispatch(tr.scrollIntoView());
+            let tr2 = state.tr.step(delStep);
+            tr2.setSelection(textblockAt(before, "end") ? Selection.findFrom(tr2.doc.resolve(tr2.mapping.map($cut.pos, -1)), -1) : NodeSelection.create(tr2.doc, $cut.pos - before.nodeSize));
+            dispatch(tr2.scrollIntoView());
           }
           return true;
         }
@@ -13712,8 +12154,8 @@
     return false;
   }
   var selectNodeBackward = (state, dispatch, view2) => {
-    let { $head, empty: empty2 } = state.selection, $cut = $head;
-    if (!empty2)
+    let { $head, empty: empty3 } = state.selection, $cut = $head;
+    if (!empty3)
       return false;
     if ($head.parent.isTextblock) {
       if (view2 ? !view2.endOfTextblock("backward", state) : $head.parentOffset > 0)
@@ -13729,10 +12171,10 @@
   };
   function findCutBefore($pos) {
     if (!$pos.parent.type.spec.isolating)
-      for (let i = $pos.depth - 1; i >= 0; i--) {
-        if ($pos.index(i) > 0)
-          return $pos.doc.resolve($pos.before(i + 1));
-        if ($pos.node(i).type.spec.isolating)
+      for (let i2 = $pos.depth - 1; i2 >= 0; i2--) {
+        if ($pos.index(i2) > 0)
+          return $pos.doc.resolve($pos.before(i2 + 1));
+        if ($pos.node(i2).type.spec.isolating)
           break;
       }
     return null;
@@ -13757,9 +12199,9 @@
       let delStep = replaceStep(state.doc, $cursor.before(), $cursor.after(), Slice.empty);
       if (delStep && delStep.slice.size < delStep.to - delStep.from) {
         if (dispatch) {
-          let tr = state.tr.step(delStep);
-          tr.setSelection(textblockAt(after, "start") ? Selection.findFrom(tr.doc.resolve(tr.mapping.map($cut.pos)), 1) : NodeSelection.create(tr.doc, tr.mapping.map($cut.pos)));
-          dispatch(tr.scrollIntoView());
+          let tr2 = state.tr.step(delStep);
+          tr2.setSelection(textblockAt(after, "start") ? Selection.findFrom(tr2.doc.resolve(tr2.mapping.map($cut.pos)), 1) : NodeSelection.create(tr2.doc, tr2.mapping.map($cut.pos)));
+          dispatch(tr2.scrollIntoView());
         }
         return true;
       }
@@ -13772,8 +12214,8 @@
     return false;
   };
   var selectNodeForward = (state, dispatch, view2) => {
-    let { $head, empty: empty2 } = state.selection, $cut = $head;
-    if (!empty2)
+    let { $head, empty: empty3 } = state.selection, $cut = $head;
+    if (!empty3)
       return false;
     if ($head.parent.isTextblock) {
       if (view2 ? !view2.endOfTextblock("forward", state) : $head.parentOffset < $head.parent.content.size)
@@ -13789,10 +12231,10 @@
   };
   function findCutAfter($pos) {
     if (!$pos.parent.type.spec.isolating)
-      for (let i = $pos.depth - 1; i >= 0; i--) {
-        let parent = $pos.node(i);
-        if ($pos.index(i) + 1 < parent.childCount)
-          return $pos.doc.resolve($pos.after(i + 1));
+      for (let i2 = $pos.depth - 1; i2 >= 0; i2--) {
+        let parent = $pos.node(i2);
+        if ($pos.index(i2) + 1 < parent.childCount)
+          return $pos.doc.resolve($pos.after(i2 + 1));
         if (parent.type.spec.isolating)
           break;
       }
@@ -13807,8 +12249,8 @@
     return true;
   };
   function defaultBlockAt(match) {
-    for (let i = 0; i < match.edgeCount; i++) {
-      let { type } = match.edge(i);
+    for (let i2 = 0; i2 < match.edgeCount; i2++) {
+      let { type } = match.edge(i2);
       if (type.isTextblock && !type.hasRequiredAttrs())
         return type;
     }
@@ -13822,9 +12264,9 @@
     if (!type || !above.canReplaceWith(after, after, type))
       return false;
     if (dispatch) {
-      let pos = $head.after(), tr = state.tr.replaceWith(pos, pos, type.createAndFill());
-      tr.setSelection(Selection.near(tr.doc.resolve(pos), 1));
-      dispatch(tr.scrollIntoView());
+      let pos = $head.after(), tr2 = state.tr.replaceWith(pos, pos, type.createAndFill());
+      tr2.setSelection(Selection.near(tr2.doc.resolve(pos), 1));
+      dispatch(tr2.scrollIntoView());
     }
     return true;
   };
@@ -13837,9 +12279,9 @@
       return false;
     if (dispatch) {
       let side = (!$from.parentOffset && $to.index() < $to.parent.childCount ? $from : $to).pos;
-      let tr = state.tr.insert(side, type.createAndFill());
-      tr.setSelection(TextSelection.create(tr.doc, side + 1));
-      dispatch(tr.scrollIntoView());
+      let tr2 = state.tr.insert(side, type.createAndFill());
+      tr2.setSelection(TextSelection.create(tr2.doc, side + 1));
+      dispatch(tr2.scrollIntoView());
     }
     return true;
   };
@@ -13855,11 +12297,11 @@
         return true;
       }
     }
-    let range = $cursor.blockRange(), target = range && liftTarget(range);
+    let range2 = $cursor.blockRange(), target = range2 && liftTarget(range2);
     if (target == null)
       return false;
     if (dispatch)
-      dispatch(state.tr.lift(range, target).scrollIntoView());
+      dispatch(state.tr.lift(range2, target).scrollIntoView());
     return true;
   };
   function splitBlockAs(splitNode) {
@@ -13876,41 +12318,41 @@
         return false;
       let types = [];
       let splitDepth, deflt3, atEnd = false, atStart = false;
-      for (let d2 = $from.depth; ; d2--) {
-        let node = $from.node(d2);
+      for (let d3 = $from.depth; ; d3--) {
+        let node = $from.node(d3);
         if (node.isBlock) {
-          atEnd = $from.end(d2) == $from.pos + ($from.depth - d2);
-          atStart = $from.start(d2) == $from.pos - ($from.depth - d2);
-          deflt3 = defaultBlockAt($from.node(d2 - 1).contentMatchAt($from.indexAfter(d2 - 1)));
+          atEnd = $from.end(d3) == $from.pos + ($from.depth - d3);
+          atStart = $from.start(d3) == $from.pos - ($from.depth - d3);
+          deflt3 = defaultBlockAt($from.node(d3 - 1).contentMatchAt($from.indexAfter(d3 - 1)));
           let splitType = splitNode && splitNode($to.parent, atEnd, $from);
           types.unshift(splitType || (atEnd && deflt3 ? { type: deflt3 } : null));
-          splitDepth = d2;
+          splitDepth = d3;
           break;
         } else {
-          if (d2 == 1)
+          if (d3 == 1)
             return false;
           types.unshift(null);
         }
       }
-      let tr = state.tr;
+      let tr2 = state.tr;
       if (state.selection instanceof TextSelection || state.selection instanceof AllSelection)
-        tr.deleteSelection();
-      let splitPos = tr.mapping.map($from.pos);
-      let can = canSplit(tr.doc, splitPos, types.length, types);
+        tr2.deleteSelection();
+      let splitPos = tr2.mapping.map($from.pos);
+      let can = canSplit(tr2.doc, splitPos, types.length, types);
       if (!can) {
         types[0] = deflt3 ? { type: deflt3 } : null;
-        can = canSplit(tr.doc, splitPos, types.length, types);
+        can = canSplit(tr2.doc, splitPos, types.length, types);
       }
       if (!can)
         return false;
-      tr.split(splitPos, types.length, types);
+      tr2.split(splitPos, types.length, types);
       if (!atEnd && atStart && $from.node(splitDepth).type != deflt3) {
-        let first = tr.mapping.map($from.before(splitDepth)), $first = tr.doc.resolve(first);
+        let first = tr2.mapping.map($from.before(splitDepth)), $first = tr2.doc.resolve(first);
         if (deflt3 && $from.node(splitDepth - 1).canReplaceWith($first.index(), $first.index() + 1, deflt3))
-          tr.setNodeMarkup(tr.mapping.map($from.before(splitDepth)), deflt3);
+          tr2.setNodeMarkup(tr2.mapping.map($from.before(splitDepth)), deflt3);
       }
       if (dispatch)
-        dispatch(tr.scrollIntoView());
+        dispatch(tr2.scrollIntoView());
       return true;
     };
   }
@@ -13944,22 +12386,22 @@
     if (canDelAfter && (conn = (match = before.contentMatchAt(before.childCount)).findWrapping(after.type)) && match.matchType(conn[0] || after.type).validEnd) {
       if (dispatch) {
         let end = $cut.pos + after.nodeSize, wrap2 = Fragment.empty;
-        for (let i = conn.length - 1; i >= 0; i--)
-          wrap2 = Fragment.from(conn[i].create(null, wrap2));
+        for (let i2 = conn.length - 1; i2 >= 0; i2--)
+          wrap2 = Fragment.from(conn[i2].create(null, wrap2));
         wrap2 = Fragment.from(before.copy(wrap2));
-        let tr = state.tr.step(new ReplaceAroundStep($cut.pos - 1, end, $cut.pos, end, new Slice(wrap2, 1, 0), conn.length, true));
-        let $joinAt = tr.doc.resolve(end + 2 * conn.length);
-        if ($joinAt.nodeAfter && $joinAt.nodeAfter.type == before.type && canJoin(tr.doc, $joinAt.pos))
-          tr.join($joinAt.pos);
-        dispatch(tr.scrollIntoView());
+        let tr2 = state.tr.step(new ReplaceAroundStep($cut.pos - 1, end, $cut.pos, end, new Slice(wrap2, 1, 0), conn.length, true));
+        let $joinAt = tr2.doc.resolve(end + 2 * conn.length);
+        if ($joinAt.nodeAfter && $joinAt.nodeAfter.type == before.type && canJoin(tr2.doc, $joinAt.pos))
+          tr2.join($joinAt.pos);
+        dispatch(tr2.scrollIntoView());
       }
       return true;
     }
     let selAfter = after.type.spec.isolating || dir > 0 && isolated ? null : Selection.findFrom($cut, 1);
-    let range = selAfter && selAfter.$from.blockRange(selAfter.$to), target = range && liftTarget(range);
+    let range2 = selAfter && selAfter.$from.blockRange(selAfter.$to), target = range2 && liftTarget(range2);
     if (target != null && target >= $cut.depth) {
       if (dispatch)
-        dispatch(state.tr.lift(range, target).scrollIntoView());
+        dispatch(state.tr.lift(range2, target).scrollIntoView());
       return true;
     }
     if (canDelAfter && textblockAt(after, "start", true) && textblockAt(before, "end")) {
@@ -13976,10 +12418,10 @@
       if (at.canReplace(at.childCount, at.childCount, afterText.content)) {
         if (dispatch) {
           let end = Fragment.empty;
-          for (let i = wrap2.length - 1; i >= 0; i--)
-            end = Fragment.from(wrap2[i].copy(end));
-          let tr = state.tr.step(new ReplaceAroundStep($cut.pos - wrap2.length, $cut.pos + after.nodeSize, $cut.pos + afterDepth, $cut.pos + after.nodeSize - afterDepth, new Slice(end, wrap2.length, 0), 0, true));
-          dispatch(tr.scrollIntoView());
+          for (let i2 = wrap2.length - 1; i2 >= 0; i2--)
+            end = Fragment.from(wrap2[i2].copy(end));
+          let tr2 = state.tr.step(new ReplaceAroundStep($cut.pos - wrap2.length, $cut.pos + after.nodeSize, $cut.pos + afterDepth, $cut.pos + after.nodeSize - afterDepth, new Slice(end, wrap2.length, 0), 0, true));
+          dispatch(tr2.scrollIntoView());
         }
         return true;
       }
@@ -14006,8 +12448,8 @@
   var selectTextblockEnd = selectTextblockSide(1);
   function chainCommands(...commands) {
     return function(state, dispatch, view2) {
-      for (let i = 0; i < commands.length; i++)
-        if (commands[i](state, dispatch, view2))
+      for (let i2 = 0; i2 < commands.length; i2++)
+        if (commands[i2](state, dispatch, view2))
           return true;
       return false;
     };
@@ -14034,28 +12476,24 @@
     "Ctrl-a": selectTextblockStart,
     "Ctrl-e": selectTextblockEnd
   };
-  for (let key in pcBaseKeymap)
-    macBaseKeymap[key] = pcBaseKeymap[key];
+  for (let key2 in pcBaseKeymap)
+    macBaseKeymap[key2] = pcBaseKeymap[key2];
   var mac4 = typeof navigator != "undefined" ? /Mac|iP(hone|[oa]d)/.test(navigator.platform) : typeof os != "undefined" && os.platform ? os.platform() == "darwin" : false;
   var baseKeymap = mac4 ? macBaseKeymap : pcBaseKeymap;
-
-  // node_modules/highlight.js/es/core.js
-  var import_core = __toESM(require_core(), 1);
-  var core_default = import_core.default;
 
   // node_modules/marked/lib/marked.esm.js
   function L() {
     return { async: false, breaks: false, extensions: null, gfm: true, hooks: null, pedantic: false, renderer: null, silent: false, tokenizer: null, walkTokens: null };
   }
   var T = L();
-  function Z(u3) {
-    T = u3;
+  function Z(u4) {
+    T = u4;
   }
   var C = { exec: () => null };
-  function k(u3, e = "") {
-    let t = typeof u3 == "string" ? u3 : u3.source, n = { replace: (r, i) => {
-      let s = typeof i == "string" ? i : i.source;
-      return s = s.replace(m.caret, "$1"), t = t.replace(r, s), n;
+  function k(u4, e = "") {
+    let t = typeof u4 == "string" ? u4 : u4.source, n = { replace: (r4, i2) => {
+      let s2 = typeof i2 == "string" ? i2 : i2.source;
+      return s2 = s2.replace(m.caret, "$1"), t = t.replace(r4, s2), n;
     }, getRegex: () => new RegExp(t, e) };
     return n;
   }
@@ -14066,7 +12504,7 @@
       return false;
     }
   })();
-  var m = { codeRemoveIndent: /^(?: {1,4}| {0,3}\t)/gm, outputLinkReplace: /\\([\[\]])/g, indentCodeCompensation: /^(\s+)(?:```)/, beginningSpace: /^\s+/, endingHash: /#$/, startingSpaceChar: /^ /, endingSpaceChar: / $/, nonSpaceChar: /[^ ]/, newLineCharGlobal: /\n/g, tabCharGlobal: /\t/g, multipleSpaceGlobal: /\s+/g, blankLine: /^[ \t]*$/, doubleBlankLine: /\n[ \t]*\n[ \t]*$/, blockquoteStart: /^ {0,3}>/, blockquoteSetextReplace: /\n {0,3}((?:=+|-+) *)(?=\n|$)/g, blockquoteSetextReplace2: /^ {0,3}>[ \t]?/gm, listReplaceTabs: /^\t+/, listReplaceNesting: /^ {1,4}(?=( {4})*[^ ])/g, listIsTask: /^\[[ xX]\] +\S/, listReplaceTask: /^\[[ xX]\] +/, listTaskCheckbox: /\[[ xX]\]/, anyLine: /\n.*\n/, hrefBrackets: /^<(.*)>$/, tableDelimiter: /[:|]/, tableAlignChars: /^\||\| *$/g, tableRowBlankLine: /\n[ \t]*$/, tableAlignRight: /^ *-+: *$/, tableAlignCenter: /^ *:-+: *$/, tableAlignLeft: /^ *:-+ *$/, startATag: /^<a /i, endATag: /^<\/a>/i, startPreScriptTag: /^<(pre|code|kbd|script)(\s|>)/i, endPreScriptTag: /^<\/(pre|code|kbd|script)(\s|>)/i, startAngleBracket: /^</, endAngleBracket: />$/, pedanticHrefTitle: /^([^'"]*[^\s])\s+(['"])(.*)\2/, unicodeAlphaNumeric: /[\p{L}\p{N}]/u, escapeTest: /[&<>"']/, escapeReplace: /[&<>"']/g, escapeTestNoEncode: /[<>"']|&(?!(#\d{1,7}|#[Xx][a-fA-F0-9]{1,6}|\w+);)/, escapeReplaceNoEncode: /[<>"']|&(?!(#\d{1,7}|#[Xx][a-fA-F0-9]{1,6}|\w+);)/g, unescapeTest: /&(#(?:\d+)|(?:#x[0-9A-Fa-f]+)|(?:\w+));?/ig, caret: /(^|[^\[])\^/g, percentDecode: /%25/g, findPipe: /\|/g, splitPipe: / \|/, slashPipe: /\\\|/g, carriageReturn: /\r\n|\r/g, spaceLine: /^ +$/gm, notSpaceStart: /^\S*/, endingNewline: /\n$/, listItemRegex: (u3) => new RegExp(`^( {0,3}${u3})((?:[	 ][^\\n]*)?(?:\\n|$))`), nextBulletRegex: (u3) => new RegExp(`^ {0,${Math.min(3, u3 - 1)}}(?:[*+-]|\\d{1,9}[.)])((?:[ 	][^\\n]*)?(?:\\n|$))`), hrRegex: (u3) => new RegExp(`^ {0,${Math.min(3, u3 - 1)}}((?:- *){3,}|(?:_ *){3,}|(?:\\* *){3,})(?:\\n+|$)`), fencesBeginRegex: (u3) => new RegExp(`^ {0,${Math.min(3, u3 - 1)}}(?:\`\`\`|~~~)`), headingBeginRegex: (u3) => new RegExp(`^ {0,${Math.min(3, u3 - 1)}}#`), htmlBeginRegex: (u3) => new RegExp(`^ {0,${Math.min(3, u3 - 1)}}<(?:[a-z].*>|!--)`, "i") };
+  var m = { codeRemoveIndent: /^(?: {1,4}| {0,3}\t)/gm, outputLinkReplace: /\\([\[\]])/g, indentCodeCompensation: /^(\s+)(?:```)/, beginningSpace: /^\s+/, endingHash: /#$/, startingSpaceChar: /^ /, endingSpaceChar: / $/, nonSpaceChar: /[^ ]/, newLineCharGlobal: /\n/g, tabCharGlobal: /\t/g, multipleSpaceGlobal: /\s+/g, blankLine: /^[ \t]*$/, doubleBlankLine: /\n[ \t]*\n[ \t]*$/, blockquoteStart: /^ {0,3}>/, blockquoteSetextReplace: /\n {0,3}((?:=+|-+) *)(?=\n|$)/g, blockquoteSetextReplace2: /^ {0,3}>[ \t]?/gm, listReplaceTabs: /^\t+/, listReplaceNesting: /^ {1,4}(?=( {4})*[^ ])/g, listIsTask: /^\[[ xX]\] +\S/, listReplaceTask: /^\[[ xX]\] +/, listTaskCheckbox: /\[[ xX]\]/, anyLine: /\n.*\n/, hrefBrackets: /^<(.*)>$/, tableDelimiter: /[:|]/, tableAlignChars: /^\||\| *$/g, tableRowBlankLine: /\n[ \t]*$/, tableAlignRight: /^ *-+: *$/, tableAlignCenter: /^ *:-+: *$/, tableAlignLeft: /^ *:-+ *$/, startATag: /^<a /i, endATag: /^<\/a>/i, startPreScriptTag: /^<(pre|code|kbd|script)(\s|>)/i, endPreScriptTag: /^<\/(pre|code|kbd|script)(\s|>)/i, startAngleBracket: /^</, endAngleBracket: />$/, pedanticHrefTitle: /^([^'"]*[^\s])\s+(['"])(.*)\2/, unicodeAlphaNumeric: /[\p{L}\p{N}]/u, escapeTest: /[&<>"']/, escapeReplace: /[&<>"']/g, escapeTestNoEncode: /[<>"']|&(?!(#\d{1,7}|#[Xx][a-fA-F0-9]{1,6}|\w+);)/, escapeReplaceNoEncode: /[<>"']|&(?!(#\d{1,7}|#[Xx][a-fA-F0-9]{1,6}|\w+);)/g, unescapeTest: /&(#(?:\d+)|(?:#x[0-9A-Fa-f]+)|(?:\w+));?/ig, caret: /(^|[^\[])\^/g, percentDecode: /%25/g, findPipe: /\|/g, splitPipe: / \|/, slashPipe: /\\\|/g, carriageReturn: /\r\n|\r/g, spaceLine: /^ +$/gm, notSpaceStart: /^\S*/, endingNewline: /\n$/, listItemRegex: (u4) => new RegExp(`^( {0,3}${u4})((?:[	 ][^\\n]*)?(?:\\n|$))`), nextBulletRegex: (u4) => new RegExp(`^ {0,${Math.min(3, u4 - 1)}}(?:[*+-]|\\d{1,9}[.)])((?:[ 	][^\\n]*)?(?:\\n|$))`), hrRegex: (u4) => new RegExp(`^ {0,${Math.min(3, u4 - 1)}}((?:- *){3,}|(?:_ *){3,}|(?:\\* *){3,})(?:\\n+|$)`), fencesBeginRegex: (u4) => new RegExp(`^ {0,${Math.min(3, u4 - 1)}}(?:\`\`\`|~~~)`), headingBeginRegex: (u4) => new RegExp(`^ {0,${Math.min(3, u4 - 1)}}#`), htmlBeginRegex: (u4) => new RegExp(`^ {0,${Math.min(3, u4 - 1)}}<(?:[a-z].*>|!--)`, "i") };
   var xe = /^(?:[ \t]*(?:\n|$))+/;
   var be = /^((?: {4}| {0,3}\t)[^\n]+(?:\n(?:[ \t]*(?:\n|$))*)?)+/;
   var Re = /^ {0,3}(`{3,}(?=[^`\n]*(?:\n|$))|~{3,})([^\n]*)(?:\n|$)(?:|([\s\S]*?)(?:\n|$))(?: {0,3}\1[~`]* *(?=\n|$)|$)/;
@@ -14127,68 +12565,68 @@
   var E = { normal: U, gfm: _e, pedantic: Le };
   var M = { normal: W, gfm: G, breaks: We, pedantic: Ke };
   var Xe = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
-  var ke = (u3) => Xe[u3];
-  function w(u3, e) {
+  var ke = (u4) => Xe[u4];
+  function w(u4, e) {
     if (e) {
-      if (m.escapeTest.test(u3)) return u3.replace(m.escapeReplace, ke);
-    } else if (m.escapeTestNoEncode.test(u3)) return u3.replace(m.escapeReplaceNoEncode, ke);
-    return u3;
+      if (m.escapeTest.test(u4)) return u4.replace(m.escapeReplace, ke);
+    } else if (m.escapeTestNoEncode.test(u4)) return u4.replace(m.escapeReplaceNoEncode, ke);
+    return u4;
   }
-  function X(u3) {
+  function X(u4) {
     try {
-      u3 = encodeURI(u3).replace(m.percentDecode, "%");
+      u4 = encodeURI(u4).replace(m.percentDecode, "%");
     } catch {
       return null;
     }
-    return u3;
+    return u4;
   }
-  function J(u3, e) {
-    let t = u3.replace(m.findPipe, (i, s, a) => {
-      let o = false, l = s;
-      for (; --l >= 0 && a[l] === "\\"; ) o = !o;
-      return o ? "|" : " |";
-    }), n = t.split(m.splitPipe), r = 0;
+  function J(u4, e) {
+    let t = u4.replace(m.findPipe, (i2, s2, a2) => {
+      let o3 = false, l3 = s2;
+      for (; --l3 >= 0 && a2[l3] === "\\"; ) o3 = !o3;
+      return o3 ? "|" : " |";
+    }), n = t.split(m.splitPipe), r4 = 0;
     if (n[0].trim() || n.shift(), n.length > 0 && !n.at(-1)?.trim() && n.pop(), e) if (n.length > e) n.splice(e);
     else for (; n.length < e; ) n.push("");
-    for (; r < n.length; r++) n[r] = n[r].trim().replace(m.slashPipe, "|");
+    for (; r4 < n.length; r4++) n[r4] = n[r4].trim().replace(m.slashPipe, "|");
     return n;
   }
-  function z(u3, e, t) {
-    let n = u3.length;
+  function z(u4, e, t) {
+    let n = u4.length;
     if (n === 0) return "";
-    let r = 0;
-    for (; r < n; ) {
-      let i = u3.charAt(n - r - 1);
-      if (i === e && !t) r++;
-      else if (i !== e && t) r++;
+    let r4 = 0;
+    for (; r4 < n; ) {
+      let i2 = u4.charAt(n - r4 - 1);
+      if (i2 === e && !t) r4++;
+      else if (i2 !== e && t) r4++;
       else break;
     }
-    return u3.slice(0, n - r);
+    return u4.slice(0, n - r4);
   }
-  function de(u3, e) {
-    if (u3.indexOf(e[1]) === -1) return -1;
+  function de(u4, e) {
+    if (u4.indexOf(e[1]) === -1) return -1;
     let t = 0;
-    for (let n = 0; n < u3.length; n++) if (u3[n] === "\\") n++;
-    else if (u3[n] === e[0]) t++;
-    else if (u3[n] === e[1] && (t--, t < 0)) return n;
+    for (let n = 0; n < u4.length; n++) if (u4[n] === "\\") n++;
+    else if (u4[n] === e[0]) t++;
+    else if (u4[n] === e[1] && (t--, t < 0)) return n;
     return t > 0 ? -2 : -1;
   }
-  function ge(u3, e, t, n, r) {
-    let i = e.href, s = e.title || null, a = u3[1].replace(r.other.outputLinkReplace, "$1");
+  function ge(u4, e, t, n, r4) {
+    let i2 = e.href, s2 = e.title || null, a2 = u4[1].replace(r4.other.outputLinkReplace, "$1");
     n.state.inLink = true;
-    let o = { type: u3[0].charAt(0) === "!" ? "image" : "link", raw: t, href: i, title: s, text: a, tokens: n.inlineTokens(a) };
-    return n.state.inLink = false, o;
+    let o3 = { type: u4[0].charAt(0) === "!" ? "image" : "link", raw: t, href: i2, title: s2, text: a2, tokens: n.inlineTokens(a2) };
+    return n.state.inLink = false, o3;
   }
-  function Je(u3, e, t) {
-    let n = u3.match(t.other.indentCodeCompensation);
+  function Je(u4, e, t) {
+    let n = u4.match(t.other.indentCodeCompensation);
     if (n === null) return e;
-    let r = n[1];
+    let r4 = n[1];
     return e.split(`
-`).map((i) => {
-      let s = i.match(t.other.beginningSpace);
-      if (s === null) return i;
-      let [a] = s;
-      return a.length >= r.length ? i.slice(r.length) : i;
+`).map((i2) => {
+      let s2 = i2.match(t.other.beginningSpace);
+      if (s2 === null) return i2;
+      let [a2] = s2;
+      return a2.length >= r4.length ? i2.slice(r4.length) : i2;
     }).join(`
 `);
   }
@@ -14214,8 +12652,8 @@
     fences(e) {
       let t = this.rules.block.fences.exec(e);
       if (t) {
-        let n = t[0], r = Je(n, t[3] || "", this.rules);
-        return { type: "code", raw: n, lang: t[2] ? t[2].trim().replace(this.rules.inline.anyPunctuation, "$1") : t[2], text: r };
+        let n = t[0], r4 = Je(n, t[3] || "", this.rules);
+        return { type: "code", raw: n, lang: t[2] ? t[2].trim().replace(this.rules.inline.anyPunctuation, "$1") : t[2], text: r4 };
       }
     }
     heading(e) {
@@ -14223,8 +12661,8 @@
       if (t) {
         let n = t[2].trim();
         if (this.rules.other.endingHash.test(n)) {
-          let r = z(n, "#");
-          (this.options.pedantic || !r || this.rules.other.endingSpaceChar.test(r)) && (n = r.trim());
+          let r4 = z(n, "#");
+          (this.options.pedantic || !r4 || this.rules.other.endingSpaceChar.test(r4)) && (n = r4.trim());
         }
         return { type: "heading", raw: t[0], depth: t[1].length, text: n, tokens: this.lexer.inline(n) };
       }
@@ -14239,103 +12677,103 @@
       if (t) {
         let n = z(t[0], `
 `).split(`
-`), r = "", i = "", s = [];
+`), r4 = "", i2 = "", s2 = [];
         for (; n.length > 0; ) {
-          let a = false, o = [], l;
-          for (l = 0; l < n.length; l++) if (this.rules.other.blockquoteStart.test(n[l])) o.push(n[l]), a = true;
-          else if (!a) o.push(n[l]);
+          let a2 = false, o3 = [], l3;
+          for (l3 = 0; l3 < n.length; l3++) if (this.rules.other.blockquoteStart.test(n[l3])) o3.push(n[l3]), a2 = true;
+          else if (!a2) o3.push(n[l3]);
           else break;
-          n = n.slice(l);
-          let p = o.join(`
-`), c = p.replace(this.rules.other.blockquoteSetextReplace, `
+          n = n.slice(l3);
+          let p2 = o3.join(`
+`), c = p2.replace(this.rules.other.blockquoteSetextReplace, `
     $1`).replace(this.rules.other.blockquoteSetextReplace2, "");
-          r = r ? `${r}
-${p}` : p, i = i ? `${i}
+          r4 = r4 ? `${r4}
+${p2}` : p2, i2 = i2 ? `${i2}
 ${c}` : c;
           let g = this.lexer.state.top;
-          if (this.lexer.state.top = true, this.lexer.blockTokens(c, s, true), this.lexer.state.top = g, n.length === 0) break;
-          let h = s.at(-1);
-          if (h?.type === "code") break;
-          if (h?.type === "blockquote") {
-            let R = h, f = R.raw + `
+          if (this.lexer.state.top = true, this.lexer.blockTokens(c, s2, true), this.lexer.state.top = g, n.length === 0) break;
+          let h2 = s2.at(-1);
+          if (h2?.type === "code") break;
+          if (h2?.type === "blockquote") {
+            let R3 = h2, f2 = R3.raw + `
 ` + n.join(`
-`), O = this.blockquote(f);
-            s[s.length - 1] = O, r = r.substring(0, r.length - R.raw.length) + O.raw, i = i.substring(0, i.length - R.text.length) + O.text;
+`), O3 = this.blockquote(f2);
+            s2[s2.length - 1] = O3, r4 = r4.substring(0, r4.length - R3.raw.length) + O3.raw, i2 = i2.substring(0, i2.length - R3.text.length) + O3.text;
             break;
-          } else if (h?.type === "list") {
-            let R = h, f = R.raw + `
+          } else if (h2?.type === "list") {
+            let R3 = h2, f2 = R3.raw + `
 ` + n.join(`
-`), O = this.list(f);
-            s[s.length - 1] = O, r = r.substring(0, r.length - h.raw.length) + O.raw, i = i.substring(0, i.length - R.raw.length) + O.raw, n = f.substring(s.at(-1).raw.length).split(`
+`), O3 = this.list(f2);
+            s2[s2.length - 1] = O3, r4 = r4.substring(0, r4.length - h2.raw.length) + O3.raw, i2 = i2.substring(0, i2.length - R3.raw.length) + O3.raw, n = f2.substring(s2.at(-1).raw.length).split(`
 `);
             continue;
           }
         }
-        return { type: "blockquote", raw: r, tokens: s, text: i };
+        return { type: "blockquote", raw: r4, tokens: s2, text: i2 };
       }
     }
     list(e) {
       let t = this.rules.block.list.exec(e);
       if (t) {
-        let n = t[1].trim(), r = n.length > 1, i = { type: "list", raw: "", ordered: r, start: r ? +n.slice(0, -1) : "", loose: false, items: [] };
-        n = r ? `\\d{1,9}\\${n.slice(-1)}` : `\\${n}`, this.options.pedantic && (n = r ? n : "[*+-]");
-        let s = this.rules.other.listItemRegex(n), a = false;
+        let n = t[1].trim(), r4 = n.length > 1, i2 = { type: "list", raw: "", ordered: r4, start: r4 ? +n.slice(0, -1) : "", loose: false, items: [] };
+        n = r4 ? `\\d{1,9}\\${n.slice(-1)}` : `\\${n}`, this.options.pedantic && (n = r4 ? n : "[*+-]");
+        let s2 = this.rules.other.listItemRegex(n), a2 = false;
         for (; e; ) {
-          let l = false, p = "", c = "";
-          if (!(t = s.exec(e)) || this.rules.block.hr.test(e)) break;
-          p = t[0], e = e.substring(p.length);
+          let l3 = false, p2 = "", c = "";
+          if (!(t = s2.exec(e)) || this.rules.block.hr.test(e)) break;
+          p2 = t[0], e = e.substring(p2.length);
           let g = t[2].split(`
-`, 1)[0].replace(this.rules.other.listReplaceTabs, (O) => " ".repeat(3 * O.length)), h = e.split(`
-`, 1)[0], R = !g.trim(), f = 0;
-          if (this.options.pedantic ? (f = 2, c = g.trimStart()) : R ? f = t[1].length + 1 : (f = t[2].search(this.rules.other.nonSpaceChar), f = f > 4 ? 1 : f, c = g.slice(f), f += t[1].length), R && this.rules.other.blankLine.test(h) && (p += h + `
-`, e = e.substring(h.length + 1), l = true), !l) {
-            let O = this.rules.other.nextBulletRegex(f), V = this.rules.other.hrRegex(f), Y = this.rules.other.fencesBeginRegex(f), ee = this.rules.other.headingBeginRegex(f), fe = this.rules.other.htmlBeginRegex(f);
+`, 1)[0].replace(this.rules.other.listReplaceTabs, (O3) => " ".repeat(3 * O3.length)), h2 = e.split(`
+`, 1)[0], R3 = !g.trim(), f2 = 0;
+          if (this.options.pedantic ? (f2 = 2, c = g.trimStart()) : R3 ? f2 = t[1].length + 1 : (f2 = t[2].search(this.rules.other.nonSpaceChar), f2 = f2 > 4 ? 1 : f2, c = g.slice(f2), f2 += t[1].length), R3 && this.rules.other.blankLine.test(h2) && (p2 += h2 + `
+`, e = e.substring(h2.length + 1), l3 = true), !l3) {
+            let O3 = this.rules.other.nextBulletRegex(f2), V3 = this.rules.other.hrRegex(f2), Y2 = this.rules.other.fencesBeginRegex(f2), ee3 = this.rules.other.headingBeginRegex(f2), fe = this.rules.other.htmlBeginRegex(f2);
             for (; e; ) {
-              let H = e.split(`
-`, 1)[0], A;
-              if (h = H, this.options.pedantic ? (h = h.replace(this.rules.other.listReplaceNesting, "  "), A = h) : A = h.replace(this.rules.other.tabCharGlobal, "    "), Y.test(h) || ee.test(h) || fe.test(h) || O.test(h) || V.test(h)) break;
-              if (A.search(this.rules.other.nonSpaceChar) >= f || !h.trim()) c += `
-` + A.slice(f);
+              let H2 = e.split(`
+`, 1)[0], A3;
+              if (h2 = H2, this.options.pedantic ? (h2 = h2.replace(this.rules.other.listReplaceNesting, "  "), A3 = h2) : A3 = h2.replace(this.rules.other.tabCharGlobal, "    "), Y2.test(h2) || ee3.test(h2) || fe.test(h2) || O3.test(h2) || V3.test(h2)) break;
+              if (A3.search(this.rules.other.nonSpaceChar) >= f2 || !h2.trim()) c += `
+` + A3.slice(f2);
               else {
-                if (R || g.replace(this.rules.other.tabCharGlobal, "    ").search(this.rules.other.nonSpaceChar) >= 4 || Y.test(g) || ee.test(g) || V.test(g)) break;
+                if (R3 || g.replace(this.rules.other.tabCharGlobal, "    ").search(this.rules.other.nonSpaceChar) >= 4 || Y2.test(g) || ee3.test(g) || V3.test(g)) break;
                 c += `
-` + h;
+` + h2;
               }
-              !R && !h.trim() && (R = true), p += H + `
-`, e = e.substring(H.length + 1), g = A.slice(f);
+              !R3 && !h2.trim() && (R3 = true), p2 += H2 + `
+`, e = e.substring(H2.length + 1), g = A3.slice(f2);
             }
           }
-          i.loose || (a ? i.loose = true : this.rules.other.doubleBlankLine.test(p) && (a = true)), i.items.push({ type: "list_item", raw: p, task: !!this.options.gfm && this.rules.other.listIsTask.test(c), loose: false, text: c, tokens: [] }), i.raw += p;
+          i2.loose || (a2 ? i2.loose = true : this.rules.other.doubleBlankLine.test(p2) && (a2 = true)), i2.items.push({ type: "list_item", raw: p2, task: !!this.options.gfm && this.rules.other.listIsTask.test(c), loose: false, text: c, tokens: [] }), i2.raw += p2;
         }
-        let o = i.items.at(-1);
-        if (o) o.raw = o.raw.trimEnd(), o.text = o.text.trimEnd();
+        let o3 = i2.items.at(-1);
+        if (o3) o3.raw = o3.raw.trimEnd(), o3.text = o3.text.trimEnd();
         else return;
-        i.raw = i.raw.trimEnd();
-        for (let l of i.items) {
-          if (this.lexer.state.top = false, l.tokens = this.lexer.blockTokens(l.text, []), l.task) {
-            if (l.text = l.text.replace(this.rules.other.listReplaceTask, ""), l.tokens[0]?.type === "text" || l.tokens[0]?.type === "paragraph") {
-              l.tokens[0].raw = l.tokens[0].raw.replace(this.rules.other.listReplaceTask, ""), l.tokens[0].text = l.tokens[0].text.replace(this.rules.other.listReplaceTask, "");
+        i2.raw = i2.raw.trimEnd();
+        for (let l3 of i2.items) {
+          if (this.lexer.state.top = false, l3.tokens = this.lexer.blockTokens(l3.text, []), l3.task) {
+            if (l3.text = l3.text.replace(this.rules.other.listReplaceTask, ""), l3.tokens[0]?.type === "text" || l3.tokens[0]?.type === "paragraph") {
+              l3.tokens[0].raw = l3.tokens[0].raw.replace(this.rules.other.listReplaceTask, ""), l3.tokens[0].text = l3.tokens[0].text.replace(this.rules.other.listReplaceTask, "");
               for (let c = this.lexer.inlineQueue.length - 1; c >= 0; c--) if (this.rules.other.listIsTask.test(this.lexer.inlineQueue[c].src)) {
                 this.lexer.inlineQueue[c].src = this.lexer.inlineQueue[c].src.replace(this.rules.other.listReplaceTask, "");
                 break;
               }
             }
-            let p = this.rules.other.listTaskCheckbox.exec(l.raw);
-            if (p) {
-              let c = { type: "checkbox", raw: p[0] + " ", checked: p[0] !== "[ ]" };
-              l.checked = c.checked, i.loose ? l.tokens[0] && ["paragraph", "text"].includes(l.tokens[0].type) && "tokens" in l.tokens[0] && l.tokens[0].tokens ? (l.tokens[0].raw = c.raw + l.tokens[0].raw, l.tokens[0].text = c.raw + l.tokens[0].text, l.tokens[0].tokens.unshift(c)) : l.tokens.unshift({ type: "paragraph", raw: c.raw, text: c.raw, tokens: [c] }) : l.tokens.unshift(c);
+            let p2 = this.rules.other.listTaskCheckbox.exec(l3.raw);
+            if (p2) {
+              let c = { type: "checkbox", raw: p2[0] + " ", checked: p2[0] !== "[ ]" };
+              l3.checked = c.checked, i2.loose ? l3.tokens[0] && ["paragraph", "text"].includes(l3.tokens[0].type) && "tokens" in l3.tokens[0] && l3.tokens[0].tokens ? (l3.tokens[0].raw = c.raw + l3.tokens[0].raw, l3.tokens[0].text = c.raw + l3.tokens[0].text, l3.tokens[0].tokens.unshift(c)) : l3.tokens.unshift({ type: "paragraph", raw: c.raw, text: c.raw, tokens: [c] }) : l3.tokens.unshift(c);
             }
           }
-          if (!i.loose) {
-            let p = l.tokens.filter((g) => g.type === "space"), c = p.length > 0 && p.some((g) => this.rules.other.anyLine.test(g.raw));
-            i.loose = c;
+          if (!i2.loose) {
+            let p2 = l3.tokens.filter((g) => g.type === "space"), c = p2.length > 0 && p2.some((g) => this.rules.other.anyLine.test(g.raw));
+            i2.loose = c;
           }
         }
-        if (i.loose) for (let l of i.items) {
-          l.loose = true;
-          for (let p of l.tokens) p.type === "text" && (p.type = "paragraph");
+        if (i2.loose) for (let l3 of i2.items) {
+          l3.loose = true;
+          for (let p2 of l3.tokens) p2.type === "text" && (p2.type = "paragraph");
         }
-        return i;
+        return i2;
       }
     }
     html(e) {
@@ -14345,20 +12783,20 @@ ${c}` : c;
     def(e) {
       let t = this.rules.block.def.exec(e);
       if (t) {
-        let n = t[1].toLowerCase().replace(this.rules.other.multipleSpaceGlobal, " "), r = t[2] ? t[2].replace(this.rules.other.hrefBrackets, "$1").replace(this.rules.inline.anyPunctuation, "$1") : "", i = t[3] ? t[3].substring(1, t[3].length - 1).replace(this.rules.inline.anyPunctuation, "$1") : t[3];
-        return { type: "def", tag: n, raw: t[0], href: r, title: i };
+        let n = t[1].toLowerCase().replace(this.rules.other.multipleSpaceGlobal, " "), r4 = t[2] ? t[2].replace(this.rules.other.hrefBrackets, "$1").replace(this.rules.inline.anyPunctuation, "$1") : "", i2 = t[3] ? t[3].substring(1, t[3].length - 1).replace(this.rules.inline.anyPunctuation, "$1") : t[3];
+        return { type: "def", tag: n, raw: t[0], href: r4, title: i2 };
       }
     }
     table(e) {
       let t = this.rules.block.table.exec(e);
       if (!t || !this.rules.other.tableDelimiter.test(t[2])) return;
-      let n = J(t[1]), r = t[2].replace(this.rules.other.tableAlignChars, "").split("|"), i = t[3]?.trim() ? t[3].replace(this.rules.other.tableRowBlankLine, "").split(`
-`) : [], s = { type: "table", raw: t[0], header: [], align: [], rows: [] };
-      if (n.length === r.length) {
-        for (let a of r) this.rules.other.tableAlignRight.test(a) ? s.align.push("right") : this.rules.other.tableAlignCenter.test(a) ? s.align.push("center") : this.rules.other.tableAlignLeft.test(a) ? s.align.push("left") : s.align.push(null);
-        for (let a = 0; a < n.length; a++) s.header.push({ text: n[a], tokens: this.lexer.inline(n[a]), header: true, align: s.align[a] });
-        for (let a of i) s.rows.push(J(a, s.header.length).map((o, l) => ({ text: o, tokens: this.lexer.inline(o), header: false, align: s.align[l] })));
-        return s;
+      let n = J(t[1]), r4 = t[2].replace(this.rules.other.tableAlignChars, "").split("|"), i2 = t[3]?.trim() ? t[3].replace(this.rules.other.tableRowBlankLine, "").split(`
+`) : [], s2 = { type: "table", raw: t[0], header: [], align: [], rows: [] };
+      if (n.length === r4.length) {
+        for (let a2 of r4) this.rules.other.tableAlignRight.test(a2) ? s2.align.push("right") : this.rules.other.tableAlignCenter.test(a2) ? s2.align.push("center") : this.rules.other.tableAlignLeft.test(a2) ? s2.align.push("left") : s2.align.push(null);
+        for (let a2 = 0; a2 < n.length; a2++) s2.header.push({ text: n[a2], tokens: this.lexer.inline(n[a2]), header: true, align: s2.align[a2] });
+        for (let a2 of i2) s2.rows.push(J(a2, s2.header.length).map((o3, l3) => ({ text: o3, tokens: this.lexer.inline(o3), header: false, align: s2.align[l3] })));
+        return s2;
       }
     }
     lheading(e) {
@@ -14391,66 +12829,66 @@ ${c}` : c;
         let n = t[2].trim();
         if (!this.options.pedantic && this.rules.other.startAngleBracket.test(n)) {
           if (!this.rules.other.endAngleBracket.test(n)) return;
-          let s = z(n.slice(0, -1), "\\");
-          if ((n.length - s.length) % 2 === 0) return;
+          let s2 = z(n.slice(0, -1), "\\");
+          if ((n.length - s2.length) % 2 === 0) return;
         } else {
-          let s = de(t[2], "()");
-          if (s === -2) return;
-          if (s > -1) {
-            let o = (t[0].indexOf("!") === 0 ? 5 : 4) + t[1].length + s;
-            t[2] = t[2].substring(0, s), t[0] = t[0].substring(0, o).trim(), t[3] = "";
+          let s2 = de(t[2], "()");
+          if (s2 === -2) return;
+          if (s2 > -1) {
+            let o3 = (t[0].indexOf("!") === 0 ? 5 : 4) + t[1].length + s2;
+            t[2] = t[2].substring(0, s2), t[0] = t[0].substring(0, o3).trim(), t[3] = "";
           }
         }
-        let r = t[2], i = "";
+        let r4 = t[2], i2 = "";
         if (this.options.pedantic) {
-          let s = this.rules.other.pedanticHrefTitle.exec(r);
-          s && (r = s[1], i = s[3]);
-        } else i = t[3] ? t[3].slice(1, -1) : "";
-        return r = r.trim(), this.rules.other.startAngleBracket.test(r) && (this.options.pedantic && !this.rules.other.endAngleBracket.test(n) ? r = r.slice(1) : r = r.slice(1, -1)), ge(t, { href: r && r.replace(this.rules.inline.anyPunctuation, "$1"), title: i && i.replace(this.rules.inline.anyPunctuation, "$1") }, t[0], this.lexer, this.rules);
+          let s2 = this.rules.other.pedanticHrefTitle.exec(r4);
+          s2 && (r4 = s2[1], i2 = s2[3]);
+        } else i2 = t[3] ? t[3].slice(1, -1) : "";
+        return r4 = r4.trim(), this.rules.other.startAngleBracket.test(r4) && (this.options.pedantic && !this.rules.other.endAngleBracket.test(n) ? r4 = r4.slice(1) : r4 = r4.slice(1, -1)), ge(t, { href: r4 && r4.replace(this.rules.inline.anyPunctuation, "$1"), title: i2 && i2.replace(this.rules.inline.anyPunctuation, "$1") }, t[0], this.lexer, this.rules);
       }
     }
     reflink(e, t) {
       let n;
       if ((n = this.rules.inline.reflink.exec(e)) || (n = this.rules.inline.nolink.exec(e))) {
-        let r = (n[2] || n[1]).replace(this.rules.other.multipleSpaceGlobal, " "), i = t[r.toLowerCase()];
-        if (!i) {
-          let s = n[0].charAt(0);
-          return { type: "text", raw: s, text: s };
+        let r4 = (n[2] || n[1]).replace(this.rules.other.multipleSpaceGlobal, " "), i2 = t[r4.toLowerCase()];
+        if (!i2) {
+          let s2 = n[0].charAt(0);
+          return { type: "text", raw: s2, text: s2 };
         }
-        return ge(n, i, n[0], this.lexer, this.rules);
+        return ge(n, i2, n[0], this.lexer, this.rules);
       }
     }
     emStrong(e, t, n = "") {
-      let r = this.rules.inline.emStrongLDelim.exec(e);
-      if (!r || r[3] && n.match(this.rules.other.unicodeAlphaNumeric)) return;
-      if (!(r[1] || r[2] || "") || !n || this.rules.inline.punctuation.exec(n)) {
-        let s = [...r[0]].length - 1, a, o, l = s, p = 0, c = r[0][0] === "*" ? this.rules.inline.emStrongRDelimAst : this.rules.inline.emStrongRDelimUnd;
-        for (c.lastIndex = 0, t = t.slice(-1 * e.length + s); (r = c.exec(t)) != null; ) {
-          if (a = r[1] || r[2] || r[3] || r[4] || r[5] || r[6], !a) continue;
-          if (o = [...a].length, r[3] || r[4]) {
-            l += o;
+      let r4 = this.rules.inline.emStrongLDelim.exec(e);
+      if (!r4 || r4[3] && n.match(this.rules.other.unicodeAlphaNumeric)) return;
+      if (!(r4[1] || r4[2] || "") || !n || this.rules.inline.punctuation.exec(n)) {
+        let s2 = [...r4[0]].length - 1, a2, o3, l3 = s2, p2 = 0, c = r4[0][0] === "*" ? this.rules.inline.emStrongRDelimAst : this.rules.inline.emStrongRDelimUnd;
+        for (c.lastIndex = 0, t = t.slice(-1 * e.length + s2); (r4 = c.exec(t)) != null; ) {
+          if (a2 = r4[1] || r4[2] || r4[3] || r4[4] || r4[5] || r4[6], !a2) continue;
+          if (o3 = [...a2].length, r4[3] || r4[4]) {
+            l3 += o3;
             continue;
-          } else if ((r[5] || r[6]) && s % 3 && !((s + o) % 3)) {
-            p += o;
+          } else if ((r4[5] || r4[6]) && s2 % 3 && !((s2 + o3) % 3)) {
+            p2 += o3;
             continue;
           }
-          if (l -= o, l > 0) continue;
-          o = Math.min(o, o + l + p);
-          let g = [...r[0]][0].length, h = e.slice(0, s + r.index + g + o);
-          if (Math.min(s, o) % 2) {
-            let f = h.slice(1, -1);
-            return { type: "em", raw: h, text: f, tokens: this.lexer.inlineTokens(f) };
+          if (l3 -= o3, l3 > 0) continue;
+          o3 = Math.min(o3, o3 + l3 + p2);
+          let g = [...r4[0]][0].length, h2 = e.slice(0, s2 + r4.index + g + o3);
+          if (Math.min(s2, o3) % 2) {
+            let f2 = h2.slice(1, -1);
+            return { type: "em", raw: h2, text: f2, tokens: this.lexer.inlineTokens(f2) };
           }
-          let R = h.slice(2, -2);
-          return { type: "strong", raw: h, text: R, tokens: this.lexer.inlineTokens(R) };
+          let R3 = h2.slice(2, -2);
+          return { type: "strong", raw: h2, text: R3, tokens: this.lexer.inlineTokens(R3) };
         }
       }
     }
     codespan(e) {
       let t = this.rules.inline.code.exec(e);
       if (t) {
-        let n = t[2].replace(this.rules.other.newLineCharGlobal, " "), r = this.rules.other.nonSpaceChar.test(n), i = this.rules.other.startingSpaceChar.test(n) && this.rules.other.endingSpaceChar.test(n);
-        return r && i && (n = n.substring(1, n.length - 1)), { type: "codespan", raw: t[0], text: n };
+        let n = t[2].replace(this.rules.other.newLineCharGlobal, " "), r4 = this.rules.other.nonSpaceChar.test(n), i2 = this.rules.other.startingSpaceChar.test(n) && this.rules.other.endingSpaceChar.test(n);
+        return r4 && i2 && (n = n.substring(1, n.length - 1)), { type: "codespan", raw: t[0], text: n };
       }
     }
     br(e) {
@@ -14464,23 +12902,23 @@ ${c}` : c;
     autolink(e) {
       let t = this.rules.inline.autolink.exec(e);
       if (t) {
-        let n, r;
-        return t[2] === "@" ? (n = t[1], r = "mailto:" + n) : (n = t[1], r = n), { type: "link", raw: t[0], text: n, href: r, tokens: [{ type: "text", raw: n, text: n }] };
+        let n, r4;
+        return t[2] === "@" ? (n = t[1], r4 = "mailto:" + n) : (n = t[1], r4 = n), { type: "link", raw: t[0], text: n, href: r4, tokens: [{ type: "text", raw: n, text: n }] };
       }
     }
     url(e) {
       let t;
       if (t = this.rules.inline.url.exec(e)) {
-        let n, r;
-        if (t[2] === "@") n = t[0], r = "mailto:" + n;
+        let n, r4;
+        if (t[2] === "@") n = t[0], r4 = "mailto:" + n;
         else {
-          let i;
+          let i2;
           do
-            i = t[0], t[0] = this.rules.inline._backpedal.exec(t[0])?.[0] ?? "";
-          while (i !== t[0]);
-          n = t[0], t[1] === "www." ? r = "http://" + t[0] : r = t[0];
+            i2 = t[0], t[0] = this.rules.inline._backpedal.exec(t[0])?.[0] ?? "";
+          while (i2 !== t[0]);
+          n = t[0], t[1] === "www." ? r4 = "http://" + t[0] : r4 = t[0];
         }
-        return { type: "link", raw: t[0], text: n, href: r, tokens: [{ type: "text", raw: n, text: n }] };
+        return { type: "link", raw: t[0], text: n, href: r4, tokens: [{ type: "text", raw: n, text: n }] };
       }
     }
     inlineText(e) {
@@ -14522,95 +12960,95 @@ ${c}` : c;
     }
     blockTokens(e, t = [], n = false) {
       for (this.options.pedantic && (e = e.replace(m.tabCharGlobal, "    ").replace(m.spaceLine, "")); e; ) {
-        let r;
-        if (this.options.extensions?.block?.some((s) => (r = s.call({ lexer: this }, e, t)) ? (e = e.substring(r.raw.length), t.push(r), true) : false)) continue;
-        if (r = this.tokenizer.space(e)) {
-          e = e.substring(r.raw.length);
-          let s = t.at(-1);
-          r.raw.length === 1 && s !== void 0 ? s.raw += `
-` : t.push(r);
+        let r4;
+        if (this.options.extensions?.block?.some((s2) => (r4 = s2.call({ lexer: this }, e, t)) ? (e = e.substring(r4.raw.length), t.push(r4), true) : false)) continue;
+        if (r4 = this.tokenizer.space(e)) {
+          e = e.substring(r4.raw.length);
+          let s2 = t.at(-1);
+          r4.raw.length === 1 && s2 !== void 0 ? s2.raw += `
+` : t.push(r4);
           continue;
         }
-        if (r = this.tokenizer.code(e)) {
-          e = e.substring(r.raw.length);
-          let s = t.at(-1);
-          s?.type === "paragraph" || s?.type === "text" ? (s.raw += (s.raw.endsWith(`
+        if (r4 = this.tokenizer.code(e)) {
+          e = e.substring(r4.raw.length);
+          let s2 = t.at(-1);
+          s2?.type === "paragraph" || s2?.type === "text" ? (s2.raw += (s2.raw.endsWith(`
 `) ? "" : `
-`) + r.raw, s.text += `
-` + r.text, this.inlineQueue.at(-1).src = s.text) : t.push(r);
+`) + r4.raw, s2.text += `
+` + r4.text, this.inlineQueue.at(-1).src = s2.text) : t.push(r4);
           continue;
         }
-        if (r = this.tokenizer.fences(e)) {
-          e = e.substring(r.raw.length), t.push(r);
+        if (r4 = this.tokenizer.fences(e)) {
+          e = e.substring(r4.raw.length), t.push(r4);
           continue;
         }
-        if (r = this.tokenizer.heading(e)) {
-          e = e.substring(r.raw.length), t.push(r);
+        if (r4 = this.tokenizer.heading(e)) {
+          e = e.substring(r4.raw.length), t.push(r4);
           continue;
         }
-        if (r = this.tokenizer.hr(e)) {
-          e = e.substring(r.raw.length), t.push(r);
+        if (r4 = this.tokenizer.hr(e)) {
+          e = e.substring(r4.raw.length), t.push(r4);
           continue;
         }
-        if (r = this.tokenizer.blockquote(e)) {
-          e = e.substring(r.raw.length), t.push(r);
+        if (r4 = this.tokenizer.blockquote(e)) {
+          e = e.substring(r4.raw.length), t.push(r4);
           continue;
         }
-        if (r = this.tokenizer.list(e)) {
-          e = e.substring(r.raw.length), t.push(r);
+        if (r4 = this.tokenizer.list(e)) {
+          e = e.substring(r4.raw.length), t.push(r4);
           continue;
         }
-        if (r = this.tokenizer.html(e)) {
-          e = e.substring(r.raw.length), t.push(r);
+        if (r4 = this.tokenizer.html(e)) {
+          e = e.substring(r4.raw.length), t.push(r4);
           continue;
         }
-        if (r = this.tokenizer.def(e)) {
-          e = e.substring(r.raw.length);
-          let s = t.at(-1);
-          s?.type === "paragraph" || s?.type === "text" ? (s.raw += (s.raw.endsWith(`
+        if (r4 = this.tokenizer.def(e)) {
+          e = e.substring(r4.raw.length);
+          let s2 = t.at(-1);
+          s2?.type === "paragraph" || s2?.type === "text" ? (s2.raw += (s2.raw.endsWith(`
 `) ? "" : `
-`) + r.raw, s.text += `
-` + r.raw, this.inlineQueue.at(-1).src = s.text) : this.tokens.links[r.tag] || (this.tokens.links[r.tag] = { href: r.href, title: r.title }, t.push(r));
+`) + r4.raw, s2.text += `
+` + r4.raw, this.inlineQueue.at(-1).src = s2.text) : this.tokens.links[r4.tag] || (this.tokens.links[r4.tag] = { href: r4.href, title: r4.title }, t.push(r4));
           continue;
         }
-        if (r = this.tokenizer.table(e)) {
-          e = e.substring(r.raw.length), t.push(r);
+        if (r4 = this.tokenizer.table(e)) {
+          e = e.substring(r4.raw.length), t.push(r4);
           continue;
         }
-        if (r = this.tokenizer.lheading(e)) {
-          e = e.substring(r.raw.length), t.push(r);
+        if (r4 = this.tokenizer.lheading(e)) {
+          e = e.substring(r4.raw.length), t.push(r4);
           continue;
         }
-        let i = e;
+        let i2 = e;
         if (this.options.extensions?.startBlock) {
-          let s = 1 / 0, a = e.slice(1), o;
-          this.options.extensions.startBlock.forEach((l) => {
-            o = l.call({ lexer: this }, a), typeof o == "number" && o >= 0 && (s = Math.min(s, o));
-          }), s < 1 / 0 && s >= 0 && (i = e.substring(0, s + 1));
+          let s2 = 1 / 0, a2 = e.slice(1), o3;
+          this.options.extensions.startBlock.forEach((l3) => {
+            o3 = l3.call({ lexer: this }, a2), typeof o3 == "number" && o3 >= 0 && (s2 = Math.min(s2, o3));
+          }), s2 < 1 / 0 && s2 >= 0 && (i2 = e.substring(0, s2 + 1));
         }
-        if (this.state.top && (r = this.tokenizer.paragraph(i))) {
-          let s = t.at(-1);
-          n && s?.type === "paragraph" ? (s.raw += (s.raw.endsWith(`
+        if (this.state.top && (r4 = this.tokenizer.paragraph(i2))) {
+          let s2 = t.at(-1);
+          n && s2?.type === "paragraph" ? (s2.raw += (s2.raw.endsWith(`
 `) ? "" : `
-`) + r.raw, s.text += `
-` + r.text, this.inlineQueue.pop(), this.inlineQueue.at(-1).src = s.text) : t.push(r), n = i.length !== e.length, e = e.substring(r.raw.length);
+`) + r4.raw, s2.text += `
+` + r4.text, this.inlineQueue.pop(), this.inlineQueue.at(-1).src = s2.text) : t.push(r4), n = i2.length !== e.length, e = e.substring(r4.raw.length);
           continue;
         }
-        if (r = this.tokenizer.text(e)) {
-          e = e.substring(r.raw.length);
-          let s = t.at(-1);
-          s?.type === "text" ? (s.raw += (s.raw.endsWith(`
+        if (r4 = this.tokenizer.text(e)) {
+          e = e.substring(r4.raw.length);
+          let s2 = t.at(-1);
+          s2?.type === "text" ? (s2.raw += (s2.raw.endsWith(`
 `) ? "" : `
-`) + r.raw, s.text += `
-` + r.text, this.inlineQueue.pop(), this.inlineQueue.at(-1).src = s.text) : t.push(r);
+`) + r4.raw, s2.text += `
+` + r4.text, this.inlineQueue.pop(), this.inlineQueue.at(-1).src = s2.text) : t.push(r4);
           continue;
         }
         if (e) {
-          let s = "Infinite loop on byte: " + e.charCodeAt(0);
+          let s2 = "Infinite loop on byte: " + e.charCodeAt(0);
           if (this.options.silent) {
-            console.error(s);
+            console.error(s2);
             break;
-          } else throw new Error(s);
+          } else throw new Error(s2);
         }
       }
       return this.state.top = true, t;
@@ -14619,81 +13057,81 @@ ${c}` : c;
       return this.inlineQueue.push({ src: e, tokens: t }), t;
     }
     inlineTokens(e, t = []) {
-      let n = e, r = null;
+      let n = e, r4 = null;
       if (this.tokens.links) {
-        let o = Object.keys(this.tokens.links);
-        if (o.length > 0) for (; (r = this.tokenizer.rules.inline.reflinkSearch.exec(n)) != null; ) o.includes(r[0].slice(r[0].lastIndexOf("[") + 1, -1)) && (n = n.slice(0, r.index) + "[" + "a".repeat(r[0].length - 2) + "]" + n.slice(this.tokenizer.rules.inline.reflinkSearch.lastIndex));
+        let o3 = Object.keys(this.tokens.links);
+        if (o3.length > 0) for (; (r4 = this.tokenizer.rules.inline.reflinkSearch.exec(n)) != null; ) o3.includes(r4[0].slice(r4[0].lastIndexOf("[") + 1, -1)) && (n = n.slice(0, r4.index) + "[" + "a".repeat(r4[0].length - 2) + "]" + n.slice(this.tokenizer.rules.inline.reflinkSearch.lastIndex));
       }
-      for (; (r = this.tokenizer.rules.inline.anyPunctuation.exec(n)) != null; ) n = n.slice(0, r.index) + "++" + n.slice(this.tokenizer.rules.inline.anyPunctuation.lastIndex);
-      let i;
-      for (; (r = this.tokenizer.rules.inline.blockSkip.exec(n)) != null; ) i = r[2] ? r[2].length : 0, n = n.slice(0, r.index + i) + "[" + "a".repeat(r[0].length - i - 2) + "]" + n.slice(this.tokenizer.rules.inline.blockSkip.lastIndex);
+      for (; (r4 = this.tokenizer.rules.inline.anyPunctuation.exec(n)) != null; ) n = n.slice(0, r4.index) + "++" + n.slice(this.tokenizer.rules.inline.anyPunctuation.lastIndex);
+      let i2;
+      for (; (r4 = this.tokenizer.rules.inline.blockSkip.exec(n)) != null; ) i2 = r4[2] ? r4[2].length : 0, n = n.slice(0, r4.index + i2) + "[" + "a".repeat(r4[0].length - i2 - 2) + "]" + n.slice(this.tokenizer.rules.inline.blockSkip.lastIndex);
       n = this.options.hooks?.emStrongMask?.call({ lexer: this }, n) ?? n;
-      let s = false, a = "";
+      let s2 = false, a2 = "";
       for (; e; ) {
-        s || (a = ""), s = false;
-        let o;
-        if (this.options.extensions?.inline?.some((p) => (o = p.call({ lexer: this }, e, t)) ? (e = e.substring(o.raw.length), t.push(o), true) : false)) continue;
-        if (o = this.tokenizer.escape(e)) {
-          e = e.substring(o.raw.length), t.push(o);
+        s2 || (a2 = ""), s2 = false;
+        let o3;
+        if (this.options.extensions?.inline?.some((p2) => (o3 = p2.call({ lexer: this }, e, t)) ? (e = e.substring(o3.raw.length), t.push(o3), true) : false)) continue;
+        if (o3 = this.tokenizer.escape(e)) {
+          e = e.substring(o3.raw.length), t.push(o3);
           continue;
         }
-        if (o = this.tokenizer.tag(e)) {
-          e = e.substring(o.raw.length), t.push(o);
+        if (o3 = this.tokenizer.tag(e)) {
+          e = e.substring(o3.raw.length), t.push(o3);
           continue;
         }
-        if (o = this.tokenizer.link(e)) {
-          e = e.substring(o.raw.length), t.push(o);
+        if (o3 = this.tokenizer.link(e)) {
+          e = e.substring(o3.raw.length), t.push(o3);
           continue;
         }
-        if (o = this.tokenizer.reflink(e, this.tokens.links)) {
-          e = e.substring(o.raw.length);
-          let p = t.at(-1);
-          o.type === "text" && p?.type === "text" ? (p.raw += o.raw, p.text += o.text) : t.push(o);
+        if (o3 = this.tokenizer.reflink(e, this.tokens.links)) {
+          e = e.substring(o3.raw.length);
+          let p2 = t.at(-1);
+          o3.type === "text" && p2?.type === "text" ? (p2.raw += o3.raw, p2.text += o3.text) : t.push(o3);
           continue;
         }
-        if (o = this.tokenizer.emStrong(e, n, a)) {
-          e = e.substring(o.raw.length), t.push(o);
+        if (o3 = this.tokenizer.emStrong(e, n, a2)) {
+          e = e.substring(o3.raw.length), t.push(o3);
           continue;
         }
-        if (o = this.tokenizer.codespan(e)) {
-          e = e.substring(o.raw.length), t.push(o);
+        if (o3 = this.tokenizer.codespan(e)) {
+          e = e.substring(o3.raw.length), t.push(o3);
           continue;
         }
-        if (o = this.tokenizer.br(e)) {
-          e = e.substring(o.raw.length), t.push(o);
+        if (o3 = this.tokenizer.br(e)) {
+          e = e.substring(o3.raw.length), t.push(o3);
           continue;
         }
-        if (o = this.tokenizer.del(e)) {
-          e = e.substring(o.raw.length), t.push(o);
+        if (o3 = this.tokenizer.del(e)) {
+          e = e.substring(o3.raw.length), t.push(o3);
           continue;
         }
-        if (o = this.tokenizer.autolink(e)) {
-          e = e.substring(o.raw.length), t.push(o);
+        if (o3 = this.tokenizer.autolink(e)) {
+          e = e.substring(o3.raw.length), t.push(o3);
           continue;
         }
-        if (!this.state.inLink && (o = this.tokenizer.url(e))) {
-          e = e.substring(o.raw.length), t.push(o);
+        if (!this.state.inLink && (o3 = this.tokenizer.url(e))) {
+          e = e.substring(o3.raw.length), t.push(o3);
           continue;
         }
-        let l = e;
+        let l3 = e;
         if (this.options.extensions?.startInline) {
-          let p = 1 / 0, c = e.slice(1), g;
-          this.options.extensions.startInline.forEach((h) => {
-            g = h.call({ lexer: this }, c), typeof g == "number" && g >= 0 && (p = Math.min(p, g));
-          }), p < 1 / 0 && p >= 0 && (l = e.substring(0, p + 1));
+          let p2 = 1 / 0, c = e.slice(1), g;
+          this.options.extensions.startInline.forEach((h2) => {
+            g = h2.call({ lexer: this }, c), typeof g == "number" && g >= 0 && (p2 = Math.min(p2, g));
+          }), p2 < 1 / 0 && p2 >= 0 && (l3 = e.substring(0, p2 + 1));
         }
-        if (o = this.tokenizer.inlineText(l)) {
-          e = e.substring(o.raw.length), o.raw.slice(-1) !== "_" && (a = o.raw.slice(-1)), s = true;
-          let p = t.at(-1);
-          p?.type === "text" ? (p.raw += o.raw, p.text += o.text) : t.push(o);
+        if (o3 = this.tokenizer.inlineText(l3)) {
+          e = e.substring(o3.raw.length), o3.raw.slice(-1) !== "_" && (a2 = o3.raw.slice(-1)), s2 = true;
+          let p2 = t.at(-1);
+          p2?.type === "text" ? (p2.raw += o3.raw, p2.text += o3.text) : t.push(o3);
           continue;
         }
         if (e) {
-          let p = "Infinite loop on byte: " + e.charCodeAt(0);
+          let p2 = "Infinite loop on byte: " + e.charCodeAt(0);
           if (this.options.silent) {
-            console.error(p);
+            console.error(p2);
             break;
-          } else throw new Error(p);
+          } else throw new Error(p2);
         }
       }
       return t;
@@ -14709,10 +13147,10 @@ ${c}` : c;
       return "";
     }
     code({ text: e, lang: t, escaped: n }) {
-      let r = (t || "").match(m.notSpaceStart)?.[0], i = e.replace(m.endingNewline, "") + `
+      let r4 = (t || "").match(m.notSpaceStart)?.[0], i2 = e.replace(m.endingNewline, "") + `
 `;
-      return r ? '<pre><code class="language-' + w(r) + '">' + (n ? i : w(i, true)) + `</code></pre>
-` : "<pre><code>" + (n ? i : w(i, true)) + `</code></pre>
+      return r4 ? '<pre><code class="language-' + w(r4) + '">' + (n ? i2 : w(i2, true)) + `</code></pre>
+` : "<pre><code>" + (n ? i2 : w(i2, true)) + `</code></pre>
 `;
     }
     blockquote({ tokens: e }) {
@@ -14735,14 +13173,14 @@ ${this.parser.parse(e)}</blockquote>
 `;
     }
     list(e) {
-      let t = e.ordered, n = e.start, r = "";
-      for (let a = 0; a < e.items.length; a++) {
-        let o = e.items[a];
-        r += this.listitem(o);
+      let t = e.ordered, n = e.start, r4 = "";
+      for (let a2 = 0; a2 < e.items.length; a2++) {
+        let o3 = e.items[a2];
+        r4 += this.listitem(o3);
       }
-      let i = t ? "ol" : "ul", s = t && n !== 1 ? ' start="' + n + '"' : "";
-      return "<" + i + s + `>
-` + r + "</" + i + `>
+      let i2 = t ? "ol" : "ul", s2 = t && n !== 1 ? ' start="' + n + '"' : "";
+      return "<" + i2 + s2 + `>
+` + r4 + "</" + i2 + `>
 `;
     }
     listitem(e) {
@@ -14758,19 +13196,19 @@ ${this.parser.parse(e)}</blockquote>
     }
     table(e) {
       let t = "", n = "";
-      for (let i = 0; i < e.header.length; i++) n += this.tablecell(e.header[i]);
+      for (let i2 = 0; i2 < e.header.length; i2++) n += this.tablecell(e.header[i2]);
       t += this.tablerow({ text: n });
-      let r = "";
-      for (let i = 0; i < e.rows.length; i++) {
-        let s = e.rows[i];
+      let r4 = "";
+      for (let i2 = 0; i2 < e.rows.length; i2++) {
+        let s2 = e.rows[i2];
         n = "";
-        for (let a = 0; a < s.length; a++) n += this.tablecell(s[a]);
-        r += this.tablerow({ text: n });
+        for (let a2 = 0; a2 < s2.length; a2++) n += this.tablecell(s2[a2]);
+        r4 += this.tablerow({ text: n });
       }
-      return r && (r = `<tbody>${r}</tbody>`), `<table>
+      return r4 && (r4 = `<tbody>${r4}</tbody>`), `<table>
 <thead>
 ` + t + `</thead>
-` + r + `</table>
+` + r4 + `</table>
 `;
     }
     tablerow({ text: e }) {
@@ -14799,19 +13237,19 @@ ${e}</tr>
       return `<del>${this.parser.parseInline(e)}</del>`;
     }
     link({ href: e, title: t, tokens: n }) {
-      let r = this.parser.parseInline(n), i = X(e);
-      if (i === null) return r;
-      e = i;
-      let s = '<a href="' + e + '"';
-      return t && (s += ' title="' + w(t) + '"'), s += ">" + r + "</a>", s;
+      let r4 = this.parser.parseInline(n), i2 = X(e);
+      if (i2 === null) return r4;
+      e = i2;
+      let s2 = '<a href="' + e + '"';
+      return t && (s2 += ' title="' + w(t) + '"'), s2 += ">" + r4 + "</a>", s2;
     }
-    image({ href: e, title: t, text: n, tokens: r }) {
-      r && (n = this.parser.parseInline(r, this.parser.textRenderer));
-      let i = X(e);
-      if (i === null) return w(n);
-      e = i;
-      let s = `<img src="${e}" alt="${n}"`;
-      return t && (s += ` title="${w(t)}"`), s += ">", s;
+    image({ href: e, title: t, text: n, tokens: r4 }) {
+      r4 && (n = this.parser.parseInline(r4, this.parser.textRenderer));
+      let i2 = X(e);
+      if (i2 === null) return w(n);
+      e = i2;
+      let s2 = `<img src="${e}" alt="${n}"`;
+      return t && (s2 += ` title="${w(t)}"`), s2 += ">", s2;
     }
     text(e) {
       return "tokens" in e && e.tokens ? this.parser.parseInline(e.tokens) : "escaped" in e && e.escaped ? e.text : w(e.text);
@@ -14865,68 +13303,68 @@ ${e}</tr>
     parse(e) {
       let t = "";
       for (let n = 0; n < e.length; n++) {
-        let r = e[n];
-        if (this.options.extensions?.renderers?.[r.type]) {
-          let s = r, a = this.options.extensions.renderers[s.type].call({ parser: this }, s);
-          if (a !== false || !["space", "hr", "heading", "code", "table", "blockquote", "list", "html", "def", "paragraph", "text"].includes(s.type)) {
-            t += a || "";
+        let r4 = e[n];
+        if (this.options.extensions?.renderers?.[r4.type]) {
+          let s2 = r4, a2 = this.options.extensions.renderers[s2.type].call({ parser: this }, s2);
+          if (a2 !== false || !["space", "hr", "heading", "code", "table", "blockquote", "list", "html", "def", "paragraph", "text"].includes(s2.type)) {
+            t += a2 || "";
             continue;
           }
         }
-        let i = r;
-        switch (i.type) {
+        let i2 = r4;
+        switch (i2.type) {
           case "space": {
-            t += this.renderer.space(i);
+            t += this.renderer.space(i2);
             break;
           }
           case "hr": {
-            t += this.renderer.hr(i);
+            t += this.renderer.hr(i2);
             break;
           }
           case "heading": {
-            t += this.renderer.heading(i);
+            t += this.renderer.heading(i2);
             break;
           }
           case "code": {
-            t += this.renderer.code(i);
+            t += this.renderer.code(i2);
             break;
           }
           case "table": {
-            t += this.renderer.table(i);
+            t += this.renderer.table(i2);
             break;
           }
           case "blockquote": {
-            t += this.renderer.blockquote(i);
+            t += this.renderer.blockquote(i2);
             break;
           }
           case "list": {
-            t += this.renderer.list(i);
+            t += this.renderer.list(i2);
             break;
           }
           case "checkbox": {
-            t += this.renderer.checkbox(i);
+            t += this.renderer.checkbox(i2);
             break;
           }
           case "html": {
-            t += this.renderer.html(i);
+            t += this.renderer.html(i2);
             break;
           }
           case "def": {
-            t += this.renderer.def(i);
+            t += this.renderer.def(i2);
             break;
           }
           case "paragraph": {
-            t += this.renderer.paragraph(i);
+            t += this.renderer.paragraph(i2);
             break;
           }
           case "text": {
-            t += this.renderer.text(i);
+            t += this.renderer.text(i2);
             break;
           }
           default: {
-            let s = 'Token with "' + i.type + '" type was not found.';
-            if (this.options.silent) return console.error(s), "";
-            throw new Error(s);
+            let s2 = 'Token with "' + i2.type + '" type was not found.';
+            if (this.options.silent) return console.error(s2), "";
+            throw new Error(s2);
           }
         }
       }
@@ -14934,65 +13372,65 @@ ${e}</tr>
     }
     parseInline(e, t = this.renderer) {
       let n = "";
-      for (let r = 0; r < e.length; r++) {
-        let i = e[r];
-        if (this.options.extensions?.renderers?.[i.type]) {
-          let a = this.options.extensions.renderers[i.type].call({ parser: this }, i);
-          if (a !== false || !["escape", "html", "link", "image", "strong", "em", "codespan", "br", "del", "text"].includes(i.type)) {
-            n += a || "";
+      for (let r4 = 0; r4 < e.length; r4++) {
+        let i2 = e[r4];
+        if (this.options.extensions?.renderers?.[i2.type]) {
+          let a2 = this.options.extensions.renderers[i2.type].call({ parser: this }, i2);
+          if (a2 !== false || !["escape", "html", "link", "image", "strong", "em", "codespan", "br", "del", "text"].includes(i2.type)) {
+            n += a2 || "";
             continue;
           }
         }
-        let s = i;
-        switch (s.type) {
+        let s2 = i2;
+        switch (s2.type) {
           case "escape": {
-            n += t.text(s);
+            n += t.text(s2);
             break;
           }
           case "html": {
-            n += t.html(s);
+            n += t.html(s2);
             break;
           }
           case "link": {
-            n += t.link(s);
+            n += t.link(s2);
             break;
           }
           case "image": {
-            n += t.image(s);
+            n += t.image(s2);
             break;
           }
           case "checkbox": {
-            n += t.checkbox(s);
+            n += t.checkbox(s2);
             break;
           }
           case "strong": {
-            n += t.strong(s);
+            n += t.strong(s2);
             break;
           }
           case "em": {
-            n += t.em(s);
+            n += t.em(s2);
             break;
           }
           case "codespan": {
-            n += t.codespan(s);
+            n += t.codespan(s2);
             break;
           }
           case "br": {
-            n += t.br(s);
+            n += t.br(s2);
             break;
           }
           case "del": {
-            n += t.del(s);
+            n += t.del(s2);
             break;
           }
           case "text": {
-            n += t.text(s);
+            n += t.text(s2);
             break;
           }
           default: {
-            let a = 'Token with "' + s.type + '" type was not found.';
-            if (this.options.silent) return console.error(a), "";
-            throw new Error(a);
+            let a2 = 'Token with "' + s2.type + '" type was not found.';
+            if (this.options.silent) return console.error(a2), "";
+            throw new Error(a2);
           }
         }
       }
@@ -15042,24 +13480,24 @@ ${e}</tr>
     }
     walkTokens(e, t) {
       let n = [];
-      for (let r of e) switch (n = n.concat(t.call(this, r)), r.type) {
+      for (let r4 of e) switch (n = n.concat(t.call(this, r4)), r4.type) {
         case "table": {
-          let i = r;
-          for (let s of i.header) n = n.concat(this.walkTokens(s.tokens, t));
-          for (let s of i.rows) for (let a of s) n = n.concat(this.walkTokens(a.tokens, t));
+          let i2 = r4;
+          for (let s2 of i2.header) n = n.concat(this.walkTokens(s2.tokens, t));
+          for (let s2 of i2.rows) for (let a2 of s2) n = n.concat(this.walkTokens(a2.tokens, t));
           break;
         }
         case "list": {
-          let i = r;
-          n = n.concat(this.walkTokens(i.items, t));
+          let i2 = r4;
+          n = n.concat(this.walkTokens(i2.items, t));
           break;
         }
         default: {
-          let i = r;
-          this.defaults.extensions?.childTokens?.[i.type] ? this.defaults.extensions.childTokens[i.type].forEach((s) => {
-            let a = i[s].flat(1 / 0);
-            n = n.concat(this.walkTokens(a, t));
-          }) : i.tokens && (n = n.concat(this.walkTokens(i.tokens, t)));
+          let i2 = r4;
+          this.defaults.extensions?.childTokens?.[i2.type] ? this.defaults.extensions.childTokens[i2.type].forEach((s2) => {
+            let a2 = i2[s2].flat(1 / 0);
+            n = n.concat(this.walkTokens(a2, t));
+          }) : i2.tokens && (n = n.concat(this.walkTokens(i2.tokens, t)));
         }
       }
       return n;
@@ -15067,80 +13505,80 @@ ${e}</tr>
     use(...e) {
       let t = this.defaults.extensions || { renderers: {}, childTokens: {} };
       return e.forEach((n) => {
-        let r = { ...n };
-        if (r.async = this.defaults.async || r.async || false, n.extensions && (n.extensions.forEach((i) => {
-          if (!i.name) throw new Error("extension name required");
-          if ("renderer" in i) {
-            let s = t.renderers[i.name];
-            s ? t.renderers[i.name] = function(...a) {
-              let o = i.renderer.apply(this, a);
-              return o === false && (o = s.apply(this, a)), o;
-            } : t.renderers[i.name] = i.renderer;
+        let r4 = { ...n };
+        if (r4.async = this.defaults.async || r4.async || false, n.extensions && (n.extensions.forEach((i2) => {
+          if (!i2.name) throw new Error("extension name required");
+          if ("renderer" in i2) {
+            let s2 = t.renderers[i2.name];
+            s2 ? t.renderers[i2.name] = function(...a2) {
+              let o3 = i2.renderer.apply(this, a2);
+              return o3 === false && (o3 = s2.apply(this, a2)), o3;
+            } : t.renderers[i2.name] = i2.renderer;
           }
-          if ("tokenizer" in i) {
-            if (!i.level || i.level !== "block" && i.level !== "inline") throw new Error("extension level must be 'block' or 'inline'");
-            let s = t[i.level];
-            s ? s.unshift(i.tokenizer) : t[i.level] = [i.tokenizer], i.start && (i.level === "block" ? t.startBlock ? t.startBlock.push(i.start) : t.startBlock = [i.start] : i.level === "inline" && (t.startInline ? t.startInline.push(i.start) : t.startInline = [i.start]));
+          if ("tokenizer" in i2) {
+            if (!i2.level || i2.level !== "block" && i2.level !== "inline") throw new Error("extension level must be 'block' or 'inline'");
+            let s2 = t[i2.level];
+            s2 ? s2.unshift(i2.tokenizer) : t[i2.level] = [i2.tokenizer], i2.start && (i2.level === "block" ? t.startBlock ? t.startBlock.push(i2.start) : t.startBlock = [i2.start] : i2.level === "inline" && (t.startInline ? t.startInline.push(i2.start) : t.startInline = [i2.start]));
           }
-          "childTokens" in i && i.childTokens && (t.childTokens[i.name] = i.childTokens);
-        }), r.extensions = t), n.renderer) {
-          let i = this.defaults.renderer || new P(this.defaults);
-          for (let s in n.renderer) {
-            if (!(s in i)) throw new Error(`renderer '${s}' does not exist`);
-            if (["options", "parser"].includes(s)) continue;
-            let a = s, o = n.renderer[a], l = i[a];
-            i[a] = (...p) => {
-              let c = o.apply(i, p);
-              return c === false && (c = l.apply(i, p)), c || "";
+          "childTokens" in i2 && i2.childTokens && (t.childTokens[i2.name] = i2.childTokens);
+        }), r4.extensions = t), n.renderer) {
+          let i2 = this.defaults.renderer || new P(this.defaults);
+          for (let s2 in n.renderer) {
+            if (!(s2 in i2)) throw new Error(`renderer '${s2}' does not exist`);
+            if (["options", "parser"].includes(s2)) continue;
+            let a2 = s2, o3 = n.renderer[a2], l3 = i2[a2];
+            i2[a2] = (...p2) => {
+              let c = o3.apply(i2, p2);
+              return c === false && (c = l3.apply(i2, p2)), c || "";
             };
           }
-          r.renderer = i;
+          r4.renderer = i2;
         }
         if (n.tokenizer) {
-          let i = this.defaults.tokenizer || new y(this.defaults);
-          for (let s in n.tokenizer) {
-            if (!(s in i)) throw new Error(`tokenizer '${s}' does not exist`);
-            if (["options", "rules", "lexer"].includes(s)) continue;
-            let a = s, o = n.tokenizer[a], l = i[a];
-            i[a] = (...p) => {
-              let c = o.apply(i, p);
-              return c === false && (c = l.apply(i, p)), c;
+          let i2 = this.defaults.tokenizer || new y(this.defaults);
+          for (let s2 in n.tokenizer) {
+            if (!(s2 in i2)) throw new Error(`tokenizer '${s2}' does not exist`);
+            if (["options", "rules", "lexer"].includes(s2)) continue;
+            let a2 = s2, o3 = n.tokenizer[a2], l3 = i2[a2];
+            i2[a2] = (...p2) => {
+              let c = o3.apply(i2, p2);
+              return c === false && (c = l3.apply(i2, p2)), c;
             };
           }
-          r.tokenizer = i;
+          r4.tokenizer = i2;
         }
         if (n.hooks) {
-          let i = this.defaults.hooks || new S();
-          for (let s in n.hooks) {
-            if (!(s in i)) throw new Error(`hook '${s}' does not exist`);
-            if (["options", "block"].includes(s)) continue;
-            let a = s, o = n.hooks[a], l = i[a];
-            S.passThroughHooks.has(s) ? i[a] = (p) => {
-              if (this.defaults.async && S.passThroughHooksRespectAsync.has(s)) return (async () => {
-                let g = await o.call(i, p);
-                return l.call(i, g);
+          let i2 = this.defaults.hooks || new S();
+          for (let s2 in n.hooks) {
+            if (!(s2 in i2)) throw new Error(`hook '${s2}' does not exist`);
+            if (["options", "block"].includes(s2)) continue;
+            let a2 = s2, o3 = n.hooks[a2], l3 = i2[a2];
+            S.passThroughHooks.has(s2) ? i2[a2] = (p2) => {
+              if (this.defaults.async && S.passThroughHooksRespectAsync.has(s2)) return (async () => {
+                let g = await o3.call(i2, p2);
+                return l3.call(i2, g);
               })();
-              let c = o.call(i, p);
-              return l.call(i, c);
-            } : i[a] = (...p) => {
+              let c = o3.call(i2, p2);
+              return l3.call(i2, c);
+            } : i2[a2] = (...p2) => {
               if (this.defaults.async) return (async () => {
-                let g = await o.apply(i, p);
-                return g === false && (g = await l.apply(i, p)), g;
+                let g = await o3.apply(i2, p2);
+                return g === false && (g = await l3.apply(i2, p2)), g;
               })();
-              let c = o.apply(i, p);
-              return c === false && (c = l.apply(i, p)), c;
+              let c = o3.apply(i2, p2);
+              return c === false && (c = l3.apply(i2, p2)), c;
             };
           }
-          r.hooks = i;
+          r4.hooks = i2;
         }
         if (n.walkTokens) {
-          let i = this.defaults.walkTokens, s = n.walkTokens;
-          r.walkTokens = function(a) {
-            let o = [];
-            return o.push(s.call(this, a)), i && (o = o.concat(i.call(this, a))), o;
+          let i2 = this.defaults.walkTokens, s2 = n.walkTokens;
+          r4.walkTokens = function(a2) {
+            let o3 = [];
+            return o3.push(s2.call(this, a2)), i2 && (o3 = o3.concat(i2.call(this, a2))), o3;
           };
         }
-        this.defaults = { ...this.defaults, ...r };
+        this.defaults = { ...this.defaults, ...r4 };
       }), this;
     }
     setOptions(e) {
@@ -15153,25 +13591,25 @@ ${e}</tr>
       return b.parse(e, t ?? this.defaults);
     }
     parseMarkdown(e) {
-      return (n, r) => {
-        let i = { ...r }, s = { ...this.defaults, ...i }, a = this.onError(!!s.silent, !!s.async);
-        if (this.defaults.async === true && i.async === false) return a(new Error("marked(): The async option was set to true by an extension. Remove async: false from the parse options object to return a Promise."));
-        if (typeof n > "u" || n === null) return a(new Error("marked(): input parameter is undefined or null"));
-        if (typeof n != "string") return a(new Error("marked(): input parameter is of type " + Object.prototype.toString.call(n) + ", string expected"));
-        if (s.hooks && (s.hooks.options = s, s.hooks.block = e), s.async) return (async () => {
-          let o = s.hooks ? await s.hooks.preprocess(n) : n, p = await (s.hooks ? await s.hooks.provideLexer() : e ? x.lex : x.lexInline)(o, s), c = s.hooks ? await s.hooks.processAllTokens(p) : p;
-          s.walkTokens && await Promise.all(this.walkTokens(c, s.walkTokens));
-          let h = await (s.hooks ? await s.hooks.provideParser() : e ? b.parse : b.parseInline)(c, s);
-          return s.hooks ? await s.hooks.postprocess(h) : h;
-        })().catch(a);
+      return (n, r4) => {
+        let i2 = { ...r4 }, s2 = { ...this.defaults, ...i2 }, a2 = this.onError(!!s2.silent, !!s2.async);
+        if (this.defaults.async === true && i2.async === false) return a2(new Error("marked(): The async option was set to true by an extension. Remove async: false from the parse options object to return a Promise."));
+        if (typeof n > "u" || n === null) return a2(new Error("marked(): input parameter is undefined or null"));
+        if (typeof n != "string") return a2(new Error("marked(): input parameter is of type " + Object.prototype.toString.call(n) + ", string expected"));
+        if (s2.hooks && (s2.hooks.options = s2, s2.hooks.block = e), s2.async) return (async () => {
+          let o3 = s2.hooks ? await s2.hooks.preprocess(n) : n, p2 = await (s2.hooks ? await s2.hooks.provideLexer() : e ? x.lex : x.lexInline)(o3, s2), c = s2.hooks ? await s2.hooks.processAllTokens(p2) : p2;
+          s2.walkTokens && await Promise.all(this.walkTokens(c, s2.walkTokens));
+          let h2 = await (s2.hooks ? await s2.hooks.provideParser() : e ? b.parse : b.parseInline)(c, s2);
+          return s2.hooks ? await s2.hooks.postprocess(h2) : h2;
+        })().catch(a2);
         try {
-          s.hooks && (n = s.hooks.preprocess(n));
-          let l = (s.hooks ? s.hooks.provideLexer() : e ? x.lex : x.lexInline)(n, s);
-          s.hooks && (l = s.hooks.processAllTokens(l)), s.walkTokens && this.walkTokens(l, s.walkTokens);
-          let c = (s.hooks ? s.hooks.provideParser() : e ? b.parse : b.parseInline)(l, s);
-          return s.hooks && (c = s.hooks.postprocess(c)), c;
-        } catch (o) {
-          return a(o);
+          s2.hooks && (n = s2.hooks.preprocess(n));
+          let l3 = (s2.hooks ? s2.hooks.provideLexer() : e ? x.lex : x.lexInline)(n, s2);
+          s2.hooks && (l3 = s2.hooks.processAllTokens(l3)), s2.walkTokens && this.walkTokens(l3, s2.walkTokens);
+          let c = (s2.hooks ? s2.hooks.provideParser() : e ? b.parse : b.parseInline)(l3, s2);
+          return s2.hooks && (c = s2.hooks.postprocess(c)), c;
+        } catch (o3) {
+          return a2(o3);
         }
       };
     }
@@ -15179,8 +13617,8 @@ ${e}</tr>
       return (n) => {
         if (n.message += `
 Please report this to https://github.com/markedjs/marked.`, e) {
-          let r = "<p>An error occurred:</p><pre>" + w(n.message + "", true) + "</pre>";
-          return t ? Promise.resolve(r) : r;
+          let r4 = "<p>An error occurred:</p><pre>" + w(n.message + "", true) + "</pre>";
+          return t ? Promise.resolve(r4) : r4;
         }
         if (t) return Promise.reject(n);
         throw n;
@@ -15188,19 +13626,19 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     }
   };
   var _ = new B();
-  function d(u3, e) {
-    return _.parse(u3, e);
+  function d(u4, e) {
+    return _.parse(u4, e);
   }
-  d.options = d.setOptions = function(u3) {
-    return _.setOptions(u3), d.defaults = _.defaults, Z(d.defaults), d;
+  d.options = d.setOptions = function(u4) {
+    return _.setOptions(u4), d.defaults = _.defaults, Z(d.defaults), d;
   };
   d.getDefaults = L;
   d.defaults = T;
-  d.use = function(...u3) {
-    return _.use(...u3), d.defaults = _.defaults, Z(d.defaults), d;
+  d.use = function(...u4) {
+    return _.use(...u4), d.defaults = _.defaults, Z(d.defaults), d;
   };
-  d.walkTokens = function(u3, e) {
-    return _.walkTokens(u3, e);
+  d.walkTokens = function(u4, e) {
+    return _.walkTokens(u4, e);
   };
   d.parseInline = _.parseInline;
   d.Parser = b;
@@ -15255,27 +13693,27 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   var Token = class _Token {
     // don't expand the token
     // used in \noexpand
-    constructor(text2, loc) {
+    constructor(text3, loc) {
       this.text = void 0;
       this.loc = void 0;
       this.noexpand = void 0;
       this.treatAsRelax = void 0;
-      this.text = text2;
+      this.text = text3;
       this.loc = loc;
     }
     /**
      * Given a pair of tokens (this and endToken), compute a `Token` encompassing
      * the whole input range enclosed by these two.
      */
-    range(endToken, text2) {
-      return new _Token(text2, SourceLocation.range(this, endToken));
+    range(endToken, text3) {
+      return new _Token(text3, SourceLocation.range(this, endToken));
     }
   };
   var ParseError = class _ParseError {
     // Error start position based on passed-in Token or ParseNode.
     // Length of affected text based on passed-in Token or ParseNode.
     // The underlying error message without any context added.
-    constructor(message, token) {
+    constructor(message, token2) {
       this.name = void 0;
       this.position = void 0;
       this.length = void 0;
@@ -15283,7 +13721,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var error = "KaTeX parse error: " + message;
       var start;
       var end;
-      var loc = token && token.loc;
+      var loc = token2 && token2.loc;
       if (loc && loc.start <= loc.end) {
         var input = loc.lexer.input;
         start = loc.start;
@@ -15335,8 +13773,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     "'": "&#x27;"
   };
   var ESCAPE_REGEX = /[&><"']/g;
-  function escape(text2) {
-    return String(text2).replace(ESCAPE_REGEX, (match) => ESCAPE_LOOKUP[match]);
+  function escape(text3) {
+    return String(text3).replace(ESCAPE_REGEX, (match) => ESCAPE_LOOKUP[match]);
   }
   var getBaseElem = function getBaseElem2(group) {
     if (group.type === "ordgroup") {
@@ -15461,7 +13899,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       type: "number",
       default: Infinity,
       description: "If non-zero, all user-specified sizes, e.g. in \\rule{500em}{500em}, will be capped to maxSize ems. Otherwise, elements and spaces can be arbitrarily large",
-      processor: (s) => Math.max(0, s),
+      processor: (s2) => Math.max(0, s2),
       cli: "-s, --max-size <n>",
       cliProcessor: parseInt
     },
@@ -15526,15 +13964,15 @@ Please report this to https://github.com/markedjs/marked.`, e) {
      * Report nonstrict (non-LaTeX-compatible) input.
      * Can safely not be called if `this.strict` is false in JavaScript.
      */
-    reportNonstrict(errorCode, errorMsg, token) {
+    reportNonstrict(errorCode, errorMsg, token2) {
       var strict = this.strict;
       if (typeof strict === "function") {
-        strict = strict(errorCode, errorMsg, token);
+        strict = strict(errorCode, errorMsg, token2);
       }
       if (!strict || strict === "ignore") {
         return;
       } else if (strict === true || strict === "error") {
-        throw new ParseError("LaTeX-incompatible input and strict mode is set to 'error': " + (errorMsg + " [" + errorCode + "]"), token);
+        throw new ParseError("LaTeX-incompatible input and strict mode is set to 'error': " + (errorMsg + " [" + errorCode + "]"), token2);
       } else if (strict === "warn") {
         typeof console !== "undefined" && console.warn("LaTeX-incompatible input and strict mode is set to 'warn': " + (errorMsg + " [" + errorCode + "]"));
       } else {
@@ -15549,11 +13987,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
      * "warn" prints a warning and returns `false`.
      * This is for the second category of `errorCode`s listed in the README.
      */
-    useStrictBehavior(errorCode, errorMsg, token) {
+    useStrictBehavior(errorCode, errorMsg, token2) {
       var strict = this.strict;
       if (typeof strict === "function") {
         try {
-          strict = strict(errorCode, errorMsg, token);
+          strict = strict(errorCode, errorMsg, token2);
         } catch (error) {
           strict = "error";
         }
@@ -15726,8 +14164,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     blocks: [[44032, 55215]]
   }];
   function scriptFromCodepoint(codepoint) {
-    for (var i = 0; i < scriptData.length; i++) {
-      var script = scriptData[i];
+    for (var i2 = 0; i2 < scriptData.length; i2++) {
+      var script = scriptData[i2];
       for (var _i = 0; _i < script.blocks.length; _i++) {
         var block = script.blocks[_i];
         if (codepoint >= block[0] && codepoint <= block[1]) {
@@ -15738,10 +14176,10 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     return null;
   }
   var allBlocks = [];
-  scriptData.forEach((s) => s.blocks.forEach((b2) => allBlocks.push(...b2)));
+  scriptData.forEach((s2) => s2.blocks.forEach((b4) => allBlocks.push(...b4)));
   function supportedCodepoint(codepoint) {
-    for (var i = 0; i < allBlocks.length; i += 2) {
-      if (codepoint >= allBlocks[i] && codepoint <= allBlocks[i + 1]) {
+    for (var i2 = 0; i2 < allBlocks.length; i2 += 2) {
+      if (codepoint >= allBlocks[i2] && codepoint <= allBlocks[i2 + 1]) {
         return true;
       }
     }
@@ -15763,9 +14201,9 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   var sqrtSize4 = function sqrtSize42(extraVinculum, hLinePad2) {
     return "M473," + (2713 + extraVinculum + hLinePad2) + "\nc339.3,-1799.3,509.3,-2700,510,-2702 l" + extraVinculum / 5.298 + " -" + extraVinculum + "\nc3.3,-7.3,9.3,-11,18,-11 H400000v" + (40 + extraVinculum) + "H1017.7\ns-90.5,478,-276.2,1466c-185.7,988,-279.5,1483,-281.5,1485c-2,6,-10,9,-24,9\nc-8,0,-12,-0.7,-12,-2c0,-1.3,-5.3,-32,-16,-92c-50.7,-293.3,-119.7,-693.3,-207,-1200\nc0,-1.3,-5.3,8.7,-16,30c-10.7,21.3,-21.3,42.7,-32,64s-16,33,-16,33s-26,-26,-26,-26\ns76,-153,76,-153s77,-151,77,-151c0.7,0.7,35.7,202,105,604c67.3,400.7,102,602.7,104,\n606zM" + (1001 + extraVinculum) + " " + hLinePad2 + "h400000v" + (40 + extraVinculum) + "H1017.7z";
   };
-  var phasePath = function phasePath2(y2) {
-    var x2 = y2 / 2;
-    return "M400000 " + y2 + " H0 L" + x2 + " 0 l65 45 L145 " + (y2 - 80) + " H400000z";
+  var phasePath = function phasePath2(y4) {
+    var x4 = y4 / 2;
+    return "M400000 " + y4 + " H0 L" + x4 + " 0 l65 45 L145 " + (y4 - 80) + " H400000z";
   };
   var sqrtTall = function sqrtTall2(extraVinculum, hLinePad2, viewBoxHeight) {
     var vertSegment = viewBoxHeight - 54 - hLinePad2 - extraVinculum;
@@ -15945,16 +14383,16 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     /** Convert the fragment into a node. */
     toNode() {
       var frag = document.createDocumentFragment();
-      for (var i = 0; i < this.children.length; i++) {
-        frag.appendChild(this.children[i].toNode());
+      for (var i2 = 0; i2 < this.children.length; i2++) {
+        frag.appendChild(this.children[i2].toNode());
       }
       return frag;
     }
     /** Convert the fragment into HTML markup. */
     toMarkup() {
       var markup = "";
-      for (var i = 0; i < this.children.length; i++) {
-        markup += this.children[i].toMarkup();
+      for (var i2 = 0; i2 < this.children.length; i2++) {
+        markup += this.children[i2].toMarkup();
       }
       return markup;
     }
@@ -18241,9 +16679,9 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var metrics = fontMetricsBySizeIndex[sizeIndex] = {
         cssEmPerMu: sigmasAndXis.quad[sizeIndex] / 18
       };
-      for (var key in sigmasAndXis) {
-        if (sigmasAndXis.hasOwnProperty(key)) {
-          metrics[key] = sigmasAndXis[key][sizeIndex];
+      for (var key2 in sigmasAndXis) {
+        if (sigmasAndXis.hasOwnProperty(key2)) {
+          metrics[key2] = sigmasAndXis[key2][sizeIndex];
         }
       }
     }
@@ -18346,9 +16784,9 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         maxSize: this.maxSize,
         minRuleThickness: this.minRuleThickness
       };
-      for (var key in extension) {
-        if (extension.hasOwnProperty(key)) {
-          data[key] = extension[key];
+      for (var key2 in extension) {
+        if (extension.hasOwnProperty(key2)) {
+          data[key2] = extension[key2];
         }
       }
       return new _Options(data);
@@ -18626,8 +17064,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         node.setAttribute(attr, this.attributes[attr]);
       }
     }
-    for (var i = 0; i < this.children.length; i++) {
-      node.appendChild(this.children[i].toNode());
+    for (var i2 = 0; i2 < this.children.length; i2++) {
+      node.appendChild(this.children[i2].toNode());
     }
     return node;
   };
@@ -18655,8 +17093,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       }
     }
     markup += ">";
-    for (var i = 0; i < this.children.length; i++) {
-      markup += this.children[i].toMarkup();
+    for (var i2 = 0; i2 < this.children.length; i2++) {
+      markup += this.children[i2].toMarkup();
     }
     markup += "</" + tagName + ">";
     return markup;
@@ -18770,7 +17208,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     "\xEC": "\u0131\u0300"
   };
   var SymbolNode = class {
-    constructor(text2, height, depth, italic, skew, width, classes, style) {
+    constructor(text3, height, depth, italic, skew, width, classes, style) {
       this.text = void 0;
       this.height = void 0;
       this.depth = void 0;
@@ -18780,7 +17218,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       this.maxFontSize = void 0;
       this.classes = void 0;
       this.style = void 0;
-      this.text = text2;
+      this.text = text3;
       this.height = height || 0;
       this.depth = depth || 0;
       this.italic = italic || 0;
@@ -18879,8 +17317,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
           node.setAttribute(attr, this.attributes[attr]);
         }
       }
-      for (var i = 0; i < this.children.length; i++) {
-        node.appendChild(this.children[i].toNode());
+      for (var i2 = 0; i2 < this.children.length; i2++) {
+        node.appendChild(this.children[i2].toNode());
       }
       return node;
     }
@@ -18892,8 +17330,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
       }
       markup += ">";
-      for (var i = 0; i < this.children.length; i++) {
-        markup += this.children[i].toMarkup();
+      for (var i2 = 0; i2 < this.children.length; i2++) {
+        markup += this.children[i2].toMarkup();
       }
       markup += "</svg>";
       return markup;
@@ -19607,12 +18045,12 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   defineSymbol(math, ams, textord, "\u2720", "\\maltese");
   defineSymbol(text, ams, textord, "\u2720", "\\maltese");
   var mathTextSymbols = '0123456789/@."';
-  for (i = 0; i < mathTextSymbols.length; i++) {
-    ch = mathTextSymbols.charAt(i);
+  for (i2 = 0; i2 < mathTextSymbols.length; i2++) {
+    ch = mathTextSymbols.charAt(i2);
     defineSymbol(math, main, textord, ch, ch);
   }
   var ch;
-  var i;
+  var i2;
   var textSymbols = '0123456789!@*()-=+";:?/.,';
   for (_i = 0; _i < textSymbols.length; _i++) {
     _ch = textSymbols.charAt(_i);
@@ -19783,18 +18221,18 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     // 0-9 monospace
   ];
   var wideCharacterFont = function wideCharacterFont2(wideChar2, mode) {
-    var H = wideChar2.charCodeAt(0);
-    var L2 = wideChar2.charCodeAt(1);
-    var codePoint = (H - 55296) * 1024 + (L2 - 56320) + 65536;
-    var j2 = mode === "math" ? 0 : 1;
+    var H2 = wideChar2.charCodeAt(0);
+    var L4 = wideChar2.charCodeAt(1);
+    var codePoint = (H2 - 55296) * 1024 + (L4 - 56320) + 65536;
+    var j3 = mode === "math" ? 0 : 1;
     if (119808 <= codePoint && codePoint < 120484) {
-      var i = Math.floor((codePoint - 119808) / 26);
-      return [wideLatinLetterData[i][2], wideLatinLetterData[i][j2]];
+      var i2 = Math.floor((codePoint - 119808) / 26);
+      return [wideLatinLetterData[i2][2], wideLatinLetterData[i2][j3]];
     } else if (120782 <= codePoint && codePoint <= 120831) {
       var _i = Math.floor((codePoint - 120782) / 10);
-      return [wideNumeralData[_i][2], wideNumeralData[_i][j2]];
+      return [wideNumeralData[_i][2], wideNumeralData[_i][j3]];
     } else if (codePoint === 120485 || codePoint === 120486) {
-      return [wideLatinLetterData[0][2], wideLatinLetterData[0][j2]];
+      return [wideLatinLetterData[0][2], wideLatinLetterData[0][j3]];
     } else if (120486 < codePoint && codePoint < 120782) {
       return ["", ""];
     } else {
@@ -19864,22 +18302,22 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   };
   var makeOrd = function makeOrd2(group, options, type) {
     var mode = group.mode;
-    var text2 = group.text;
+    var text3 = group.text;
     var classes = ["mord"];
     var isFont = mode === "math" || mode === "text" && options.font;
     var fontOrFamily = isFont ? options.font : options.fontFamily;
     var wideFontName = "";
     var wideFontClass = "";
-    if (text2.charCodeAt(0) === 55349) {
-      [wideFontName, wideFontClass] = wideCharacterFont(text2, mode);
+    if (text3.charCodeAt(0) === 55349) {
+      [wideFontName, wideFontClass] = wideCharacterFont(text3, mode);
     }
     if (wideFontName.length > 0) {
-      return makeSymbol(text2, wideFontName, mode, options, classes.concat(wideFontClass));
+      return makeSymbol(text3, wideFontName, mode, options, classes.concat(wideFontClass));
     } else if (fontOrFamily) {
       var fontName;
       var fontClasses;
       if (fontOrFamily === "boldsymbol") {
-        var fontData = boldsymbol(text2, mode, options, classes, type);
+        var fontData = boldsymbol(text3, mode, options, classes, type);
         fontName = fontData.fontName;
         fontClasses = [fontData.fontClass];
       } else if (isFont) {
@@ -19889,29 +18327,29 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         fontName = retrieveTextFontName(fontOrFamily, options.fontWeight, options.fontShape);
         fontClasses = [fontOrFamily, options.fontWeight, options.fontShape];
       }
-      if (lookupSymbol(text2, fontName, mode).metrics) {
-        return makeSymbol(text2, fontName, mode, options, classes.concat(fontClasses));
-      } else if (ligatures.hasOwnProperty(text2) && fontName.slice(0, 10) === "Typewriter") {
+      if (lookupSymbol(text3, fontName, mode).metrics) {
+        return makeSymbol(text3, fontName, mode, options, classes.concat(fontClasses));
+      } else if (ligatures.hasOwnProperty(text3) && fontName.slice(0, 10) === "Typewriter") {
         var parts = [];
-        for (var i = 0; i < text2.length; i++) {
-          parts.push(makeSymbol(text2[i], fontName, mode, options, classes.concat(fontClasses)));
+        for (var i2 = 0; i2 < text3.length; i2++) {
+          parts.push(makeSymbol(text3[i2], fontName, mode, options, classes.concat(fontClasses)));
         }
         return makeFragment(parts);
       }
     }
     if (type === "mathord") {
-      return makeSymbol(text2, "Math-Italic", mode, options, classes.concat(["mathnormal"]));
+      return makeSymbol(text3, "Math-Italic", mode, options, classes.concat(["mathnormal"]));
     } else if (type === "textord") {
-      var font = symbols[mode][text2] && symbols[mode][text2].font;
+      var font = symbols[mode][text3] && symbols[mode][text3].font;
       if (font === "ams") {
         var _fontName = retrieveTextFontName("amsrm", options.fontWeight, options.fontShape);
-        return makeSymbol(text2, _fontName, mode, options, classes.concat("amsrm", options.fontWeight, options.fontShape));
+        return makeSymbol(text3, _fontName, mode, options, classes.concat("amsrm", options.fontWeight, options.fontShape));
       } else if (font === "main" || !font) {
         var _fontName2 = retrieveTextFontName("textrm", options.fontWeight, options.fontShape);
-        return makeSymbol(text2, _fontName2, mode, options, classes.concat(options.fontWeight, options.fontShape));
+        return makeSymbol(text3, _fontName2, mode, options, classes.concat(options.fontWeight, options.fontShape));
       } else {
         var _fontName3 = retrieveTextFontName(font, options.fontWeight, options.fontShape);
-        return makeSymbol(text2, _fontName3, mode, options, classes.concat(_fontName3, options.fontWeight, options.fontShape));
+        return makeSymbol(text3, _fontName3, mode, options, classes.concat(_fontName3, options.fontWeight, options.fontShape));
       }
     } else {
       throw new Error("unexpected type: " + type + " in makeOrd");
@@ -19940,16 +18378,16 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     return true;
   };
   var tryCombineChars = (chars) => {
-    for (var i = 0; i < chars.length - 1; i++) {
-      var prev = chars[i];
-      var next = chars[i + 1];
+    for (var i2 = 0; i2 < chars.length - 1; i2++) {
+      var prev = chars[i2];
+      var next = chars[i2 + 1];
       if (prev instanceof SymbolNode && next instanceof SymbolNode && canCombine(prev, next)) {
         prev.text += next.text;
         prev.height = Math.max(prev.height, next.height);
         prev.depth = Math.max(prev.depth, next.depth);
         prev.italic = next.italic;
-        chars.splice(i + 1, 1);
-        i--;
+        chars.splice(i2 + 1, 1);
+        i2--;
       }
     }
     return chars;
@@ -19958,8 +18396,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     var height = 0;
     var depth = 0;
     var maxFontSize = 0;
-    for (var i = 0; i < elem.children.length; i++) {
-      var child = elem.children[i];
+    for (var i2 = 0; i2 < elem.children.length; i2++) {
+      var child = elem.children[i2];
       if (child.height > height) {
         height = child.height;
       }
@@ -20009,15 +18447,15 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var children = [oldChildren[0]];
       var _depth = -oldChildren[0].shift - oldChildren[0].elem.depth;
       var currPos = _depth;
-      for (var i = 1; i < oldChildren.length; i++) {
-        var diff = -oldChildren[i].shift - currPos - oldChildren[i].elem.depth;
-        var size = diff - (oldChildren[i - 1].elem.height + oldChildren[i - 1].elem.depth);
+      for (var i2 = 1; i2 < oldChildren.length; i2++) {
+        var diff = -oldChildren[i2].shift - currPos - oldChildren[i2].elem.depth;
+        var size = diff - (oldChildren[i2 - 1].elem.height + oldChildren[i2 - 1].elem.depth);
         currPos = currPos + diff;
         children.push({
           type: "kern",
           size
         });
-        children.push(oldChildren[i]);
+        children.push(oldChildren[i2]);
       }
       return {
         children,
@@ -20058,8 +18496,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       depth
     } = getVListChildrenAndDepth(params);
     var pstrutSize = 0;
-    for (var i = 0; i < children.length; i++) {
-      var child = children[i];
+    for (var i2 = 0; i2 < children.length; i2++) {
+      var child = children[i2];
       if (child.type === "elem") {
         var elem = child.elem;
         pstrutSize = Math.max(pstrutSize, elem.maxFontSize, elem.height);
@@ -20355,8 +18793,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       primitive: !!props.primitive,
       handler
     };
-    for (var i = 0; i < names.length; ++i) {
-      _functions[names[i]] = data;
+    for (var i2 = 0; i2 < names.length; ++i2) {
+      _functions[names[i2]] = data;
     }
     if (type) {
       if (htmlBuilder3) {
@@ -20416,8 +18854,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       surrounding = [null, null];
     }
     var groups = [];
-    for (var i = 0; i < expression.length; i++) {
-      var output = buildGroup$1(expression[i], options);
+    for (var i2 = 0; i2 < expression.length; i2++) {
+      var output = buildGroup$1(expression[i2], options);
       if (output instanceof DocumentFragment) {
         var children = output.children;
         groups.push(...children);
@@ -20468,9 +18906,9 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     if (next) {
       nodes3.push(next);
     }
-    var i = 0;
-    for (; i < nodes3.length; i++) {
-      var node = nodes3[i];
+    var i2 = 0;
+    for (; i2 < nodes3.length; i2++) {
+      var node = nodes3[i2];
       var partialGroup = checkPartialGroup(node);
       if (partialGroup) {
         traverseNonSpaceNodes2(partialGroup.children, callback, prev, null, isRoot);
@@ -20484,7 +18922,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
             prev.insertAfter(result);
           } else {
             nodes3.unshift(result);
-            i++;
+            i2++;
           }
         }
       }
@@ -20495,8 +18933,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       }
       prev.insertAfter = /* @__PURE__ */ ((index) => (n) => {
         nodes3.splice(index + 1, 0, n);
-        i++;
-      })(i);
+        i2++;
+      })(i2);
     }
     if (next) {
       nodes3.pop();
@@ -20553,14 +18991,14 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     }
   };
   function buildHTMLUnbreakable(children, options) {
-    var body = makeSpan$1(["base"], children, options);
+    var body3 = makeSpan$1(["base"], children, options);
     var strut = makeSpan$1(["strut"]);
-    strut.style.height = makeEm(body.height + body.depth);
-    if (body.depth) {
-      strut.style.verticalAlign = makeEm(-body.depth);
+    strut.style.height = makeEm(body3.height + body3.depth);
+    if (body3.depth) {
+      strut.style.verticalAlign = makeEm(-body3.depth);
     }
-    body.children.unshift(strut);
-    return body;
+    body3.children.unshift(strut);
+    return body3;
   }
   function buildHTML(tree, options) {
     var tag = null;
@@ -20575,14 +19013,14 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     }
     var children = [];
     var parts = [];
-    for (var i = 0; i < expression.length; i++) {
-      parts.push(expression[i]);
-      if (expression[i].hasClass("mbin") || expression[i].hasClass("mrel") || expression[i].hasClass("allowbreak")) {
+    for (var i2 = 0; i2 < expression.length; i2++) {
+      parts.push(expression[i2]);
+      if (expression[i2].hasClass("mbin") || expression[i2].hasClass("mrel") || expression[i2].hasClass("allowbreak")) {
         var nobreak = false;
-        while (i < expression.length - 1 && expression[i + 1].hasClass("mspace") && !expression[i + 1].hasClass("newline")) {
-          i++;
-          parts.push(expression[i]);
-          if (expression[i].hasClass("nobreak")) {
+        while (i2 < expression.length - 1 && expression[i2 + 1].hasClass("mspace") && !expression[i2 + 1].hasClass("newline")) {
+          i2++;
+          parts.push(expression[i2]);
+          if (expression[i2].hasClass("nobreak")) {
             nobreak = true;
           }
         }
@@ -20590,13 +19028,13 @@ Please report this to https://github.com/markedjs/marked.`, e) {
           children.push(buildHTMLUnbreakable(parts, options));
           parts = [];
         }
-      } else if (expression[i].hasClass("newline")) {
+      } else if (expression[i2].hasClass("newline")) {
         parts.pop();
         if (parts.length > 0) {
           children.push(buildHTMLUnbreakable(parts, options));
           parts = [];
         }
-        children.push(expression[i]);
+        children.push(expression[i2]);
       }
     }
     if (parts.length > 0) {
@@ -20661,15 +19099,15 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       if (this.classes.length > 0) {
         node.className = createClass(this.classes);
       }
-      for (var i = 0; i < this.children.length; i++) {
-        if (this.children[i] instanceof TextNode2 && this.children[i + 1] instanceof TextNode2) {
-          var text2 = this.children[i].toText() + this.children[++i].toText();
-          while (this.children[i + 1] instanceof TextNode2) {
-            text2 += this.children[++i].toText();
+      for (var i2 = 0; i2 < this.children.length; i2++) {
+        if (this.children[i2] instanceof TextNode2 && this.children[i2 + 1] instanceof TextNode2) {
+          var text3 = this.children[i2].toText() + this.children[++i2].toText();
+          while (this.children[i2 + 1] instanceof TextNode2) {
+            text3 += this.children[++i2].toText();
           }
-          node.appendChild(new TextNode2(text2).toNode());
+          node.appendChild(new TextNode2(text3).toNode());
         } else {
-          node.appendChild(this.children[i].toNode());
+          node.appendChild(this.children[i2].toNode());
         }
       }
       return node;
@@ -20690,8 +19128,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         markup += ' class ="' + utils.escape(createClass(this.classes)) + '"';
       }
       markup += ">";
-      for (var i = 0; i < this.children.length; i++) {
-        markup += this.children[i].toMarkup();
+      for (var i2 = 0; i2 < this.children.length; i2++) {
+        markup += this.children[i2].toMarkup();
       }
       markup += "</" + this.type + ">";
       return markup;
@@ -20704,9 +19142,9 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     }
   };
   var TextNode2 = class {
-    constructor(text2) {
+    constructor(text3) {
       this.text = void 0;
-      this.text = text2;
+      this.text = text3;
     }
     /**
      * Converts the text node into a DOM text node.
@@ -20796,17 +19234,17 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     SpaceNode,
     newDocumentFragment
   };
-  var makeText = function makeText2(text2, mode, options) {
-    if (symbols[mode][text2] && symbols[mode][text2].replace && text2.charCodeAt(0) !== 55349 && !(ligatures.hasOwnProperty(text2) && options && (options.fontFamily && options.fontFamily.slice(4, 6) === "tt" || options.font && options.font.slice(4, 6) === "tt"))) {
-      text2 = symbols[mode][text2].replace;
+  var makeText = function makeText2(text3, mode, options) {
+    if (symbols[mode][text3] && symbols[mode][text3].replace && text3.charCodeAt(0) !== 55349 && !(ligatures.hasOwnProperty(text3) && options && (options.fontFamily && options.fontFamily.slice(4, 6) === "tt" || options.font && options.font.slice(4, 6) === "tt"))) {
+      text3 = symbols[mode][text3].replace;
     }
-    return new mathMLTree.TextNode(text2);
+    return new mathMLTree.TextNode(text3);
   };
-  var makeRow = function makeRow2(body) {
-    if (body.length === 1) {
-      return body[0];
+  var makeRow = function makeRow2(body3) {
+    if (body3.length === 1) {
+      return body3[0];
     } else {
-      return new mathMLTree.MathNode("mrow", body);
+      return new mathMLTree.MathNode("mrow", body3);
     }
   };
   var getVariant = function getVariant2(group, options) {
@@ -20853,15 +19291,15 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     } else if (font === "mathtt") {
       return "monospace";
     }
-    var text2 = group.text;
-    if (["\\imath", "\\jmath"].includes(text2)) {
+    var text3 = group.text;
+    if (["\\imath", "\\jmath"].includes(text3)) {
       return null;
     }
-    if (symbols[mode][text2] && symbols[mode][text2].replace) {
-      text2 = symbols[mode][text2].replace;
+    if (symbols[mode][text3] && symbols[mode][text3].replace) {
+      text3 = symbols[mode][text3].replace;
     }
     var fontName = buildCommon.fontMap[font].fontName;
-    if (getCharacterMetrics(text2, fontName, mode)) {
+    if (getCharacterMetrics(text3, fontName, mode)) {
       return buildCommon.fontMap[font].variant;
     }
     return null;
@@ -20891,8 +19329,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     }
     var groups = [];
     var lastGroup;
-    for (var i = 0; i < expression.length; i++) {
-      var _group = buildGroup2(expression[i], options);
+    for (var i2 = 0; i2 < expression.length; i2++) {
+      var _group = buildGroup2(expression[i2], options);
       if (_group instanceof MathNode && lastGroup instanceof MathNode) {
         if (_group.type === "mtext" && lastGroup.type === "mtext" && _group.getAttribute("mathvariant") === lastGroup.getAttribute("mathvariant")) {
           lastGroup.children.push(..._group.children);
@@ -21177,15 +19615,15 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         } else {
           throw new Error("Correct katexImagesData or update code here to support\n                    " + numSvgChildren + " children.");
         }
-        for (var i = 0; i < numSvgChildren; i++) {
-          var _path = new PathNode(paths[i]);
+        for (var i2 = 0; i2 < numSvgChildren; i2++) {
+          var _path = new PathNode(paths[i2]);
           var _svgNode = new SvgNode([_path], {
             "width": "400em",
             "height": makeEm(_height2),
             "viewBox": "0 0 " + viewBoxWidth + " " + _viewBoxHeight,
-            "preserveAspectRatio": aligns[i] + " slice"
+            "preserveAspectRatio": aligns[i2] + " slice"
           });
-          var _span = buildCommon.makeSvgSpan([widthClasses[i]], [_svgNode], options);
+          var _span = buildCommon.makeSvgSpan([widthClasses[i2]], [_svgNode], options);
           if (numSvgChildren === 1) {
             return {
               span: _span,
@@ -21295,7 +19733,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       group = assertNodeType(grp, "accent");
       base2 = group.base;
     }
-    var body = buildGroup$1(base2, options.havingCrampedStyle());
+    var body3 = buildGroup$1(base2, options.havingCrampedStyle());
     var mustShift = group.isShifty && utils.isCharacterBox(base2);
     var skew = 0;
     if (mustShift) {
@@ -21304,7 +19742,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       skew = assertSymbolDomNode(baseGroup).skew;
     }
     var accentBelow = group.label === "\\c";
-    var clearance = accentBelow ? body.height + body.depth : Math.min(body.height, options.fontMetrics().xHeight);
+    var clearance = accentBelow ? body3.height + body3.depth : Math.min(body3.height, options.fontMetrics().xHeight);
     var accentBody;
     if (!group.isStretchy) {
       var accent2;
@@ -21328,7 +19766,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var accentFull = group.label === "\\textcircled";
       if (accentFull) {
         accentBody.classes.push("accent-full");
-        clearance = body.height;
+        clearance = body3.height;
       }
       var left = skew;
       if (!accentFull) {
@@ -21342,7 +19780,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         positionType: "firstBaseline",
         children: [{
           type: "elem",
-          elem: body
+          elem: body3
         }, {
           type: "kern",
           size: -clearance
@@ -21357,7 +19795,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         positionType: "firstBaseline",
         children: [{
           type: "elem",
-          elem: body
+          elem: body3
         }, {
           type: "elem",
           elem: accentBody,
@@ -21669,14 +20107,14 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         parser,
         funcName
       } = _ref;
-      var body = args[0];
+      var body3 = args[0];
       return {
         type: "mclass",
         mode: parser.mode,
         mclass: "m" + funcName.slice(5),
         // TODO(kevinb): don't prefix with 'm'
-        body: ordargument(body),
-        isCharacterBox: utils.isCharacterBox(body)
+        body: ordargument(body3),
+        isCharacterBox: utils.isCharacterBox(body3)
       };
     },
     htmlBuilder: htmlBuilder$9,
@@ -21874,17 +20312,17 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       }
     }
     var row = [];
-    var body = [row];
-    for (var i = 0; i < parsedRows.length; i++) {
-      var rowNodes = parsedRows[i];
+    var body3 = [row];
+    for (var i2 = 0; i2 < parsedRows.length; i2++) {
+      var rowNodes = parsedRows[i2];
       var cell = newCell();
-      for (var j2 = 0; j2 < rowNodes.length; j2++) {
-        if (!isStartOfArrow(rowNodes[j2])) {
-          cell.body.push(rowNodes[j2]);
+      for (var j3 = 0; j3 < rowNodes.length; j3++) {
+        if (!isStartOfArrow(rowNodes[j3])) {
+          cell.body.push(rowNodes[j3]);
         } else {
           row.push(cell);
-          j2 += 1;
-          var arrowChar = assertSymbolNodeType(rowNodes[j2]).text;
+          j3 += 1;
+          var arrowChar = assertSymbolNodeType(rowNodes[j3]).text;
           var labels = new Array(2);
           labels[0] = {
             type: "ordgroup",
@@ -21900,23 +20338,23 @@ Please report this to https://github.com/markedjs/marked.`, e) {
           else if ("<>AV".indexOf(arrowChar) > -1) {
             for (var labelNum = 0; labelNum < 2; labelNum++) {
               var inLabel = true;
-              for (var k2 = j2 + 1; k2 < rowNodes.length; k2++) {
-                if (isLabelEnd(rowNodes[k2], arrowChar)) {
+              for (var k4 = j3 + 1; k4 < rowNodes.length; k4++) {
+                if (isLabelEnd(rowNodes[k4], arrowChar)) {
                   inLabel = false;
-                  j2 = k2;
+                  j3 = k4;
                   break;
                 }
-                if (isStartOfArrow(rowNodes[k2])) {
-                  throw new ParseError("Missing a " + arrowChar + " character to complete a CD arrow.", rowNodes[k2]);
+                if (isStartOfArrow(rowNodes[k4])) {
+                  throw new ParseError("Missing a " + arrowChar + " character to complete a CD arrow.", rowNodes[k4]);
                 }
-                labels[labelNum].body.push(rowNodes[k2]);
+                labels[labelNum].body.push(rowNodes[k4]);
               }
               if (inLabel) {
-                throw new ParseError("Missing a " + arrowChar + " character to complete a CD arrow.", rowNodes[j2]);
+                throw new ParseError("Missing a " + arrowChar + " character to complete a CD arrow.", rowNodes[j3]);
               }
             }
           } else {
-            throw new ParseError('Expected one of "<>AV=|." after @', rowNodes[j2]);
+            throw new ParseError('Expected one of "<>AV=|." after @', rowNodes[j3]);
           }
           var arrow = cdArrow(arrowChar, labels, parser);
           var wrappedArrow = {
@@ -21930,17 +20368,17 @@ Please report this to https://github.com/markedjs/marked.`, e) {
           cell = newCell();
         }
       }
-      if (i % 2 === 0) {
+      if (i2 % 2 === 0) {
         row.push(cell);
       } else {
         row.shift();
       }
       row = [];
-      body.push(row);
+      body3.push(row);
     }
     parser.gullet.endGroup();
     parser.gullet.endGroup();
-    var cols = new Array(body[0].length).fill({
+    var cols = new Array(body3[0].length).fill({
       type: "align",
       align: "c",
       pregap: 0.25,
@@ -21951,13 +20389,13 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     return {
       type: "array",
       mode: "math",
-      body,
+      body: body3,
       arraystretch: 1,
       addJot: true,
       rowGaps: [null],
       cols,
       colSeparationType: "CD",
-      hLinesBeforeRow: new Array(body.length + 1).fill([])
+      hLinesBeforeRow: new Array(body3.length + 1).fill([])
     };
   }
   defineFunction({
@@ -22039,27 +20477,27 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       } = _ref;
       var arg = assertNodeType(args[0], "ordgroup");
       var group = arg.body;
-      var number = "";
-      for (var i = 0; i < group.length; i++) {
-        var node = assertNodeType(group[i], "textord");
-        number += node.text;
+      var number2 = "";
+      for (var i2 = 0; i2 < group.length; i2++) {
+        var node = assertNodeType(group[i2], "textord");
+        number2 += node.text;
       }
-      var code = parseInt(number);
-      var text2;
+      var code = parseInt(number2);
+      var text3;
       if (isNaN(code)) {
-        throw new ParseError("\\@char has non-numeric argument " + number);
+        throw new ParseError("\\@char has non-numeric argument " + number2);
       } else if (code < 0 || code >= 1114111) {
-        throw new ParseError("\\@char with invalid code point " + number);
+        throw new ParseError("\\@char with invalid code point " + number2);
       } else if (code <= 65535) {
-        text2 = String.fromCharCode(code);
+        text3 = String.fromCharCode(code);
       } else {
         code -= 65536;
-        text2 = String.fromCharCode((code >> 10) + 55296, (code & 1023) + 56320);
+        text3 = String.fromCharCode((code >> 10) + 55296, (code & 1023) + 56320);
       }
       return {
         type: "textord",
         mode: parser.mode,
-        text: text2
+        text: text3
       };
     }
   });
@@ -22086,12 +20524,12 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         parser
       } = _ref;
       var color = assertNodeType(args[0], "color-token").color;
-      var body = args[1];
+      var body3 = args[1];
       return {
         type: "color",
         mode: parser.mode,
         color,
-        body: ordargument(body)
+        body: ordargument(body3)
       };
     },
     htmlBuilder: htmlBuilder$8,
@@ -22112,12 +20550,12 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       } = _ref2;
       var color = assertNodeType(args[0], "color-token").color;
       parser.gullet.macros.set("\\current@color", color);
-      var body = parser.parseExpression(true, breakOnTokenText);
+      var body3 = parser.parseExpression(true, breakOnTokenText);
       return {
         type: "color",
         mode: parser.mode,
         color,
-        body
+        body: body3
       };
     },
     htmlBuilder: htmlBuilder$8,
@@ -22226,14 +20664,14 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         funcName
       } = _ref;
       parser.consumeSpaces();
-      var token = parser.fetch();
-      if (globalMap[token.text]) {
+      var token2 = parser.fetch();
+      if (globalMap[token2.text]) {
         if (funcName === "\\global" || funcName === "\\\\globallong") {
-          token.text = globalMap[token.text];
+          token2.text = globalMap[token2.text];
         }
         return assertNodeType(parser.parseFunction(), "internal");
       }
-      throw new ParseError("Invalid token after macro prefix", token);
+      throw new ParseError("Invalid token after macro prefix", token2);
     }
   });
   defineFunction({
@@ -22383,8 +20821,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     span.depth += shift2;
   };
   var makeSmallDelim = function makeSmallDelim2(delim, style, center, options, mode, classes) {
-    var text2 = buildCommon.makeSymbol(delim, "Main-Regular", mode, options);
-    var span = styleWrap(text2, style, options, classes);
+    var text3 = buildCommon.makeSymbol(delim, "Main-Regular", mode, options);
+    var span = styleWrap(text3, style, options, classes);
     if (center) {
       centerSpan(span, options, style);
     }
@@ -22589,12 +21027,12 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var path2 = new PathNode(svgLabel, pathStr);
       var width = (viewBoxWidth / 1e3).toFixed(3) + "em";
       var height = (viewBoxHeight / 1e3).toFixed(3) + "em";
-      var svg = new SvgNode([path2], {
+      var svg3 = new SvgNode([path2], {
         "width": width,
         "height": height,
         "viewBox": "0 0 " + viewBoxWidth + " " + viewBoxHeight
       });
-      var wrapper = buildCommon.makeSvgSpan([], [svg], options);
+      var wrapper = buildCommon.makeSvgSpan([], [svg3], options);
       wrapper.height = viewBoxHeight / 1e3;
       wrapper.style.width = width;
       wrapper.style.height = height;
@@ -22632,14 +21070,14 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   var sqrtSvg = function sqrtSvg2(sqrtName, height, viewBoxHeight, extraVinculum, options) {
     var path2 = sqrtPath(sqrtName, extraVinculum, viewBoxHeight);
     var pathNode = new PathNode(sqrtName, path2);
-    var svg = new SvgNode([pathNode], {
+    var svg3 = new SvgNode([pathNode], {
       // Note: 1000:1 ratio of viewBox to document em width.
       "width": "400em",
       "height": makeEm(height),
       "viewBox": "0 0 400000 " + viewBoxHeight,
       "preserveAspectRatio": "xMinYMin slice"
     });
-    return buildCommon.makeSvgSpan(["hide-tail"], [svg], options);
+    return buildCommon.makeSvgSpan(["hide-tail"], [svg3], options);
   };
   var makeSqrtImage = function makeSqrtImage2(height, options) {
     var newOptions = options.havingBaseSizing();
@@ -22779,18 +21217,18 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   };
   var traverseSequence = function traverseSequence2(delim, height, sequence, options) {
     var start = Math.min(2, 3 - options.style.size);
-    for (var i = start; i < sequence.length; i++) {
-      if (sequence[i].type === "stack") {
+    for (var i2 = start; i2 < sequence.length; i2++) {
+      if (sequence[i2].type === "stack") {
         break;
       }
-      var metrics = getMetrics(delim, delimTypeToFont(sequence[i]), "math");
+      var metrics = getMetrics(delim, delimTypeToFont(sequence[i2]), "math");
       var heightDepth = metrics.height + metrics.depth;
-      if (sequence[i].type === "small") {
-        var newOptions = options.havingBaseStyle(sequence[i].style);
+      if (sequence[i2].type === "small") {
+        var newOptions = options.havingBaseStyle(sequence[i2].style);
         heightDepth *= newOptions.sizeMultiplier;
       }
       if (heightDepth > height) {
-        return sequence[i];
+        return sequence[i2];
       }
     }
     return sequence[sequence.length - 1];
@@ -23000,14 +21438,14 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var delim = checkDelimiter(args[0], context);
       var parser = context.parser;
       ++parser.leftrightDepth;
-      var body = parser.parseExpression(false);
+      var body3 = parser.parseExpression(false);
       --parser.leftrightDepth;
       parser.expect("\\right", false);
       var right = assertNodeType(parser.parseFunction(), "leftright-right");
       return {
         type: "leftright",
         mode: parser.mode,
-        body,
+        body: body3,
         left: delim.text,
         right: right.delim,
         rightColor: right.color
@@ -23019,12 +21457,12 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var innerHeight2 = 0;
       var innerDepth = 0;
       var hadMiddle = false;
-      for (var i = 0; i < inner2.length; i++) {
-        if (inner2[i].isMiddle) {
+      for (var i2 = 0; i2 < inner2.length; i2++) {
+        if (inner2[i2].isMiddle) {
           hadMiddle = true;
         } else {
-          innerHeight2 = Math.max(inner2[i].height, innerHeight2);
-          innerDepth = Math.max(inner2[i].depth, innerDepth);
+          innerHeight2 = Math.max(inner2[i2].height, innerHeight2);
+          innerDepth = Math.max(inner2[i2].depth, innerDepth);
         }
       }
       innerHeight2 *= options.sizeMultiplier;
@@ -23306,13 +21744,13 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         funcName
       } = _ref;
       var color = assertNodeType(args[0], "color-token").color;
-      var body = args[1];
+      var body3 = args[1];
       return {
         type: "enclose",
         mode: parser.mode,
         label: funcName,
         backgroundColor: color,
-        body
+        body: body3
       };
     },
     htmlBuilder: htmlBuilder$7,
@@ -23333,14 +21771,14 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       } = _ref2;
       var borderColor = assertNodeType(args[0], "color-token").color;
       var backgroundColor = assertNodeType(args[1], "color-token").color;
-      var body = args[2];
+      var body3 = args[2];
       return {
         type: "enclose",
         mode: parser.mode,
         label: funcName,
         backgroundColor,
         borderColor,
-        body
+        body: body3
       };
     },
     htmlBuilder: htmlBuilder$7,
@@ -23377,12 +21815,12 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         parser,
         funcName
       } = _ref4;
-      var body = args[0];
+      var body3 = args[0];
       return {
         type: "enclose",
         mode: parser.mode,
         label: funcName,
-        body
+        body: body3
       };
     },
     htmlBuilder: htmlBuilder$7,
@@ -23425,8 +21863,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       numOptionalArgs: 0,
       handler
     };
-    for (var i = 0; i < names.length; ++i) {
-      _environments[names[i]] = data;
+    for (var i2 = 0; i2 < names.length; ++i2) {
+      _environments[names[i2]] = data;
     }
     if (htmlBuilder3) {
       _htmlGroupBuilders[type] = htmlBuilder3;
@@ -23436,8 +21874,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     }
   }
   var _macros = {};
-  function defineMacro(name, body) {
-    _macros[name] = body;
+  function defineMacro(name, body3) {
+    _macros[name] = body3;
   }
   function getHLines(parser) {
     var hlineInfo = [];
@@ -23497,7 +21935,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     }
     parser.gullet.beginGroup();
     var row = [];
-    var body = [row];
+    var body3 = [row];
     var rowGaps = [];
     var hLinesBeforeRow = [];
     var tags = autoTag != null ? [] : void 0;
@@ -23548,10 +21986,10 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         parser.consume();
       } else if (next === "\\end") {
         endRow();
-        if (row.length === 1 && cell.type === "styling" && cell.body[0].body.length === 0 && (body.length > 1 || !emptySingleRow)) {
-          body.pop();
+        if (row.length === 1 && cell.type === "styling" && cell.body[0].body.length === 0 && (body3.length > 1 || !emptySingleRow)) {
+          body3.pop();
         }
-        if (hLinesBeforeRow.length < body.length + 1) {
+        if (hLinesBeforeRow.length < body3.length + 1) {
           hLinesBeforeRow.push([]);
         }
         break;
@@ -23565,7 +22003,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         endRow();
         hLinesBeforeRow.push(getHLines(parser));
         row = [];
-        body.push(row);
+        body3.push(row);
         beginRow();
       } else {
         throw new ParseError("Expected & or \\\\ or \\cr or \\end", parser.nextToken);
@@ -23578,7 +22016,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       mode: parser.mode,
       addJot,
       arraystretch,
-      body,
+      body: body3,
       cols,
       rowGaps,
       hskipBeforeAndAfter,
@@ -23596,12 +22034,12 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     }
   }
   var htmlBuilder$6 = function htmlBuilder(group, options) {
-    var r;
+    var r4;
     var c;
     var nr = group.body.length;
     var hLinesBeforeRow = group.hLinesBeforeRow;
     var nc = 0;
-    var body = new Array(nr);
+    var body3 = new Array(nr);
     var hlines = [];
     var ruleThickness = Math.max(
       // From LaTeX \showthe\arrayrulewidth. Equals 0.04 em.
@@ -23625,19 +22063,19 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     var arstrutDepth = 0.3 * arrayskip;
     var totalHeight = 0;
     function setHLinePos(hlinesInGap) {
-      for (var i = 0; i < hlinesInGap.length; ++i) {
-        if (i > 0) {
+      for (var i2 = 0; i2 < hlinesInGap.length; ++i2) {
+        if (i2 > 0) {
           totalHeight += 0.25;
         }
         hlines.push({
           pos: totalHeight,
-          isDashed: hlinesInGap[i]
+          isDashed: hlinesInGap[i2]
         });
       }
     }
     setHLinePos(hLinesBeforeRow[0]);
-    for (r = 0; r < group.body.length; ++r) {
-      var inrow = group.body[r];
+    for (r4 = 0; r4 < group.body.length; ++r4) {
+      var inrow = group.body[r4];
       var height = arstrutHeight;
       var depth = arstrutDepth;
       if (nc < inrow.length) {
@@ -23654,7 +22092,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
         outrow[c] = elt;
       }
-      var rowGap = group.rowGaps[r];
+      var rowGap = group.rowGaps[r4];
       var gap = 0;
       if (rowGap) {
         gap = calculateSize(rowGap, options);
@@ -23674,8 +22112,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       totalHeight += height;
       outrow.pos = totalHeight;
       totalHeight += depth + gap;
-      body[r] = outrow;
-      setHLinePos(hLinesBeforeRow[r + 1]);
+      body3[r4] = outrow;
+      setHLinePos(hLinesBeforeRow[r4 + 1]);
     }
     var offset = totalHeight / 2 + options.fontMetrics().axisHeight;
     var colDescriptions = group.cols || [];
@@ -23684,10 +22122,10 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     var colDescrNum;
     var tagSpans = [];
     if (group.tags && group.tags.some((tag2) => tag2)) {
-      for (r = 0; r < nr; ++r) {
-        var rw = body[r];
+      for (r4 = 0; r4 < nr; ++r4) {
+        var rw = body3[r4];
         var shift2 = rw.pos - offset;
-        var tag = group.tags[r];
+        var tag = group.tags[r4];
         var tagSpan = void 0;
         if (tag === true) {
           tagSpan = buildCommon.makeSpan(["eqn-num"], [], options);
@@ -23752,8 +22190,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
       }
       var col = [];
-      for (r = 0; r < nr; ++r) {
-        var row = body[r];
+      for (r4 = 0; r4 < nr; ++r4) {
+        var row = body3[r4];
         var elem = row[c];
         if (!elem) {
           continue;
@@ -23782,13 +22220,13 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
       }
     }
-    body = buildCommon.makeSpan(["mtable"], cols);
+    body3 = buildCommon.makeSpan(["mtable"], cols);
     if (hlines.length > 0) {
       var line = buildCommon.makeLineSpan("hline", options, ruleThickness);
       var dashes = buildCommon.makeLineSpan("hdashline", options, ruleThickness);
       var vListElems = [{
         type: "elem",
-        elem: body,
+        elem: body3,
         shift: 0
       }];
       while (hlines.length > 0) {
@@ -23808,20 +22246,20 @@ Please report this to https://github.com/markedjs/marked.`, e) {
           });
         }
       }
-      body = buildCommon.makeVList({
+      body3 = buildCommon.makeVList({
         positionType: "individualShift",
         children: vListElems
       }, options);
     }
     if (tagSpans.length === 0) {
-      return buildCommon.makeSpan(["mord"], [body], options);
+      return buildCommon.makeSpan(["mord"], [body3], options);
     } else {
       var eqnNumCol = buildCommon.makeVList({
         positionType: "individualShift",
         children: tagSpans
       }, options);
       eqnNumCol = buildCommon.makeSpan(["tag"], [eqnNumCol], options);
-      return buildCommon.makeFragment([body, eqnNumCol]);
+      return buildCommon.makeFragment([body3, eqnNumCol]);
     }
   };
   var alignMap = {
@@ -23833,13 +22271,13 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     var tbl = [];
     var glue = new mathMLTree.MathNode("mtd", [], ["mtr-glue"]);
     var tag = new mathMLTree.MathNode("mtd", [], ["mml-eqn-num"]);
-    for (var i = 0; i < group.body.length; i++) {
-      var rw = group.body[i];
+    for (var i2 = 0; i2 < group.body.length; i2++) {
+      var rw = group.body[i2];
       var row = [];
-      for (var j2 = 0; j2 < rw.length; j2++) {
-        row.push(new mathMLTree.MathNode("mtd", [buildGroup2(rw[j2], options)]));
+      for (var j3 = 0; j3 < rw.length; j3++) {
+        row.push(new mathMLTree.MathNode("mtd", [buildGroup2(rw[j3], options)]));
       }
-      if (group.tags && group.tags[i]) {
+      if (group.tags && group.tags[i2]) {
         row.unshift(glue);
         row.push(glue);
         if (group.leqno) {
@@ -23949,8 +22387,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     };
     if (args[0] && args[0].type === "ordgroup") {
       var arg0 = "";
-      for (var i = 0; i < args[0].body.length; i++) {
-        var textord2 = assertNodeType(args[0].body[i], "textord");
+      for (var i2 = 0; i2 < args[0].body.length; i2++) {
+        var textord2 = assertNodeType(args[0].body[i2], "textord");
         arg0 += textord2.text;
       }
       numMaths = Number(arg0);
@@ -24298,8 +22736,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         throw new ParseError("Invalid environment name", nameGroup);
       }
       var envName = "";
-      for (var i = 0; i < nameGroup.body.length; ++i) {
-        envName += assertNodeType(nameGroup.body[i], "textord").text;
+      for (var i2 = 0; i2 < nameGroup.body.length; ++i2) {
+        envName += assertNodeType(nameGroup.body[i2], "textord").text;
       }
       if (funcName === "\\begin") {
         if (!environments.hasOwnProperty(envName)) {
@@ -24378,7 +22816,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         parser,
         funcName
       } = _ref;
-      var body = normalizeArgument(args[0]);
+      var body3 = normalizeArgument(args[0]);
       var func = funcName;
       if (func in fontAliases) {
         func = fontAliases[func];
@@ -24387,7 +22825,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         type: "font",
         mode: parser.mode,
         font: func.slice(1),
-        body
+        body: body3
       };
     },
     htmlBuilder: htmlBuilder$5,
@@ -24403,17 +22841,17 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var {
         parser
       } = _ref2;
-      var body = args[0];
-      var isCharacterBox3 = utils.isCharacterBox(body);
+      var body3 = args[0];
+      var isCharacterBox3 = utils.isCharacterBox(body3);
       return {
         type: "mclass",
         mode: parser.mode,
-        mclass: binrelClass(body),
+        mclass: binrelClass(body3),
         body: [{
           type: "font",
           mode: parser.mode,
           font: "boldsymbol",
-          body
+          body: body3
         }],
         isCharacterBox: isCharacterBox3
       };
@@ -24435,7 +22873,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var {
         mode
       } = parser;
-      var body = parser.parseExpression(true, breakOnTokenText);
+      var body3 = parser.parseExpression(true, breakOnTokenText);
       var style = "math" + funcName.slice(1);
       return {
         type: "font",
@@ -24444,7 +22882,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         body: {
           type: "ordgroup",
           mode: parser.mode,
-          body
+          body: body3
         }
       };
     },
@@ -24744,7 +23182,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var {
         parser,
         funcName,
-        token
+        token: token2
       } = _ref3;
       var replaceWith;
       switch (funcName) {
@@ -24770,7 +23208,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         type: "infix",
         mode: parser.mode,
         replaceWith,
-        token
+        token: token2
       };
     }
   });
@@ -24849,14 +23287,14 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var {
         parser,
         funcName,
-        token
+        token: token2
       } = _ref5;
       return {
         type: "infix",
         mode: parser.mode,
         replaceWith: "\\\\abovefrac",
         size: assertNodeType(args[0], "size").value,
-        token
+        token: token2
       };
     }
   });
@@ -24902,7 +23340,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     } else {
       group = assertNodeType(grp, "horizBrace");
     }
-    var body = buildGroup$1(group.base, options.havingBaseStyle(Style$1.DISPLAY));
+    var body3 = buildGroup$1(group.base, options.havingBaseStyle(Style$1.DISPLAY));
     var braceBody = stretchy.svgSpan(group, options);
     var vlist;
     if (group.isOver) {
@@ -24910,7 +23348,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         positionType: "firstBaseline",
         children: [{
           type: "elem",
-          elem: body
+          elem: body3
         }, {
           type: "kern",
           size: 0.1
@@ -24923,7 +23361,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     } else {
       vlist = buildCommon.makeVList({
         positionType: "bottom",
-        positionData: body.depth + 0.1 + braceBody.height,
+        positionData: body3.depth + 0.1 + braceBody.height,
         children: [{
           type: "elem",
           elem: braceBody
@@ -24932,7 +23370,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
           size: 0.1
         }, {
           type: "elem",
-          elem: body
+          elem: body3
         }]
       }, options);
       vlist.children[0].children[0].children[0].classes.push("svg-align");
@@ -25010,7 +23448,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var {
         parser
       } = _ref;
-      var body = args[1];
+      var body3 = args[1];
       var href = assertNodeType(args[0], "url").url;
       if (!parser.settings.isTrusted({
         command: "\\href",
@@ -25022,7 +23460,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         type: "href",
         mode: parser.mode,
         href,
-        body: ordargument(body)
+        body: ordargument(body3)
       };
     },
     htmlBuilder: (group, options) => {
@@ -25058,8 +23496,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         return parser.formatUnsupportedCmd("\\url");
       }
       var chars = [];
-      for (var i = 0; i < href.length; i++) {
-        var c = href[i];
+      for (var i2 = 0; i2 < href.length; i2++) {
+        var c = href[i2];
         if (c === "~") {
           c = "\\textasciitilde";
         }
@@ -25069,7 +23507,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
           text: c
         });
       }
-      var body = {
+      var body3 = {
         type: "text",
         mode: parser.mode,
         font: "\\texttt",
@@ -25079,7 +23517,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         type: "href",
         mode: parser.mode,
         href,
-        body: ordargument(body)
+        body: ordargument(body3)
       };
     }
   });
@@ -25122,10 +23560,10 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var {
         parser,
         funcName,
-        token
+        token: token2
       } = _ref;
       var value = assertNodeType(args[0], "raw").string;
-      var body = args[1];
+      var body3 = args[1];
       if (parser.settings.strict) {
         parser.settings.reportNonstrict("htmlExtension", "HTML extension is disabled on strict mode");
       }
@@ -25155,15 +23593,15 @@ Please report this to https://github.com/markedjs/marked.`, e) {
           break;
         case "\\htmlData": {
           var data = value.split(",");
-          for (var i = 0; i < data.length; i++) {
-            var item = data[i];
+          for (var i2 = 0; i2 < data.length; i2++) {
+            var item = data[i2];
             var firstEquals = item.indexOf("=");
             if (firstEquals < 0) {
               throw new ParseError("\\htmlData key/value '" + item + "' missing equals sign");
             }
-            var key = item.slice(0, firstEquals);
+            var key2 = item.slice(0, firstEquals);
             var _value = item.slice(firstEquals + 1);
-            attributes["data-" + key.trim()] = _value;
+            attributes["data-" + key2.trim()] = _value;
           }
           trustContext = {
             command: "\\htmlData",
@@ -25181,7 +23619,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         type: "html",
         mode: parser.mode,
         attributes,
-        body: ordargument(body)
+        body: ordargument(body3)
       };
     },
     htmlBuilder: (group, options) => {
@@ -25279,8 +23717,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       if (optArgs[0]) {
         var attributeStr = assertNodeType(optArgs[0], "raw").string;
         var attributes = attributeStr.split(",");
-        for (var i = 0; i < attributes.length; i++) {
-          var keyVal = attributes[i].split("=");
+        for (var i2 = 0; i2 < attributes.length; i2++) {
+          var keyVal = attributes[i2].split("=");
           if (keyVal.length === 2) {
             var str = keyVal[1].trim();
             switch (keyVal[0].trim()) {
@@ -25423,12 +23861,12 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         parser,
         funcName
       } = _ref;
-      var body = args[0];
+      var body3 = args[0];
       return {
         type: "lap",
         mode: parser.mode,
         alignment: funcName.slice(5),
-        body
+        body: body3
       };
     },
     htmlBuilder: (group, options) => {
@@ -25476,14 +23914,14 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var outerMode = parser.mode;
       parser.switchMode("math");
       var close3 = funcName === "\\(" ? "\\)" : "$";
-      var body = parser.parseExpression(false, close3);
+      var body3 = parser.parseExpression(false, close3);
       parser.expect(close3);
       parser.switchMode(outerMode);
       return {
         type: "styling",
         mode: parser.mode,
         style: "text",
-        body
+        body: body3
       };
     }
   });
@@ -25535,13 +23973,13 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       };
     },
     htmlBuilder: (group, options) => {
-      var body = chooseMathStyle(group, options);
-      var elements = buildExpression$1(body, options, false);
+      var body3 = chooseMathStyle(group, options);
+      var elements = buildExpression$1(body3, options, false);
       return buildCommon.makeFragment(elements);
     },
     mathmlBuilder: (group, options) => {
-      var body = chooseMathStyle(group, options);
-      return buildExpressionRow(body, options);
+      var body3 = chooseMathStyle(group, options);
+      return buildExpressionRow(body3, options);
     }
   });
   var assembleSupSub = (base2, supGroup, subGroup, options, style, slant, baseShift) => {
@@ -25702,8 +24140,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       }
     } else {
       var output = [];
-      for (var i = 1; i < group.name.length; i++) {
-        output.push(buildCommon.mathsym(group.name[i], group.mode, options));
+      for (var i2 = 1; i2 < group.name.length; i2++) {
+        output.push(buildCommon.mathsym(group.name[i2], group.mode, options));
       }
       base2 = buildCommon.makeSpan(["mop"], output, options);
     }
@@ -25795,14 +24233,14 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var {
         parser
       } = _ref2;
-      var body = args[0];
+      var body3 = args[0];
       return {
         type: "op",
         mode: parser.mode,
         limits: false,
         parentIsSupSub: false,
         symbol: false,
-        body: ordargument(body)
+        body: ordargument(body3)
       };
     },
     htmlBuilder: htmlBuilder$2,
@@ -25905,7 +24343,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     }
     var base2;
     if (group.body.length > 0) {
-      var body = group.body.map((child2) => {
+      var body3 = group.body.map((child2) => {
         var childText = child2.text;
         if (typeof childText === "string") {
           return {
@@ -25917,9 +24355,9 @@ Please report this to https://github.com/markedjs/marked.`, e) {
           return child2;
         }
       });
-      var expression = buildExpression$1(body, options.withFont("mathrm"), true);
-      for (var i = 0; i < expression.length; i++) {
-        var child = expression[i];
+      var expression = buildExpression$1(body3, options.withFont("mathrm"), true);
+      for (var i2 = 0; i2 < expression.length; i2++) {
+        var child = expression[i2];
         if (child instanceof SymbolNode) {
           child.text = child.text.replace(/\u2212/, "-").replace(/\u2217/, "*");
         }
@@ -25937,8 +24375,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   var mathmlBuilder2 = (group, options) => {
     var expression = buildExpression2(group.body, options.withFont("mathrm"));
     var isAllString = true;
-    for (var i = 0; i < expression.length; i++) {
-      var node = expression[i];
+    for (var i2 = 0; i2 < expression.length; i2++) {
+      var node = expression[i2];
       if (node instanceof mathMLTree.SpaceNode) ;
       else if (node instanceof mathMLTree.MathNode) {
         switch (node.type) {
@@ -25989,11 +24427,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         parser,
         funcName
       } = _ref;
-      var body = args[0];
+      var body3 = args[0];
       return {
         type: "operatorname",
         mode: parser.mode,
-        body: ordargument(body),
+        body: ordargument(body3),
         alwaysHandleSupSub: funcName === "\\operatornamewithlimits",
         limits: false,
         parentIsSupSub: false
@@ -26025,11 +24463,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var {
         parser
       } = _ref;
-      var body = args[0];
+      var body3 = args[0];
       return {
         type: "overline",
         mode: parser.mode,
-        body
+        body: body3
       };
     },
     htmlBuilder(group, options) {
@@ -26073,11 +24511,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var {
         parser
       } = _ref;
-      var body = args[0];
+      var body3 = args[0];
       return {
         type: "phantom",
         mode: parser.mode,
-        body: ordargument(body)
+        body: ordargument(body3)
       };
     },
     htmlBuilder: (group, options) => {
@@ -26100,11 +24538,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var {
         parser
       } = _ref2;
-      var body = args[0];
+      var body3 = args[0];
       return {
         type: "hphantom",
         mode: parser.mode,
-        body
+        body: body3
       };
     },
     htmlBuilder: (group, options) => {
@@ -26112,9 +24550,9 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       node.height = 0;
       node.depth = 0;
       if (node.children) {
-        for (var i = 0; i < node.children.length; i++) {
-          node.children[i].height = 0;
-          node.children[i].depth = 0;
+        for (var i2 = 0; i2 < node.children.length; i2++) {
+          node.children[i2].height = 0;
+          node.children[i2].depth = 0;
         }
       }
       node = buildCommon.makeVList({
@@ -26146,11 +24584,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var {
         parser
       } = _ref3;
-      var body = args[0];
+      var body3 = args[0];
       return {
         type: "vphantom",
         mode: parser.mode,
-        body
+        body: body3
       };
     },
     htmlBuilder: (group, options) => {
@@ -26179,23 +24617,23 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         parser
       } = _ref;
       var amount = assertNodeType(args[0], "size").value;
-      var body = args[1];
+      var body3 = args[1];
       return {
         type: "raisebox",
         mode: parser.mode,
         dy: amount,
-        body
+        body: body3
       };
     },
     htmlBuilder(group, options) {
-      var body = buildGroup$1(group.body, options);
+      var body3 = buildGroup$1(group.body, options);
       var dy = calculateSize(group.dy, options);
       return buildCommon.makeVList({
         positionType: "shift",
         positionData: -dy,
         children: [{
           type: "elem",
-          elem: body
+          elem: body3
         }]
       }, options);
     },
@@ -26286,15 +24724,15 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   function sizingGroup(value, options, baseOptions) {
     var inner2 = buildExpression$1(value, options, false);
     var multiplier = options.sizeMultiplier / baseOptions.sizeMultiplier;
-    for (var i = 0; i < inner2.length; i++) {
-      var pos = inner2[i].classes.indexOf("sizing");
+    for (var i2 = 0; i2 < inner2.length; i2++) {
+      var pos = inner2[i2].classes.indexOf("sizing");
       if (pos < 0) {
-        Array.prototype.push.apply(inner2[i].classes, options.sizingClasses(baseOptions));
-      } else if (inner2[i].classes[pos + 1] === "reset-size" + options.size) {
-        inner2[i].classes[pos + 1] = "reset-size" + baseOptions.size;
+        Array.prototype.push.apply(inner2[i2].classes, options.sizingClasses(baseOptions));
+      } else if (inner2[i2].classes[pos + 1] === "reset-size" + options.size) {
+        inner2[i2].classes[pos + 1] = "reset-size" + baseOptions.size;
       }
-      inner2[i].height *= multiplier;
-      inner2[i].depth *= multiplier;
+      inner2[i2].height *= multiplier;
+      inner2[i2].depth *= multiplier;
     }
     return buildCommon.makeFragment(inner2);
   }
@@ -26316,13 +24754,13 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         funcName,
         parser
       } = _ref;
-      var body = parser.parseExpression(false, breakOnTokenText);
+      var body3 = parser.parseExpression(false, breakOnTokenText);
       return {
         type: "sizing",
         mode: parser.mode,
         // Figure out what size to use based on the list of functions above
         size: sizeFuncs.indexOf(funcName) + 1,
-        body
+        body: body3
       };
     },
     htmlBuilder: htmlBuilder2,
@@ -26351,8 +24789,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var tbArg = optArgs[0] && assertNodeType(optArgs[0], "ordgroup");
       if (tbArg) {
         var letter = "";
-        for (var i = 0; i < tbArg.body.length; ++i) {
-          var node = tbArg.body[i];
+        for (var i2 = 0; i2 < tbArg.body.length; ++i2) {
+          var node = tbArg.body[i2];
           letter = node.text;
           if (letter === "t") {
             smashHeight = true;
@@ -26368,11 +24806,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         smashHeight = true;
         smashDepth = true;
       }
-      var body = args[0];
+      var body3 = args[0];
       return {
         type: "smash",
         mode: parser.mode,
-        body,
+        body: body3,
         smashHeight,
         smashDepth
       };
@@ -26385,8 +24823,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       if (group.smashHeight) {
         node.height = 0;
         if (node.children) {
-          for (var i = 0; i < node.children.length; i++) {
-            node.children[i].height = 0;
+          for (var i2 = 0; i2 < node.children.length; i2++) {
+            node.children[i2].height = 0;
           }
         }
       }
@@ -26430,11 +24868,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         parser
       } = _ref;
       var index = optArgs[0];
-      var body = args[0];
+      var body3 = args[0];
       return {
         type: "sqrt",
         mode: parser.mode,
-        body,
+        body: body3,
         index
       };
     },
@@ -26463,7 +24901,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       }
       var imgShift = img.height - inner2.height - lineClearance - ruleWidth;
       inner2.style.paddingLeft = makeEm(advanceWidth);
-      var body = buildCommon.makeVList({
+      var body3 = buildCommon.makeVList({
         positionType: "firstBaseline",
         children: [{
           type: "elem",
@@ -26481,11 +24919,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }]
       }, options);
       if (!group.index) {
-        return buildCommon.makeSpan(["mord", "sqrt"], [body], options);
+        return buildCommon.makeSpan(["mord", "sqrt"], [body3], options);
       } else {
         var newOptions = options.havingStyle(Style$1.SCRIPTSCRIPT);
         var rootm = buildGroup$1(group.index, newOptions, options);
-        var toShift = 0.6 * (body.height - body.depth);
+        var toShift = 0.6 * (body3.height - body3.depth);
         var rootVList = buildCommon.makeVList({
           positionType: "shift",
           positionData: -toShift,
@@ -26495,15 +24933,15 @@ Please report this to https://github.com/markedjs/marked.`, e) {
           }]
         }, options);
         var rootVListWrap = buildCommon.makeSpan(["root"], [rootVList]);
-        return buildCommon.makeSpan(["mord", "sqrt"], [rootVListWrap, body], options);
+        return buildCommon.makeSpan(["mord", "sqrt"], [rootVListWrap, body3], options);
       }
     },
     mathmlBuilder(group, options) {
       var {
-        body,
+        body: body3,
         index
       } = group;
-      return index ? new mathMLTree.MathNode("mroot", [buildGroup2(body, options), buildGroup2(index, options)]) : new mathMLTree.MathNode("msqrt", [buildGroup2(body, options)]);
+      return index ? new mathMLTree.MathNode("mroot", [buildGroup2(body3, options), buildGroup2(index, options)]) : new mathMLTree.MathNode("msqrt", [buildGroup2(body3, options)]);
     }
   });
   var styleMap = {
@@ -26526,7 +24964,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         funcName,
         parser
       } = _ref;
-      var body = parser.parseExpression(true, breakOnTokenText);
+      var body3 = parser.parseExpression(true, breakOnTokenText);
       var style = funcName.slice(1, funcName.length - 5);
       return {
         type: "styling",
@@ -26534,7 +24972,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         // Figure out what style to use by pulling out the style from
         // the function name
         style,
-        body
+        body: body3
       };
     },
     htmlBuilder(group, options) {
@@ -26788,17 +25226,17 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       return buildCommon.makeOrd(group, options, "textord");
     },
     mathmlBuilder(group, options) {
-      var text2 = makeText(group.text, group.mode, options);
+      var text3 = makeText(group.text, group.mode, options);
       var variant = getVariant(group, options) || "normal";
       var node;
       if (group.mode === "text") {
-        node = new mathMLTree.MathNode("mtext", [text2]);
+        node = new mathMLTree.MathNode("mtext", [text3]);
       } else if (/[0-9]/.test(group.text)) {
-        node = new mathMLTree.MathNode("mn", [text2]);
+        node = new mathMLTree.MathNode("mn", [text3]);
       } else if (group.text === "\\prime") {
-        node = new mathMLTree.MathNode("mo", [text2]);
+        node = new mathMLTree.MathNode("mo", [text3]);
       } else {
-        node = new mathMLTree.MathNode("mi", [text2]);
+        node = new mathMLTree.MathNode("mi", [text3]);
       }
       if (variant !== defaultVariant[node.type]) {
         node.setAttribute("mathvariant", variant);
@@ -26920,11 +25358,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         parser,
         funcName
       } = _ref;
-      var body = args[0];
+      var body3 = args[0];
       return {
         type: "text",
         mode: parser.mode,
-        body: ordargument(body),
+        body: ordargument(body3),
         font: funcName
       };
     },
@@ -27006,15 +25444,15 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       };
     },
     htmlBuilder(group, options) {
-      var body = buildGroup$1(group.body, options);
+      var body3 = buildGroup$1(group.body, options);
       var axisHeight = options.fontMetrics().axisHeight;
-      var dy = 0.5 * (body.height - axisHeight - (body.depth + axisHeight));
+      var dy = 0.5 * (body3.height - axisHeight - (body3.depth + axisHeight));
       return buildCommon.makeVList({
         positionType: "shift",
         positionData: dy,
         children: [{
           type: "elem",
-          elem: body
+          elem: body3
         }]
       }, options);
     },
@@ -27033,21 +25471,21 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       throw new ParseError("\\verb ended by end of line instead of matching delimiter");
     },
     htmlBuilder(group, options) {
-      var text2 = makeVerb(group);
-      var body = [];
+      var text3 = makeVerb(group);
+      var body3 = [];
       var newOptions = options.havingStyle(options.style.text());
-      for (var i = 0; i < text2.length; i++) {
-        var c = text2[i];
+      for (var i2 = 0; i2 < text3.length; i2++) {
+        var c = text3[i2];
         if (c === "~") {
           c = "\\textasciitilde";
         }
-        body.push(buildCommon.makeSymbol(c, "Typewriter-Regular", group.mode, newOptions, ["mord", "texttt"]));
+        body3.push(buildCommon.makeSymbol(c, "Typewriter-Regular", group.mode, newOptions, ["mord", "texttt"]));
       }
-      return buildCommon.makeSpan(["mord", "text"].concat(newOptions.sizingClasses(options)), buildCommon.tryCombineChars(body), newOptions);
+      return buildCommon.makeSpan(["mord", "text"].concat(newOptions.sizingClasses(options)), buildCommon.tryCombineChars(body3), newOptions);
     },
     mathmlBuilder(group, options) {
-      var text2 = new mathMLTree.TextNode(makeVerb(group));
-      var node = new mathMLTree.MathNode("mtext", [text2]);
+      var text3 = new mathMLTree.TextNode(makeVerb(group));
+      var node = new mathMLTree.MathNode("mtext", [text3]);
       node.setAttribute("mathvariant", "monospace");
       return node;
     }
@@ -27104,8 +25542,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       if (match === null || match.index !== pos) {
         throw new ParseError("Unexpected character: '" + input[pos] + "'", new Token(input[pos], new SourceLocation(this, pos, pos + 1)));
       }
-      var text2 = match[6] || match[3] || (match[2] ? "\\ " : " ");
-      if (this.catcodes[text2] === 14) {
+      var text3 = match[6] || match[3] || (match[2] ? "\\ " : " ");
+      if (this.catcodes[text3] === 14) {
         var nlIndex = input.indexOf("\n", this.tokenRegex.lastIndex);
         if (nlIndex === -1) {
           this.tokenRegex.lastIndex = input.length;
@@ -27115,7 +25553,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
         return this.lex();
       }
-      return new Token(text2, new SourceLocation(this, pos, this.tokenRegex.lastIndex));
+      return new Token(text3, new SourceLocation(this, pos, this.tokenRegex.lastIndex));
     }
   };
   var Namespace = class {
@@ -27206,8 +25644,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         global = false;
       }
       if (global) {
-        for (var i = 0; i < this.undefStack.length; i++) {
-          delete this.undefStack[i][name];
+        for (var i2 = 0; i2 < this.undefStack.length; i2++) {
+          delete this.undefStack[i2][name];
         }
         if (this.undefStack.length > 0) {
           this.undefStack[this.undefStack.length - 1][name] = value;
@@ -27315,40 +25753,40 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     "F": 15
   };
   defineMacro("\\char", function(context) {
-    var token = context.popToken();
+    var token2 = context.popToken();
     var base2;
-    var number = "";
-    if (token.text === "'") {
+    var number2 = "";
+    if (token2.text === "'") {
       base2 = 8;
-      token = context.popToken();
-    } else if (token.text === '"') {
+      token2 = context.popToken();
+    } else if (token2.text === '"') {
       base2 = 16;
-      token = context.popToken();
-    } else if (token.text === "`") {
-      token = context.popToken();
-      if (token.text[0] === "\\") {
-        number = token.text.charCodeAt(1);
-      } else if (token.text === "EOF") {
+      token2 = context.popToken();
+    } else if (token2.text === "`") {
+      token2 = context.popToken();
+      if (token2.text[0] === "\\") {
+        number2 = token2.text.charCodeAt(1);
+      } else if (token2.text === "EOF") {
         throw new ParseError("\\char` missing argument");
       } else {
-        number = token.text.charCodeAt(0);
+        number2 = token2.text.charCodeAt(0);
       }
     } else {
       base2 = 10;
     }
     if (base2) {
-      number = digitToNumber[token.text];
-      if (number == null || number >= base2) {
-        throw new ParseError("Invalid base-" + base2 + " digit " + token.text);
+      number2 = digitToNumber[token2.text];
+      if (number2 == null || number2 >= base2) {
+        throw new ParseError("Invalid base-" + base2 + " digit " + token2.text);
       }
       var digit;
       while ((digit = digitToNumber[context.future().text]) != null && digit < base2) {
-        number *= base2;
-        number += digit;
+        number2 *= base2;
+        number2 += digit;
         context.popToken();
       }
     }
-    return "\\@char{" + number + "}";
+    return "\\@char{" + number2 + "}";
   });
   var newcommand = (context, existsOK, nonexistsOK, skipIfExists) => {
     var arg = context.consumeArg().tokens;
@@ -27367,10 +25805,10 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     arg = context.consumeArg().tokens;
     if (arg.length === 1 && arg[0].text === "[") {
       var argText = "";
-      var token = context.expandNextToken();
-      while (token.text !== "]" && token.text !== "EOF") {
-        argText += token.text;
-        token = context.expandNextToken();
+      var token2 = context.expandNextToken();
+      while (token2.text !== "]" && token2.text !== "EOF") {
+        argText += token2.text;
+        token2 = context.expandNextToken();
       }
       if (!argText.match(/^\s*[0-9]+\s*$/)) {
         throw new ParseError("Invalid number of arguments: " + argText);
@@ -27391,12 +25829,12 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   defineMacro("\\providecommand", (context) => newcommand(context, true, true, true));
   defineMacro("\\message", (context) => {
     var arg = context.consumeArgs(1)[0];
-    console.log(arg.reverse().map((token) => token.text).join(""));
+    console.log(arg.reverse().map((token2) => token2.text).join(""));
     return "";
   });
   defineMacro("\\errmessage", (context) => {
     var arg = context.consumeArgs(1)[0];
-    console.error(arg.reverse().map((token) => token.text).join(""));
+    console.error(arg.reverse().map((token2) => token2.text).join(""));
     return "";
   });
   defineMacro("\\show", (context) => {
@@ -27783,7 +26221,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   defineMacro("\\braket", "\\mathinner{\\langle{#1}\\rangle}");
   defineMacro("\\Bra", "\\left\\langle#1\\right|");
   defineMacro("\\Ket", "\\left|#1\\right\\rangle");
-  var braketHelper = (one) => (context) => {
+  var braketHelper = (one2) => (context) => {
     var left = context.consumeArg().tokens;
     var middle = context.consumeArg().tokens;
     var middleDouble = context.consumeArg().tokens;
@@ -27792,7 +26230,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     var oldMiddleDouble = context.macros.get("\\|");
     context.macros.beginGroup();
     var midMacro = (double) => (context2) => {
-      if (one) {
+      if (one2) {
         context2.macros.set("|", oldMiddle);
         if (middleDouble.length) {
           context2.macros.set("\\|", oldMiddleDouble);
@@ -27968,8 +26406,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
      * Add a given token to the token stack.  In particular, this get be used
      * to put back a token returned from one of the other methods.
      */
-    pushToken(token) {
-      this.stack.push(token);
+    pushToken(token2) {
+      this.stack.push(token2);
     }
     /**
      * Append an array of tokens to the token stack.
@@ -28011,8 +26449,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
      */
     consumeSpaces() {
       for (; ; ) {
-        var token = this.future();
-        if (token.text === " ") {
+        var token2 = this.future();
+        if (token2.text === " ") {
           this.stack.pop();
         } else {
           break;
@@ -28079,9 +26517,9 @@ Please report this to https://github.com/markedjs/marked.`, e) {
           throw new ParseError("The length of delimiters doesn't match the number of args!");
         }
         var delims = delimiters2[0];
-        for (var i = 0; i < delims.length; i++) {
+        for (var i2 = 0; i2 < delims.length; i2++) {
           var tok = this.popToken();
-          if (delims[i] !== tok.text) {
+          if (delims[i2] !== tok.text) {
             throw new ParseError("Use of the macro doesn't match its definition", tok);
           }
         }
@@ -28137,17 +26575,17 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       var args = this.consumeArgs(expansion.numArgs, expansion.delimiters);
       if (expansion.numArgs) {
         tokens = tokens.slice();
-        for (var i = tokens.length - 1; i >= 0; --i) {
-          var tok = tokens[i];
+        for (var i2 = tokens.length - 1; i2 >= 0; --i2) {
+          var tok = tokens[i2];
           if (tok.text === "#") {
-            if (i === 0) {
+            if (i2 === 0) {
               throw new ParseError("Incomplete placeholder at end of macro body", tok);
             }
-            tok = tokens[--i];
+            tok = tokens[--i2];
             if (tok.text === "#") {
-              tokens.splice(i + 1, 1);
+              tokens.splice(i2 + 1, 1);
             } else if (/^[1-9]$/.test(tok.text)) {
-              tokens.splice(i, 2, ...args[+tok.text - 1]);
+              tokens.splice(i2, 2, ...args[+tok.text - 1]);
             } else {
               throw new ParseError("Not a valid argument number", tok);
             }
@@ -28173,11 +26611,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     expandNextToken() {
       for (; ; ) {
         if (this.expandOnce() === false) {
-          var token = this.stack.pop();
-          if (token.treatAsRelax) {
-            token.text = "\\relax";
+          var token2 = this.stack.pop();
+          if (token2.treatAsRelax) {
+            token2.text = "\\relax";
           }
-          return token;
+          return token2;
         }
       }
       throw new Error();
@@ -28200,12 +26638,12 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       this.pushTokens(tokens);
       while (this.stack.length > oldStackLength) {
         if (this.expandOnce(true) === false) {
-          var token = this.stack.pop();
-          if (token.treatAsRelax) {
-            token.noexpand = false;
-            token.treatAsRelax = false;
+          var token2 = this.stack.pop();
+          if (token2.treatAsRelax) {
+            token2.noexpand = false;
+            token2.treatAsRelax = false;
           }
-          output.push(token);
+          output.push(token2);
         }
       }
       this.countExpansion(output.length);
@@ -28218,7 +26656,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     expandMacroAsText(name) {
       var tokens = this.expandMacro(name);
       if (tokens) {
-        return tokens.map((token) => token.text).join("");
+        return tokens.map((token2) => token2.text).join("");
       } else {
         return tokens;
       }
@@ -28795,12 +27233,12 @@ Please report this to https://github.com/markedjs/marked.`, e) {
      * Checks a result to make sure it has the right type, and throws an
      * appropriate error otherwise.
      */
-    expect(text2, consume) {
+    expect(text3, consume) {
       if (consume === void 0) {
         consume = true;
       }
-      if (this.fetch().text !== text2) {
-        throw new ParseError("Expected '" + text2 + "', got '" + this.fetch().text + "'", this.fetch());
+      if (this.fetch().text !== text3) {
+        throw new ParseError("Expected '" + text3 + "', got '" + this.fetch().text + "'", this.fetch());
       }
       if (consume) {
         this.consume();
@@ -28877,7 +27315,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
      *                     expression.
      */
     parseExpression(breakOnInfix, breakOnTokenText) {
-      var body = [];
+      var body3 = [];
       while (true) {
         if (this.mode === "math") {
           this.consumeSpaces();
@@ -28898,12 +27336,12 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         } else if (atom.type === "internal") {
           continue;
         }
-        body.push(atom);
+        body3.push(atom);
       }
       if (this.mode === "text") {
-        this.formLigatures(body);
+        this.formLigatures(body3);
       }
-      return this.handleInfixNodes(body);
+      return this.handleInfixNodes(body3);
     }
     /**
      * Rewrites infix operators such as \over with corresponding commands such
@@ -28912,23 +27350,23 @@ Please report this to https://github.com/markedjs/marked.`, e) {
      * There can only be one infix operator per group.  If there's more than one
      * then the expression is ambiguous.  This can be resolved by adding {}.
      */
-    handleInfixNodes(body) {
+    handleInfixNodes(body3) {
       var overIndex = -1;
       var funcName;
-      for (var i = 0; i < body.length; i++) {
-        if (body[i].type === "infix") {
+      for (var i2 = 0; i2 < body3.length; i2++) {
+        if (body3[i2].type === "infix") {
           if (overIndex !== -1) {
-            throw new ParseError("only one infix operator per group", body[i].token);
+            throw new ParseError("only one infix operator per group", body3[i2].token);
           }
-          overIndex = i;
-          funcName = body[i].replaceWith;
+          overIndex = i2;
+          funcName = body3[i2].replaceWith;
         }
       }
       if (overIndex !== -1 && funcName) {
         var numerNode;
         var denomNode;
-        var numerBody = body.slice(0, overIndex);
-        var denomBody = body.slice(overIndex + 1);
+        var numerBody = body3.slice(0, overIndex);
+        var denomBody = body3.slice(overIndex + 1);
         if (numerBody.length === 1 && numerBody[0].type === "ordgroup") {
           numerNode = numerBody[0];
         } else {
@@ -28949,13 +27387,13 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
         var node;
         if (funcName === "\\\\abovefrac") {
-          node = this.callFunction(funcName, [numerNode, body[overIndex], denomNode], []);
+          node = this.callFunction(funcName, [numerNode, body3[overIndex], denomNode], []);
         } else {
           node = this.callFunction(funcName, [numerNode, denomNode], []);
         }
         return [node];
       } else {
-        return body;
+        return body3;
       }
     }
     /**
@@ -28980,13 +27418,13 @@ Please report this to https://github.com/markedjs/marked.`, e) {
      * Converts the textual input of an unsupported command into a text node
      * contained within a color node whose color is determined by errorColor
      */
-    formatUnsupportedCmd(text2) {
+    formatUnsupportedCmd(text3) {
       var textordArray = [];
-      for (var i = 0; i < text2.length; i++) {
+      for (var i2 = 0; i2 < text3.length; i2++) {
         textordArray.push({
           type: "textord",
           mode: "text",
-          text: text2[i]
+          text: text3[i2]
         });
       }
       var textNode = {
@@ -29070,28 +27508,28 @@ Please report this to https://github.com/markedjs/marked.`, e) {
           subsupTokens.push(new Token(uSubsAndSups[lex.text]));
           this.consume();
           while (true) {
-            var token = this.fetch().text;
-            if (!uSubsAndSups[token]) {
+            var token2 = this.fetch().text;
+            if (!uSubsAndSups[token2]) {
               break;
             }
-            if (unicodeSubRegEx.test(token) !== isSub) {
+            if (unicodeSubRegEx.test(token2) !== isSub) {
               break;
             }
-            subsupTokens.unshift(new Token(uSubsAndSups[token]));
+            subsupTokens.unshift(new Token(uSubsAndSups[token2]));
             this.consume();
           }
-          var body = this.subparse(subsupTokens);
+          var body3 = this.subparse(subsupTokens);
           if (isSub) {
             subscript = {
               type: "ordgroup",
               mode: "math",
-              body
+              body: body3
             };
           } else {
             superscript = {
               type: "ordgroup",
               mode: "math",
-              body
+              body: body3
             };
           }
         } else {
@@ -29114,34 +27552,34 @@ Please report this to https://github.com/markedjs/marked.`, e) {
      * Parses an entire function, including its base and all of its arguments.
      */
     parseFunction(breakOnTokenText, name) {
-      var token = this.fetch();
-      var func = token.text;
+      var token2 = this.fetch();
+      var func = token2.text;
       var funcData = functions[func];
       if (!funcData) {
         return null;
       }
       this.consume();
       if (name && name !== "atom" && !funcData.allowedInArgument) {
-        throw new ParseError("Got function '" + func + "' with no arguments" + (name ? " as " + name : ""), token);
+        throw new ParseError("Got function '" + func + "' with no arguments" + (name ? " as " + name : ""), token2);
       } else if (this.mode === "text" && !funcData.allowedInText) {
-        throw new ParseError("Can't use function '" + func + "' in text mode", token);
+        throw new ParseError("Can't use function '" + func + "' in text mode", token2);
       } else if (this.mode === "math" && funcData.allowedInMath === false) {
-        throw new ParseError("Can't use function '" + func + "' in math mode", token);
+        throw new ParseError("Can't use function '" + func + "' in math mode", token2);
       }
       var {
         args,
         optArgs
       } = this.parseArguments(func, funcData);
-      return this.callFunction(func, args, optArgs, token, breakOnTokenText);
+      return this.callFunction(func, args, optArgs, token2, breakOnTokenText);
     }
     /**
      * Call a function handler with a suitable context and arguments.
      */
-    callFunction(name, args, optArgs, token, breakOnTokenText) {
+    callFunction(name, args, optArgs, token2, breakOnTokenText) {
       var context = {
         funcName: name,
         parser: this,
-        token,
+        token: token2,
         breakOnTokenText
       };
       var func = functions[name];
@@ -29164,11 +27602,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       }
       var args = [];
       var optArgs = [];
-      for (var i = 0; i < totalArgs; i++) {
-        var argType = funcData.argTypes && funcData.argTypes[i];
-        var isOptional = i < funcData.numOptionalArgs;
+      for (var i2 = 0; i2 < totalArgs; i2++) {
+        var argType = funcData.argTypes && funcData.argTypes[i2];
+        var isOptional = i2 < funcData.numOptionalArgs;
         if (funcData.primitive && argType == null || // \sqrt expands into primitive if optional argument doesn't exist
-        funcData.type === "sqrt" && i === 1 && optArgs[0] == null) {
+        funcData.type === "sqrt" && i2 === 1 && optArgs[0] == null) {
           argType = "primitive";
         }
         var arg = this.parseGroupOfType("argument to '" + func + "'", argType, isOptional);
@@ -29210,11 +27648,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
           } : null;
         }
         case "raw": {
-          var token = this.parseStringGroup("raw", optional);
-          return token != null ? {
+          var token2 = this.parseStringGroup("raw", optional);
+          return token2 != null ? {
             type: "raw",
             mode: "text",
-            string: token.text
+            string: token2.text
           } : null;
         }
         case "primitive": {
@@ -29397,11 +27835,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
      */
     parseGroup(name, breakOnTokenText) {
       var firstToken = this.fetch();
-      var text2 = firstToken.text;
+      var text3 = firstToken.text;
       var result;
-      if (text2 === "{" || text2 === "\\begingroup") {
+      if (text3 === "{" || text3 === "\\begingroup") {
         this.consume();
-        var groupEnd = text2 === "{" ? "}" : "\\endgroup";
+        var groupEnd = text3 === "{" ? "}" : "\\endgroup";
         this.gullet.beginGroup();
         var expression = this.parseExpression(false, groupEnd);
         var lastToken = this.fetch();
@@ -29416,15 +27854,15 @@ Please report this to https://github.com/markedjs/marked.`, e) {
           // which doesn't affect spacing in math mode, i.e., is transparent.
           // https://tex.stackexchange.com/questions/1930/when-should-one-
           // use-begingroup-instead-of-bgroup
-          semisimple: text2 === "\\begingroup" || void 0
+          semisimple: text3 === "\\begingroup" || void 0
         };
       } else {
         result = this.parseFunction(breakOnTokenText, name) || this.parseSymbol();
-        if (result == null && text2[0] === "\\" && !implicitCommands.hasOwnProperty(text2)) {
+        if (result == null && text3[0] === "\\" && !implicitCommands.hasOwnProperty(text3)) {
           if (this.settings.throwOnError) {
-            throw new ParseError("Undefined control sequence: " + text2, firstToken);
+            throw new ParseError("Undefined control sequence: " + text3, firstToken);
           }
-          result = this.formatUnsupportedCmd(text2);
+          result = this.formatUnsupportedCmd(text3);
           this.consume();
         }
       }
@@ -29440,34 +27878,34 @@ Please report this to https://github.com/markedjs/marked.`, e) {
      */
     formLigatures(group) {
       var n = group.length - 1;
-      for (var i = 0; i < n; ++i) {
-        var a = group[i];
-        var v2 = a.text;
-        if (v2 === "-" && group[i + 1].text === "-") {
-          if (i + 1 < n && group[i + 2].text === "-") {
-            group.splice(i, 3, {
+      for (var i2 = 0; i2 < n; ++i2) {
+        var a2 = group[i2];
+        var v3 = a2.text;
+        if (v3 === "-" && group[i2 + 1].text === "-") {
+          if (i2 + 1 < n && group[i2 + 2].text === "-") {
+            group.splice(i2, 3, {
               type: "textord",
               mode: "text",
-              loc: SourceLocation.range(a, group[i + 2]),
+              loc: SourceLocation.range(a2, group[i2 + 2]),
               text: "---"
             });
             n -= 2;
           } else {
-            group.splice(i, 2, {
+            group.splice(i2, 2, {
               type: "textord",
               mode: "text",
-              loc: SourceLocation.range(a, group[i + 1]),
+              loc: SourceLocation.range(a2, group[i2 + 1]),
               text: "--"
             });
             n -= 1;
           }
         }
-        if ((v2 === "'" || v2 === "`") && group[i + 1].text === v2) {
-          group.splice(i, 2, {
+        if ((v3 === "'" || v3 === "`") && group[i2 + 1].text === v3) {
+          group.splice(i2, 2, {
             type: "textord",
             mode: "text",
-            loc: SourceLocation.range(a, group[i + 1]),
-            text: v2 + v2
+            loc: SourceLocation.range(a2, group[i2 + 1]),
+            text: v3 + v3
           });
           n -= 1;
         }
@@ -29479,10 +27917,10 @@ Please report this to https://github.com/markedjs/marked.`, e) {
      */
     parseSymbol() {
       var nucleus = this.fetch();
-      var text2 = nucleus.text;
-      if (/^\\verb[^a-zA-Z]/.test(text2)) {
+      var text3 = nucleus.text;
+      if (/^\\verb[^a-zA-Z]/.test(text3)) {
         this.consume();
-        var arg = text2.slice(5);
+        var arg = text3.slice(5);
         var star = arg.charAt(0) === "*";
         if (star) {
           arg = arg.slice(1);
@@ -29498,68 +27936,68 @@ Please report this to https://github.com/markedjs/marked.`, e) {
           star
         };
       }
-      if (unicodeSymbols.hasOwnProperty(text2[0]) && !symbols[this.mode][text2[0]]) {
+      if (unicodeSymbols.hasOwnProperty(text3[0]) && !symbols[this.mode][text3[0]]) {
         if (this.settings.strict && this.mode === "math") {
-          this.settings.reportNonstrict("unicodeTextInMathMode", 'Accented Unicode text character "' + text2[0] + '" used in math mode', nucleus);
+          this.settings.reportNonstrict("unicodeTextInMathMode", 'Accented Unicode text character "' + text3[0] + '" used in math mode', nucleus);
         }
-        text2 = unicodeSymbols[text2[0]] + text2.slice(1);
+        text3 = unicodeSymbols[text3[0]] + text3.slice(1);
       }
-      var match = combiningDiacriticalMarksEndRegex.exec(text2);
+      var match = combiningDiacriticalMarksEndRegex.exec(text3);
       if (match) {
-        text2 = text2.substring(0, match.index);
-        if (text2 === "i") {
-          text2 = "\u0131";
-        } else if (text2 === "j") {
-          text2 = "\u0237";
+        text3 = text3.substring(0, match.index);
+        if (text3 === "i") {
+          text3 = "\u0131";
+        } else if (text3 === "j") {
+          text3 = "\u0237";
         }
       }
       var symbol;
-      if (symbols[this.mode][text2]) {
-        if (this.settings.strict && this.mode === "math" && extraLatin.indexOf(text2) >= 0) {
-          this.settings.reportNonstrict("unicodeTextInMathMode", 'Latin-1/Unicode text character "' + text2[0] + '" used in math mode', nucleus);
+      if (symbols[this.mode][text3]) {
+        if (this.settings.strict && this.mode === "math" && extraLatin.indexOf(text3) >= 0) {
+          this.settings.reportNonstrict("unicodeTextInMathMode", 'Latin-1/Unicode text character "' + text3[0] + '" used in math mode', nucleus);
         }
-        var group = symbols[this.mode][text2].group;
+        var group = symbols[this.mode][text3].group;
         var loc = SourceLocation.range(nucleus);
-        var s;
+        var s2;
         if (ATOMS.hasOwnProperty(group)) {
           var family = group;
-          s = {
+          s2 = {
             type: "atom",
             mode: this.mode,
             family,
             loc,
-            text: text2
+            text: text3
           };
         } else {
-          s = {
+          s2 = {
             type: group,
             mode: this.mode,
             loc,
-            text: text2
+            text: text3
           };
         }
-        symbol = s;
-      } else if (text2.charCodeAt(0) >= 128) {
+        symbol = s2;
+      } else if (text3.charCodeAt(0) >= 128) {
         if (this.settings.strict) {
-          if (!supportedCodepoint(text2.charCodeAt(0))) {
-            this.settings.reportNonstrict("unknownSymbol", 'Unrecognized Unicode character "' + text2[0] + '"' + (" (" + text2.charCodeAt(0) + ")"), nucleus);
+          if (!supportedCodepoint(text3.charCodeAt(0))) {
+            this.settings.reportNonstrict("unknownSymbol", 'Unrecognized Unicode character "' + text3[0] + '"' + (" (" + text3.charCodeAt(0) + ")"), nucleus);
           } else if (this.mode === "math") {
-            this.settings.reportNonstrict("unicodeTextInMathMode", 'Unicode text character "' + text2[0] + '" used in math mode', nucleus);
+            this.settings.reportNonstrict("unicodeTextInMathMode", 'Unicode text character "' + text3[0] + '" used in math mode', nucleus);
           }
         }
         symbol = {
           type: "textord",
           mode: "text",
           loc: SourceLocation.range(nucleus),
-          text: text2
+          text: text3
         };
       } else {
         return null;
       }
       this.consume();
       if (match) {
-        for (var i = 0; i < match[0].length; i++) {
-          var accent2 = match[0][i];
+        for (var i2 = 0; i2 < match[0].length; i2++) {
+          var accent2 = match[0][i2];
           if (!unicodeAccents[accent2]) {
             throw new ParseError("Unknown accent ' " + accent2 + "'", nucleus);
           }
@@ -29741,16 +28179,10950 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     __domTree
   };
 
+  // node_modules/@shikijs/types/dist/index.mjs
+  var ShikiError = class extends Error {
+    constructor(message) {
+      super(message);
+      this.name = "ShikiError";
+    }
+  };
+
+  // node_modules/@shikijs/vscode-textmate/dist/index.js
+  function clone(something) {
+    return doClone(something);
+  }
+  function doClone(something) {
+    if (Array.isArray(something)) {
+      return cloneArray(something);
+    }
+    if (something instanceof RegExp) {
+      return something;
+    }
+    if (typeof something === "object") {
+      return cloneObj(something);
+    }
+    return something;
+  }
+  function cloneArray(arr) {
+    let r4 = [];
+    for (let i2 = 0, len = arr.length; i2 < len; i2++) {
+      r4[i2] = doClone(arr[i2]);
+    }
+    return r4;
+  }
+  function cloneObj(obj) {
+    let r4 = {};
+    for (let key2 in obj) {
+      r4[key2] = doClone(obj[key2]);
+    }
+    return r4;
+  }
+  function mergeObjects(target, ...sources) {
+    sources.forEach((source) => {
+      for (let key2 in source) {
+        target[key2] = source[key2];
+      }
+    });
+    return target;
+  }
+  function basename(path2) {
+    const idx = ~path2.lastIndexOf("/") || ~path2.lastIndexOf("\\");
+    if (idx === 0) {
+      return path2;
+    } else if (~idx === path2.length - 1) {
+      return basename(path2.substring(0, path2.length - 1));
+    } else {
+      return path2.substr(~idx + 1);
+    }
+  }
+  var CAPTURING_REGEX_SOURCE = /\$(\d+)|\${(\d+):\/(downcase|upcase)}/g;
+  var RegexSource = class {
+    static hasCaptures(regexSource) {
+      if (regexSource === null) {
+        return false;
+      }
+      CAPTURING_REGEX_SOURCE.lastIndex = 0;
+      return CAPTURING_REGEX_SOURCE.test(regexSource);
+    }
+    static replaceCaptures(regexSource, captureSource, captureIndices) {
+      return regexSource.replace(CAPTURING_REGEX_SOURCE, (match, index, commandIndex, command) => {
+        let capture = captureIndices[parseInt(index || commandIndex, 10)];
+        if (capture) {
+          let result = captureSource.substring(capture.start, capture.end);
+          while (result[0] === ".") {
+            result = result.substring(1);
+          }
+          switch (command) {
+            case "downcase":
+              return result.toLowerCase();
+            case "upcase":
+              return result.toUpperCase();
+            default:
+              return result;
+          }
+        } else {
+          return match;
+        }
+      });
+    }
+  };
+  function strcmp(a2, b4) {
+    if (a2 < b4) {
+      return -1;
+    }
+    if (a2 > b4) {
+      return 1;
+    }
+    return 0;
+  }
+  function strArrCmp(a2, b4) {
+    if (a2 === null && b4 === null) {
+      return 0;
+    }
+    if (!a2) {
+      return -1;
+    }
+    if (!b4) {
+      return 1;
+    }
+    let len1 = a2.length;
+    let len2 = b4.length;
+    if (len1 === len2) {
+      for (let i2 = 0; i2 < len1; i2++) {
+        let res = strcmp(a2[i2], b4[i2]);
+        if (res !== 0) {
+          return res;
+        }
+      }
+      return 0;
+    }
+    return len1 - len2;
+  }
+  function isValidHexColor(hex) {
+    if (/^#[0-9a-f]{6}$/i.test(hex)) {
+      return true;
+    }
+    if (/^#[0-9a-f]{8}$/i.test(hex)) {
+      return true;
+    }
+    if (/^#[0-9a-f]{3}$/i.test(hex)) {
+      return true;
+    }
+    if (/^#[0-9a-f]{4}$/i.test(hex)) {
+      return true;
+    }
+    return false;
+  }
+  function escapeRegExpCharacters(value) {
+    return value.replace(/[\-\\\{\}\*\+\?\|\^\$\.\,\[\]\(\)\#\s]/g, "\\$&");
+  }
+  var CachedFn = class {
+    constructor(fn) {
+      this.fn = fn;
+    }
+    fn;
+    cache = /* @__PURE__ */ new Map();
+    get(key2) {
+      if (this.cache.has(key2)) {
+        return this.cache.get(key2);
+      }
+      const value = this.fn(key2);
+      this.cache.set(key2, value);
+      return value;
+    }
+  };
+  var Theme = class {
+    constructor(_colorMap, _defaults, _root) {
+      this._colorMap = _colorMap;
+      this._defaults = _defaults;
+      this._root = _root;
+    }
+    _colorMap;
+    _defaults;
+    _root;
+    static createFromRawTheme(source, colorMap) {
+      return this.createFromParsedTheme(parseTheme(source), colorMap);
+    }
+    static createFromParsedTheme(source, colorMap) {
+      return resolveParsedThemeRules(source, colorMap);
+    }
+    _cachedMatchRoot = new CachedFn(
+      (scopeName) => this._root.match(scopeName)
+    );
+    getColorMap() {
+      return this._colorMap.getColorMap();
+    }
+    getDefaults() {
+      return this._defaults;
+    }
+    match(scopePath) {
+      if (scopePath === null) {
+        return this._defaults;
+      }
+      const scopeName = scopePath.scopeName;
+      const matchingTrieElements = this._cachedMatchRoot.get(scopeName);
+      const effectiveRule = matchingTrieElements.find(
+        (v3) => _scopePathMatchesParentScopes(scopePath.parent, v3.parentScopes)
+      );
+      if (!effectiveRule) {
+        return null;
+      }
+      return new StyleAttributes(
+        effectiveRule.fontStyle,
+        effectiveRule.foreground,
+        effectiveRule.background
+      );
+    }
+  };
+  var ScopeStack = class _ScopeStack {
+    constructor(parent, scopeName) {
+      this.parent = parent;
+      this.scopeName = scopeName;
+    }
+    parent;
+    scopeName;
+    static push(path2, scopeNames) {
+      for (const name of scopeNames) {
+        path2 = new _ScopeStack(path2, name);
+      }
+      return path2;
+    }
+    static from(...segments) {
+      let result = null;
+      for (let i2 = 0; i2 < segments.length; i2++) {
+        result = new _ScopeStack(result, segments[i2]);
+      }
+      return result;
+    }
+    push(scopeName) {
+      return new _ScopeStack(this, scopeName);
+    }
+    getSegments() {
+      let item = this;
+      const result = [];
+      while (item) {
+        result.push(item.scopeName);
+        item = item.parent;
+      }
+      result.reverse();
+      return result;
+    }
+    toString() {
+      return this.getSegments().join(" ");
+    }
+    extends(other) {
+      if (this === other) {
+        return true;
+      }
+      if (this.parent === null) {
+        return false;
+      }
+      return this.parent.extends(other);
+    }
+    getExtensionIfDefined(base2) {
+      const result = [];
+      let item = this;
+      while (item && item !== base2) {
+        result.push(item.scopeName);
+        item = item.parent;
+      }
+      return item === base2 ? result.reverse() : void 0;
+    }
+  };
+  function _scopePathMatchesParentScopes(scopePath, parentScopes) {
+    if (parentScopes.length === 0) {
+      return true;
+    }
+    for (let index = 0; index < parentScopes.length; index++) {
+      let scopePattern = parentScopes[index];
+      let scopeMustMatch = false;
+      if (scopePattern === ">") {
+        if (index === parentScopes.length - 1) {
+          return false;
+        }
+        scopePattern = parentScopes[++index];
+        scopeMustMatch = true;
+      }
+      while (scopePath) {
+        if (_matchesScope(scopePath.scopeName, scopePattern)) {
+          break;
+        }
+        if (scopeMustMatch) {
+          return false;
+        }
+        scopePath = scopePath.parent;
+      }
+      if (!scopePath) {
+        return false;
+      }
+      scopePath = scopePath.parent;
+    }
+    return true;
+  }
+  function _matchesScope(scopeName, scopePattern) {
+    return scopePattern === scopeName || scopeName.startsWith(scopePattern) && scopeName[scopePattern.length] === ".";
+  }
+  var StyleAttributes = class {
+    constructor(fontStyle, foregroundId, backgroundId) {
+      this.fontStyle = fontStyle;
+      this.foregroundId = foregroundId;
+      this.backgroundId = backgroundId;
+    }
+    fontStyle;
+    foregroundId;
+    backgroundId;
+  };
+  function parseTheme(source) {
+    if (!source) {
+      return [];
+    }
+    if (!source.settings || !Array.isArray(source.settings)) {
+      return [];
+    }
+    let settings = source.settings;
+    let result = [], resultLen = 0;
+    for (let i2 = 0, len = settings.length; i2 < len; i2++) {
+      let entry = settings[i2];
+      if (!entry.settings) {
+        continue;
+      }
+      let scopes;
+      if (typeof entry.scope === "string") {
+        let _scope = entry.scope;
+        _scope = _scope.replace(/^[,]+/, "");
+        _scope = _scope.replace(/[,]+$/, "");
+        scopes = _scope.split(",");
+      } else if (Array.isArray(entry.scope)) {
+        scopes = entry.scope;
+      } else {
+        scopes = [""];
+      }
+      let fontStyle = -1;
+      if (typeof entry.settings.fontStyle === "string") {
+        fontStyle = 0;
+        let segments = entry.settings.fontStyle.split(" ");
+        for (let j3 = 0, lenJ = segments.length; j3 < lenJ; j3++) {
+          let segment = segments[j3];
+          switch (segment) {
+            case "italic":
+              fontStyle = fontStyle | 1;
+              break;
+            case "bold":
+              fontStyle = fontStyle | 2;
+              break;
+            case "underline":
+              fontStyle = fontStyle | 4;
+              break;
+            case "strikethrough":
+              fontStyle = fontStyle | 8;
+              break;
+          }
+        }
+      }
+      let foreground = null;
+      if (typeof entry.settings.foreground === "string" && isValidHexColor(entry.settings.foreground)) {
+        foreground = entry.settings.foreground;
+      }
+      let background = null;
+      if (typeof entry.settings.background === "string" && isValidHexColor(entry.settings.background)) {
+        background = entry.settings.background;
+      }
+      for (let j3 = 0, lenJ = scopes.length; j3 < lenJ; j3++) {
+        let _scope = scopes[j3].trim();
+        let segments = _scope.split(" ");
+        let scope = segments[segments.length - 1];
+        let parentScopes = null;
+        if (segments.length > 1) {
+          parentScopes = segments.slice(0, segments.length - 1);
+          parentScopes.reverse();
+        }
+        result[resultLen++] = new ParsedThemeRule(
+          scope,
+          parentScopes,
+          i2,
+          fontStyle,
+          foreground,
+          background
+        );
+      }
+    }
+    return result;
+  }
+  var ParsedThemeRule = class {
+    constructor(scope, parentScopes, index, fontStyle, foreground, background) {
+      this.scope = scope;
+      this.parentScopes = parentScopes;
+      this.index = index;
+      this.fontStyle = fontStyle;
+      this.foreground = foreground;
+      this.background = background;
+    }
+    scope;
+    parentScopes;
+    index;
+    fontStyle;
+    foreground;
+    background;
+  };
+  var FontStyle = /* @__PURE__ */ ((FontStyle2) => {
+    FontStyle2[FontStyle2["NotSet"] = -1] = "NotSet";
+    FontStyle2[FontStyle2["None"] = 0] = "None";
+    FontStyle2[FontStyle2["Italic"] = 1] = "Italic";
+    FontStyle2[FontStyle2["Bold"] = 2] = "Bold";
+    FontStyle2[FontStyle2["Underline"] = 4] = "Underline";
+    FontStyle2[FontStyle2["Strikethrough"] = 8] = "Strikethrough";
+    return FontStyle2;
+  })(FontStyle || {});
+  function resolveParsedThemeRules(parsedThemeRules, _colorMap) {
+    parsedThemeRules.sort((a2, b4) => {
+      let r4 = strcmp(a2.scope, b4.scope);
+      if (r4 !== 0) {
+        return r4;
+      }
+      r4 = strArrCmp(a2.parentScopes, b4.parentScopes);
+      if (r4 !== 0) {
+        return r4;
+      }
+      return a2.index - b4.index;
+    });
+    let defaultFontStyle = 0;
+    let defaultForeground = "#000000";
+    let defaultBackground = "#ffffff";
+    while (parsedThemeRules.length >= 1 && parsedThemeRules[0].scope === "") {
+      let incomingDefaults = parsedThemeRules.shift();
+      if (incomingDefaults.fontStyle !== -1) {
+        defaultFontStyle = incomingDefaults.fontStyle;
+      }
+      if (incomingDefaults.foreground !== null) {
+        defaultForeground = incomingDefaults.foreground;
+      }
+      if (incomingDefaults.background !== null) {
+        defaultBackground = incomingDefaults.background;
+      }
+    }
+    let colorMap = new ColorMap(_colorMap);
+    let defaults = new StyleAttributes(defaultFontStyle, colorMap.getId(defaultForeground), colorMap.getId(defaultBackground));
+    let root2 = new ThemeTrieElement(new ThemeTrieElementRule(0, null, -1, 0, 0), []);
+    for (let i2 = 0, len = parsedThemeRules.length; i2 < len; i2++) {
+      let rule = parsedThemeRules[i2];
+      root2.insert(0, rule.scope, rule.parentScopes, rule.fontStyle, colorMap.getId(rule.foreground), colorMap.getId(rule.background));
+    }
+    return new Theme(colorMap, defaults, root2);
+  }
+  var ColorMap = class {
+    _isFrozen;
+    _lastColorId;
+    _id2color;
+    _color2id;
+    constructor(_colorMap) {
+      this._lastColorId = 0;
+      this._id2color = [];
+      this._color2id = /* @__PURE__ */ Object.create(null);
+      if (Array.isArray(_colorMap)) {
+        this._isFrozen = true;
+        for (let i2 = 0, len = _colorMap.length; i2 < len; i2++) {
+          this._color2id[_colorMap[i2]] = i2;
+          this._id2color[i2] = _colorMap[i2];
+        }
+      } else {
+        this._isFrozen = false;
+      }
+    }
+    getId(color) {
+      if (color === null) {
+        return 0;
+      }
+      color = color.toUpperCase();
+      let value = this._color2id[color];
+      if (value) {
+        return value;
+      }
+      if (this._isFrozen) {
+        throw new Error(`Missing color in color map - ${color}`);
+      }
+      value = ++this._lastColorId;
+      this._color2id[color] = value;
+      this._id2color[value] = color;
+      return value;
+    }
+    getColorMap() {
+      return this._id2color.slice(0);
+    }
+  };
+  var emptyParentScopes = Object.freeze([]);
+  var ThemeTrieElementRule = class _ThemeTrieElementRule {
+    scopeDepth;
+    parentScopes;
+    fontStyle;
+    foreground;
+    background;
+    constructor(scopeDepth, parentScopes, fontStyle, foreground, background) {
+      this.scopeDepth = scopeDepth;
+      this.parentScopes = parentScopes || emptyParentScopes;
+      this.fontStyle = fontStyle;
+      this.foreground = foreground;
+      this.background = background;
+    }
+    clone() {
+      return new _ThemeTrieElementRule(this.scopeDepth, this.parentScopes, this.fontStyle, this.foreground, this.background);
+    }
+    static cloneArr(arr) {
+      let r4 = [];
+      for (let i2 = 0, len = arr.length; i2 < len; i2++) {
+        r4[i2] = arr[i2].clone();
+      }
+      return r4;
+    }
+    acceptOverwrite(scopeDepth, fontStyle, foreground, background) {
+      if (this.scopeDepth > scopeDepth) {
+        console.log("how did this happen?");
+      } else {
+        this.scopeDepth = scopeDepth;
+      }
+      if (fontStyle !== -1) {
+        this.fontStyle = fontStyle;
+      }
+      if (foreground !== 0) {
+        this.foreground = foreground;
+      }
+      if (background !== 0) {
+        this.background = background;
+      }
+    }
+  };
+  var ThemeTrieElement = class _ThemeTrieElement {
+    constructor(_mainRule, rulesWithParentScopes = [], _children = {}) {
+      this._mainRule = _mainRule;
+      this._children = _children;
+      this._rulesWithParentScopes = rulesWithParentScopes;
+    }
+    _mainRule;
+    _children;
+    _rulesWithParentScopes;
+    static _cmpBySpecificity(a2, b4) {
+      if (a2.scopeDepth !== b4.scopeDepth) {
+        return b4.scopeDepth - a2.scopeDepth;
+      }
+      let aParentIndex = 0;
+      let bParentIndex = 0;
+      while (true) {
+        if (a2.parentScopes[aParentIndex] === ">") {
+          aParentIndex++;
+        }
+        if (b4.parentScopes[bParentIndex] === ">") {
+          bParentIndex++;
+        }
+        if (aParentIndex >= a2.parentScopes.length || bParentIndex >= b4.parentScopes.length) {
+          break;
+        }
+        const parentScopeLengthDiff = b4.parentScopes[bParentIndex].length - a2.parentScopes[aParentIndex].length;
+        if (parentScopeLengthDiff !== 0) {
+          return parentScopeLengthDiff;
+        }
+        aParentIndex++;
+        bParentIndex++;
+      }
+      return b4.parentScopes.length - a2.parentScopes.length;
+    }
+    match(scope) {
+      if (scope !== "") {
+        let dotIndex = scope.indexOf(".");
+        let head2;
+        let tail;
+        if (dotIndex === -1) {
+          head2 = scope;
+          tail = "";
+        } else {
+          head2 = scope.substring(0, dotIndex);
+          tail = scope.substring(dotIndex + 1);
+        }
+        if (this._children.hasOwnProperty(head2)) {
+          return this._children[head2].match(tail);
+        }
+      }
+      const rules = this._rulesWithParentScopes.concat(this._mainRule);
+      rules.sort(_ThemeTrieElement._cmpBySpecificity);
+      return rules;
+    }
+    insert(scopeDepth, scope, parentScopes, fontStyle, foreground, background) {
+      if (scope === "") {
+        this._doInsertHere(scopeDepth, parentScopes, fontStyle, foreground, background);
+        return;
+      }
+      let dotIndex = scope.indexOf(".");
+      let head2;
+      let tail;
+      if (dotIndex === -1) {
+        head2 = scope;
+        tail = "";
+      } else {
+        head2 = scope.substring(0, dotIndex);
+        tail = scope.substring(dotIndex + 1);
+      }
+      let child;
+      if (this._children.hasOwnProperty(head2)) {
+        child = this._children[head2];
+      } else {
+        child = new _ThemeTrieElement(this._mainRule.clone(), ThemeTrieElementRule.cloneArr(this._rulesWithParentScopes));
+        this._children[head2] = child;
+      }
+      child.insert(scopeDepth + 1, tail, parentScopes, fontStyle, foreground, background);
+    }
+    _doInsertHere(scopeDepth, parentScopes, fontStyle, foreground, background) {
+      if (parentScopes === null) {
+        this._mainRule.acceptOverwrite(scopeDepth, fontStyle, foreground, background);
+        return;
+      }
+      for (let i2 = 0, len = this._rulesWithParentScopes.length; i2 < len; i2++) {
+        let rule = this._rulesWithParentScopes[i2];
+        if (strArrCmp(rule.parentScopes, parentScopes) === 0) {
+          rule.acceptOverwrite(scopeDepth, fontStyle, foreground, background);
+          return;
+        }
+      }
+      if (fontStyle === -1) {
+        fontStyle = this._mainRule.fontStyle;
+      }
+      if (foreground === 0) {
+        foreground = this._mainRule.foreground;
+      }
+      if (background === 0) {
+        background = this._mainRule.background;
+      }
+      this._rulesWithParentScopes.push(new ThemeTrieElementRule(scopeDepth, parentScopes, fontStyle, foreground, background));
+    }
+  };
+  var EncodedTokenMetadata = class _EncodedTokenMetadata {
+    static toBinaryStr(encodedTokenAttributes) {
+      return encodedTokenAttributes.toString(2).padStart(32, "0");
+    }
+    static print(encodedTokenAttributes) {
+      const languageId = _EncodedTokenMetadata.getLanguageId(encodedTokenAttributes);
+      const tokenType = _EncodedTokenMetadata.getTokenType(encodedTokenAttributes);
+      const fontStyle = _EncodedTokenMetadata.getFontStyle(encodedTokenAttributes);
+      const foreground = _EncodedTokenMetadata.getForeground(encodedTokenAttributes);
+      const background = _EncodedTokenMetadata.getBackground(encodedTokenAttributes);
+      console.log({
+        languageId,
+        tokenType,
+        fontStyle,
+        foreground,
+        background
+      });
+    }
+    static getLanguageId(encodedTokenAttributes) {
+      return (encodedTokenAttributes & 255) >>> 0;
+    }
+    static getTokenType(encodedTokenAttributes) {
+      return (encodedTokenAttributes & 768) >>> 8;
+    }
+    static containsBalancedBrackets(encodedTokenAttributes) {
+      return (encodedTokenAttributes & 1024) !== 0;
+    }
+    static getFontStyle(encodedTokenAttributes) {
+      return (encodedTokenAttributes & 30720) >>> 11;
+    }
+    static getForeground(encodedTokenAttributes) {
+      return (encodedTokenAttributes & 16744448) >>> 15;
+    }
+    static getBackground(encodedTokenAttributes) {
+      return (encodedTokenAttributes & 4278190080) >>> 24;
+    }
+    /**
+     * Updates the fields in `metadata`.
+     * A value of `0`, `NotSet` or `null` indicates that the corresponding field should be left as is.
+     */
+    static set(encodedTokenAttributes, languageId, tokenType, containsBalancedBrackets, fontStyle, foreground, background) {
+      let _languageId = _EncodedTokenMetadata.getLanguageId(encodedTokenAttributes);
+      let _tokenType = _EncodedTokenMetadata.getTokenType(encodedTokenAttributes);
+      let _containsBalancedBracketsBit = _EncodedTokenMetadata.containsBalancedBrackets(encodedTokenAttributes) ? 1 : 0;
+      let _fontStyle = _EncodedTokenMetadata.getFontStyle(encodedTokenAttributes);
+      let _foreground = _EncodedTokenMetadata.getForeground(encodedTokenAttributes);
+      let _background = _EncodedTokenMetadata.getBackground(encodedTokenAttributes);
+      if (languageId !== 0) {
+        _languageId = languageId;
+      }
+      if (tokenType !== 8) {
+        _tokenType = fromOptionalTokenType(tokenType);
+      }
+      if (containsBalancedBrackets !== null) {
+        _containsBalancedBracketsBit = containsBalancedBrackets ? 1 : 0;
+      }
+      if (fontStyle !== -1) {
+        _fontStyle = fontStyle;
+      }
+      if (foreground !== 0) {
+        _foreground = foreground;
+      }
+      if (background !== 0) {
+        _background = background;
+      }
+      return (_languageId << 0 | _tokenType << 8 | _containsBalancedBracketsBit << 10 | _fontStyle << 11 | _foreground << 15 | _background << 24) >>> 0;
+    }
+  };
+  function toOptionalTokenType(standardType) {
+    return standardType;
+  }
+  function fromOptionalTokenType(standardType) {
+    return standardType;
+  }
+  function createMatchers(selector, matchesName) {
+    const results = [];
+    const tokenizer = newTokenizer(selector);
+    let token2 = tokenizer.next();
+    while (token2 !== null) {
+      let priority = 0;
+      if (token2.length === 2 && token2.charAt(1) === ":") {
+        switch (token2.charAt(0)) {
+          case "R":
+            priority = 1;
+            break;
+          case "L":
+            priority = -1;
+            break;
+          default:
+            console.log(`Unknown priority ${token2} in scope selector`);
+        }
+        token2 = tokenizer.next();
+      }
+      let matcher = parseConjunction();
+      results.push({ matcher, priority });
+      if (token2 !== ",") {
+        break;
+      }
+      token2 = tokenizer.next();
+    }
+    return results;
+    function parseOperand() {
+      if (token2 === "-") {
+        token2 = tokenizer.next();
+        const expressionToNegate = parseOperand();
+        return (matcherInput) => !!expressionToNegate && !expressionToNegate(matcherInput);
+      }
+      if (token2 === "(") {
+        token2 = tokenizer.next();
+        const expressionInParents = parseInnerExpression();
+        if (token2 === ")") {
+          token2 = tokenizer.next();
+        }
+        return expressionInParents;
+      }
+      if (isIdentifier(token2)) {
+        const identifiers = [];
+        do {
+          identifiers.push(token2);
+          token2 = tokenizer.next();
+        } while (isIdentifier(token2));
+        return (matcherInput) => matchesName(identifiers, matcherInput);
+      }
+      return null;
+    }
+    function parseConjunction() {
+      const matchers = [];
+      let matcher = parseOperand();
+      while (matcher) {
+        matchers.push(matcher);
+        matcher = parseOperand();
+      }
+      return (matcherInput) => matchers.every((matcher2) => matcher2(matcherInput));
+    }
+    function parseInnerExpression() {
+      const matchers = [];
+      let matcher = parseConjunction();
+      while (matcher) {
+        matchers.push(matcher);
+        if (token2 === "|" || token2 === ",") {
+          do {
+            token2 = tokenizer.next();
+          } while (token2 === "|" || token2 === ",");
+        } else {
+          break;
+        }
+        matcher = parseConjunction();
+      }
+      return (matcherInput) => matchers.some((matcher2) => matcher2(matcherInput));
+    }
+  }
+  function isIdentifier(token2) {
+    return !!token2 && !!token2.match(/[\w\.:]+/);
+  }
+  function newTokenizer(input) {
+    let regex = /([LR]:|[\w\.:][\w\.:\-]*|[\,\|\-\(\)])/g;
+    let match = regex.exec(input);
+    return {
+      next: () => {
+        if (!match) {
+          return null;
+        }
+        const res = match[0];
+        match = regex.exec(input);
+        return res;
+      }
+    };
+  }
+  function disposeOnigString(str) {
+    if (typeof str.dispose === "function") {
+      str.dispose();
+    }
+  }
+  var TopLevelRuleReference = class {
+    constructor(scopeName) {
+      this.scopeName = scopeName;
+    }
+    scopeName;
+    toKey() {
+      return this.scopeName;
+    }
+  };
+  var TopLevelRepositoryRuleReference = class {
+    constructor(scopeName, ruleName) {
+      this.scopeName = scopeName;
+      this.ruleName = ruleName;
+    }
+    scopeName;
+    ruleName;
+    toKey() {
+      return `${this.scopeName}#${this.ruleName}`;
+    }
+  };
+  var ExternalReferenceCollector = class {
+    _references = [];
+    _seenReferenceKeys = /* @__PURE__ */ new Set();
+    get references() {
+      return this._references;
+    }
+    visitedRule = /* @__PURE__ */ new Set();
+    add(reference) {
+      const key2 = reference.toKey();
+      if (this._seenReferenceKeys.has(key2)) {
+        return;
+      }
+      this._seenReferenceKeys.add(key2);
+      this._references.push(reference);
+    }
+  };
+  var ScopeDependencyProcessor = class {
+    constructor(repo, initialScopeName) {
+      this.repo = repo;
+      this.initialScopeName = initialScopeName;
+      this.seenFullScopeRequests.add(this.initialScopeName);
+      this.Q = [new TopLevelRuleReference(this.initialScopeName)];
+    }
+    repo;
+    initialScopeName;
+    seenFullScopeRequests = /* @__PURE__ */ new Set();
+    seenPartialScopeRequests = /* @__PURE__ */ new Set();
+    Q;
+    processQueue() {
+      const q3 = this.Q;
+      this.Q = [];
+      const deps = new ExternalReferenceCollector();
+      for (const dep of q3) {
+        collectReferencesOfReference(dep, this.initialScopeName, this.repo, deps);
+      }
+      for (const dep of deps.references) {
+        if (dep instanceof TopLevelRuleReference) {
+          if (this.seenFullScopeRequests.has(dep.scopeName)) {
+            continue;
+          }
+          this.seenFullScopeRequests.add(dep.scopeName);
+          this.Q.push(dep);
+        } else {
+          if (this.seenFullScopeRequests.has(dep.scopeName)) {
+            continue;
+          }
+          if (this.seenPartialScopeRequests.has(dep.toKey())) {
+            continue;
+          }
+          this.seenPartialScopeRequests.add(dep.toKey());
+          this.Q.push(dep);
+        }
+      }
+    }
+  };
+  function collectReferencesOfReference(reference, baseGrammarScopeName, repo, result) {
+    const selfGrammar = repo.lookup(reference.scopeName);
+    if (!selfGrammar) {
+      if (reference.scopeName === baseGrammarScopeName) {
+        throw new Error(`No grammar provided for <${baseGrammarScopeName}>`);
+      }
+      return;
+    }
+    const baseGrammar = repo.lookup(baseGrammarScopeName);
+    if (reference instanceof TopLevelRuleReference) {
+      collectExternalReferencesInTopLevelRule({ baseGrammar, selfGrammar }, result);
+    } else {
+      collectExternalReferencesInTopLevelRepositoryRule(
+        reference.ruleName,
+        { baseGrammar, selfGrammar, repository: selfGrammar.repository },
+        result
+      );
+    }
+    const injections = repo.injections(reference.scopeName);
+    if (injections) {
+      for (const injection of injections) {
+        result.add(new TopLevelRuleReference(injection));
+      }
+    }
+  }
+  function collectExternalReferencesInTopLevelRepositoryRule(ruleName, context, result) {
+    if (context.repository && context.repository[ruleName]) {
+      const rule = context.repository[ruleName];
+      collectExternalReferencesInRules([rule], context, result);
+    }
+  }
+  function collectExternalReferencesInTopLevelRule(context, result) {
+    if (context.selfGrammar.patterns && Array.isArray(context.selfGrammar.patterns)) {
+      collectExternalReferencesInRules(
+        context.selfGrammar.patterns,
+        { ...context, repository: context.selfGrammar.repository },
+        result
+      );
+    }
+    if (context.selfGrammar.injections) {
+      collectExternalReferencesInRules(
+        Object.values(context.selfGrammar.injections),
+        { ...context, repository: context.selfGrammar.repository },
+        result
+      );
+    }
+  }
+  function collectExternalReferencesInRules(rules, context, result) {
+    for (const rule of rules) {
+      if (result.visitedRule.has(rule)) {
+        continue;
+      }
+      result.visitedRule.add(rule);
+      const patternRepository = rule.repository ? mergeObjects({}, context.repository, rule.repository) : context.repository;
+      if (Array.isArray(rule.patterns)) {
+        collectExternalReferencesInRules(rule.patterns, { ...context, repository: patternRepository }, result);
+      }
+      const include = rule.include;
+      if (!include) {
+        continue;
+      }
+      const reference = parseInclude(include);
+      switch (reference.kind) {
+        case 0:
+          collectExternalReferencesInTopLevelRule({ ...context, selfGrammar: context.baseGrammar }, result);
+          break;
+        case 1:
+          collectExternalReferencesInTopLevelRule(context, result);
+          break;
+        case 2:
+          collectExternalReferencesInTopLevelRepositoryRule(reference.ruleName, { ...context, repository: patternRepository }, result);
+          break;
+        case 3:
+        case 4:
+          const selfGrammar = reference.scopeName === context.selfGrammar.scopeName ? context.selfGrammar : reference.scopeName === context.baseGrammar.scopeName ? context.baseGrammar : void 0;
+          if (selfGrammar) {
+            const newContext = { baseGrammar: context.baseGrammar, selfGrammar, repository: patternRepository };
+            if (reference.kind === 4) {
+              collectExternalReferencesInTopLevelRepositoryRule(reference.ruleName, newContext, result);
+            } else {
+              collectExternalReferencesInTopLevelRule(newContext, result);
+            }
+          } else {
+            if (reference.kind === 4) {
+              result.add(new TopLevelRepositoryRuleReference(reference.scopeName, reference.ruleName));
+            } else {
+              result.add(new TopLevelRuleReference(reference.scopeName));
+            }
+          }
+          break;
+      }
+    }
+  }
+  var BaseReference = class {
+    kind = 0;
+  };
+  var SelfReference = class {
+    kind = 1;
+  };
+  var RelativeReference = class {
+    constructor(ruleName) {
+      this.ruleName = ruleName;
+    }
+    ruleName;
+    kind = 2;
+  };
+  var TopLevelReference = class {
+    constructor(scopeName) {
+      this.scopeName = scopeName;
+    }
+    scopeName;
+    kind = 3;
+  };
+  var TopLevelRepositoryReference = class {
+    constructor(scopeName, ruleName) {
+      this.scopeName = scopeName;
+      this.ruleName = ruleName;
+    }
+    scopeName;
+    ruleName;
+    kind = 4;
+  };
+  function parseInclude(include) {
+    if (include === "$base") {
+      return new BaseReference();
+    } else if (include === "$self") {
+      return new SelfReference();
+    }
+    const indexOfSharp = include.indexOf("#");
+    if (indexOfSharp === -1) {
+      return new TopLevelReference(include);
+    } else if (indexOfSharp === 0) {
+      return new RelativeReference(include.substring(1));
+    } else {
+      const scopeName = include.substring(0, indexOfSharp);
+      const ruleName = include.substring(indexOfSharp + 1);
+      return new TopLevelRepositoryReference(scopeName, ruleName);
+    }
+  }
+  var HAS_BACK_REFERENCES = /\\(\d+)/;
+  var BACK_REFERENCING_END = /\\(\d+)/g;
+  var endRuleId = -1;
+  var whileRuleId = -2;
+  function ruleIdFromNumber(id) {
+    return id;
+  }
+  function ruleIdToNumber(id) {
+    return id;
+  }
+  var Rule = class {
+    $location;
+    id;
+    _nameIsCapturing;
+    _name;
+    _contentNameIsCapturing;
+    _contentName;
+    constructor($location, id, name, contentName) {
+      this.$location = $location;
+      this.id = id;
+      this._name = name || null;
+      this._nameIsCapturing = RegexSource.hasCaptures(this._name);
+      this._contentName = contentName || null;
+      this._contentNameIsCapturing = RegexSource.hasCaptures(this._contentName);
+    }
+    get debugName() {
+      const location = this.$location ? `${basename(this.$location.filename)}:${this.$location.line}` : "unknown";
+      return `${this.constructor.name}#${this.id} @ ${location}`;
+    }
+    getName(lineText, captureIndices) {
+      if (!this._nameIsCapturing || this._name === null || lineText === null || captureIndices === null) {
+        return this._name;
+      }
+      return RegexSource.replaceCaptures(this._name, lineText, captureIndices);
+    }
+    getContentName(lineText, captureIndices) {
+      if (!this._contentNameIsCapturing || this._contentName === null) {
+        return this._contentName;
+      }
+      return RegexSource.replaceCaptures(this._contentName, lineText, captureIndices);
+    }
+  };
+  var CaptureRule = class extends Rule {
+    retokenizeCapturedWithRuleId;
+    constructor($location, id, name, contentName, retokenizeCapturedWithRuleId) {
+      super($location, id, name, contentName);
+      this.retokenizeCapturedWithRuleId = retokenizeCapturedWithRuleId;
+    }
+    dispose() {
+    }
+    collectPatterns(grammar, out) {
+      throw new Error("Not supported!");
+    }
+    compile(grammar, endRegexSource) {
+      throw new Error("Not supported!");
+    }
+    compileAG(grammar, endRegexSource, allowA, allowG) {
+      throw new Error("Not supported!");
+    }
+  };
+  var MatchRule = class extends Rule {
+    _match;
+    captures;
+    _cachedCompiledPatterns;
+    constructor($location, id, name, match, captures) {
+      super($location, id, name, null);
+      this._match = new RegExpSource(match, this.id);
+      this.captures = captures;
+      this._cachedCompiledPatterns = null;
+    }
+    dispose() {
+      if (this._cachedCompiledPatterns) {
+        this._cachedCompiledPatterns.dispose();
+        this._cachedCompiledPatterns = null;
+      }
+    }
+    get debugMatchRegExp() {
+      return `${this._match.source}`;
+    }
+    collectPatterns(grammar, out) {
+      out.push(this._match);
+    }
+    compile(grammar, endRegexSource) {
+      return this._getCachedCompiledPatterns(grammar).compile(grammar);
+    }
+    compileAG(grammar, endRegexSource, allowA, allowG) {
+      return this._getCachedCompiledPatterns(grammar).compileAG(grammar, allowA, allowG);
+    }
+    _getCachedCompiledPatterns(grammar) {
+      if (!this._cachedCompiledPatterns) {
+        this._cachedCompiledPatterns = new RegExpSourceList();
+        this.collectPatterns(grammar, this._cachedCompiledPatterns);
+      }
+      return this._cachedCompiledPatterns;
+    }
+  };
+  var IncludeOnlyRule = class extends Rule {
+    hasMissingPatterns;
+    patterns;
+    _cachedCompiledPatterns;
+    constructor($location, id, name, contentName, patterns) {
+      super($location, id, name, contentName);
+      this.patterns = patterns.patterns;
+      this.hasMissingPatterns = patterns.hasMissingPatterns;
+      this._cachedCompiledPatterns = null;
+    }
+    dispose() {
+      if (this._cachedCompiledPatterns) {
+        this._cachedCompiledPatterns.dispose();
+        this._cachedCompiledPatterns = null;
+      }
+    }
+    collectPatterns(grammar, out) {
+      for (const pattern of this.patterns) {
+        const rule = grammar.getRule(pattern);
+        rule.collectPatterns(grammar, out);
+      }
+    }
+    compile(grammar, endRegexSource) {
+      return this._getCachedCompiledPatterns(grammar).compile(grammar);
+    }
+    compileAG(grammar, endRegexSource, allowA, allowG) {
+      return this._getCachedCompiledPatterns(grammar).compileAG(grammar, allowA, allowG);
+    }
+    _getCachedCompiledPatterns(grammar) {
+      if (!this._cachedCompiledPatterns) {
+        this._cachedCompiledPatterns = new RegExpSourceList();
+        this.collectPatterns(grammar, this._cachedCompiledPatterns);
+      }
+      return this._cachedCompiledPatterns;
+    }
+  };
+  var BeginEndRule = class extends Rule {
+    _begin;
+    beginCaptures;
+    _end;
+    endHasBackReferences;
+    endCaptures;
+    applyEndPatternLast;
+    hasMissingPatterns;
+    patterns;
+    _cachedCompiledPatterns;
+    constructor($location, id, name, contentName, begin, beginCaptures, end, endCaptures, applyEndPatternLast, patterns) {
+      super($location, id, name, contentName);
+      this._begin = new RegExpSource(begin, this.id);
+      this.beginCaptures = beginCaptures;
+      this._end = new RegExpSource(end ? end : "\uFFFF", -1);
+      this.endHasBackReferences = this._end.hasBackReferences;
+      this.endCaptures = endCaptures;
+      this.applyEndPatternLast = applyEndPatternLast || false;
+      this.patterns = patterns.patterns;
+      this.hasMissingPatterns = patterns.hasMissingPatterns;
+      this._cachedCompiledPatterns = null;
+    }
+    dispose() {
+      if (this._cachedCompiledPatterns) {
+        this._cachedCompiledPatterns.dispose();
+        this._cachedCompiledPatterns = null;
+      }
+    }
+    get debugBeginRegExp() {
+      return `${this._begin.source}`;
+    }
+    get debugEndRegExp() {
+      return `${this._end.source}`;
+    }
+    getEndWithResolvedBackReferences(lineText, captureIndices) {
+      return this._end.resolveBackReferences(lineText, captureIndices);
+    }
+    collectPatterns(grammar, out) {
+      out.push(this._begin);
+    }
+    compile(grammar, endRegexSource) {
+      return this._getCachedCompiledPatterns(grammar, endRegexSource).compile(grammar);
+    }
+    compileAG(grammar, endRegexSource, allowA, allowG) {
+      return this._getCachedCompiledPatterns(grammar, endRegexSource).compileAG(grammar, allowA, allowG);
+    }
+    _getCachedCompiledPatterns(grammar, endRegexSource) {
+      if (!this._cachedCompiledPatterns) {
+        this._cachedCompiledPatterns = new RegExpSourceList();
+        for (const pattern of this.patterns) {
+          const rule = grammar.getRule(pattern);
+          rule.collectPatterns(grammar, this._cachedCompiledPatterns);
+        }
+        if (this.applyEndPatternLast) {
+          this._cachedCompiledPatterns.push(this._end.hasBackReferences ? this._end.clone() : this._end);
+        } else {
+          this._cachedCompiledPatterns.unshift(this._end.hasBackReferences ? this._end.clone() : this._end);
+        }
+      }
+      if (this._end.hasBackReferences) {
+        if (this.applyEndPatternLast) {
+          this._cachedCompiledPatterns.setSource(this._cachedCompiledPatterns.length() - 1, endRegexSource);
+        } else {
+          this._cachedCompiledPatterns.setSource(0, endRegexSource);
+        }
+      }
+      return this._cachedCompiledPatterns;
+    }
+  };
+  var BeginWhileRule = class extends Rule {
+    _begin;
+    beginCaptures;
+    whileCaptures;
+    _while;
+    whileHasBackReferences;
+    hasMissingPatterns;
+    patterns;
+    _cachedCompiledPatterns;
+    _cachedCompiledWhilePatterns;
+    constructor($location, id, name, contentName, begin, beginCaptures, _while, whileCaptures, patterns) {
+      super($location, id, name, contentName);
+      this._begin = new RegExpSource(begin, this.id);
+      this.beginCaptures = beginCaptures;
+      this.whileCaptures = whileCaptures;
+      this._while = new RegExpSource(_while, whileRuleId);
+      this.whileHasBackReferences = this._while.hasBackReferences;
+      this.patterns = patterns.patterns;
+      this.hasMissingPatterns = patterns.hasMissingPatterns;
+      this._cachedCompiledPatterns = null;
+      this._cachedCompiledWhilePatterns = null;
+    }
+    dispose() {
+      if (this._cachedCompiledPatterns) {
+        this._cachedCompiledPatterns.dispose();
+        this._cachedCompiledPatterns = null;
+      }
+      if (this._cachedCompiledWhilePatterns) {
+        this._cachedCompiledWhilePatterns.dispose();
+        this._cachedCompiledWhilePatterns = null;
+      }
+    }
+    get debugBeginRegExp() {
+      return `${this._begin.source}`;
+    }
+    get debugWhileRegExp() {
+      return `${this._while.source}`;
+    }
+    getWhileWithResolvedBackReferences(lineText, captureIndices) {
+      return this._while.resolveBackReferences(lineText, captureIndices);
+    }
+    collectPatterns(grammar, out) {
+      out.push(this._begin);
+    }
+    compile(grammar, endRegexSource) {
+      return this._getCachedCompiledPatterns(grammar).compile(grammar);
+    }
+    compileAG(grammar, endRegexSource, allowA, allowG) {
+      return this._getCachedCompiledPatterns(grammar).compileAG(grammar, allowA, allowG);
+    }
+    _getCachedCompiledPatterns(grammar) {
+      if (!this._cachedCompiledPatterns) {
+        this._cachedCompiledPatterns = new RegExpSourceList();
+        for (const pattern of this.patterns) {
+          const rule = grammar.getRule(pattern);
+          rule.collectPatterns(grammar, this._cachedCompiledPatterns);
+        }
+      }
+      return this._cachedCompiledPatterns;
+    }
+    compileWhile(grammar, endRegexSource) {
+      return this._getCachedCompiledWhilePatterns(grammar, endRegexSource).compile(grammar);
+    }
+    compileWhileAG(grammar, endRegexSource, allowA, allowG) {
+      return this._getCachedCompiledWhilePatterns(grammar, endRegexSource).compileAG(grammar, allowA, allowG);
+    }
+    _getCachedCompiledWhilePatterns(grammar, endRegexSource) {
+      if (!this._cachedCompiledWhilePatterns) {
+        this._cachedCompiledWhilePatterns = new RegExpSourceList();
+        this._cachedCompiledWhilePatterns.push(this._while.hasBackReferences ? this._while.clone() : this._while);
+      }
+      if (this._while.hasBackReferences) {
+        this._cachedCompiledWhilePatterns.setSource(0, endRegexSource ? endRegexSource : "\uFFFF");
+      }
+      return this._cachedCompiledWhilePatterns;
+    }
+  };
+  var RuleFactory = class _RuleFactory {
+    static createCaptureRule(helper, $location, name, contentName, retokenizeCapturedWithRuleId) {
+      return helper.registerRule((id) => {
+        return new CaptureRule($location, id, name, contentName, retokenizeCapturedWithRuleId);
+      });
+    }
+    static getCompiledRuleId(desc, helper, repository) {
+      if (!desc.id) {
+        helper.registerRule((id) => {
+          desc.id = id;
+          if (desc.match) {
+            return new MatchRule(
+              desc.$vscodeTextmateLocation,
+              desc.id,
+              desc.name,
+              desc.match,
+              _RuleFactory._compileCaptures(desc.captures, helper, repository)
+            );
+          }
+          if (typeof desc.begin === "undefined") {
+            if (desc.repository) {
+              repository = mergeObjects({}, repository, desc.repository);
+            }
+            let patterns = desc.patterns;
+            if (typeof patterns === "undefined" && desc.include) {
+              patterns = [{ include: desc.include }];
+            }
+            return new IncludeOnlyRule(
+              desc.$vscodeTextmateLocation,
+              desc.id,
+              desc.name,
+              desc.contentName,
+              _RuleFactory._compilePatterns(patterns, helper, repository)
+            );
+          }
+          if (desc.while) {
+            return new BeginWhileRule(
+              desc.$vscodeTextmateLocation,
+              desc.id,
+              desc.name,
+              desc.contentName,
+              desc.begin,
+              _RuleFactory._compileCaptures(desc.beginCaptures || desc.captures, helper, repository),
+              desc.while,
+              _RuleFactory._compileCaptures(desc.whileCaptures || desc.captures, helper, repository),
+              _RuleFactory._compilePatterns(desc.patterns, helper, repository)
+            );
+          }
+          return new BeginEndRule(
+            desc.$vscodeTextmateLocation,
+            desc.id,
+            desc.name,
+            desc.contentName,
+            desc.begin,
+            _RuleFactory._compileCaptures(desc.beginCaptures || desc.captures, helper, repository),
+            desc.end,
+            _RuleFactory._compileCaptures(desc.endCaptures || desc.captures, helper, repository),
+            desc.applyEndPatternLast,
+            _RuleFactory._compilePatterns(desc.patterns, helper, repository)
+          );
+        });
+      }
+      return desc.id;
+    }
+    static _compileCaptures(captures, helper, repository) {
+      let r4 = [];
+      if (captures) {
+        let maximumCaptureId = 0;
+        for (const captureId in captures) {
+          if (captureId === "$vscodeTextmateLocation") {
+            continue;
+          }
+          const numericCaptureId = parseInt(captureId, 10);
+          if (numericCaptureId > maximumCaptureId) {
+            maximumCaptureId = numericCaptureId;
+          }
+        }
+        for (let i2 = 0; i2 <= maximumCaptureId; i2++) {
+          r4[i2] = null;
+        }
+        for (const captureId in captures) {
+          if (captureId === "$vscodeTextmateLocation") {
+            continue;
+          }
+          const numericCaptureId = parseInt(captureId, 10);
+          let retokenizeCapturedWithRuleId = 0;
+          if (captures[captureId].patterns) {
+            retokenizeCapturedWithRuleId = _RuleFactory.getCompiledRuleId(captures[captureId], helper, repository);
+          }
+          r4[numericCaptureId] = _RuleFactory.createCaptureRule(helper, captures[captureId].$vscodeTextmateLocation, captures[captureId].name, captures[captureId].contentName, retokenizeCapturedWithRuleId);
+        }
+      }
+      return r4;
+    }
+    static _compilePatterns(patterns, helper, repository) {
+      let r4 = [];
+      if (patterns) {
+        for (let i2 = 0, len = patterns.length; i2 < len; i2++) {
+          const pattern = patterns[i2];
+          let ruleId = -1;
+          if (pattern.include) {
+            const reference = parseInclude(pattern.include);
+            switch (reference.kind) {
+              case 0:
+              case 1:
+                ruleId = _RuleFactory.getCompiledRuleId(repository[pattern.include], helper, repository);
+                break;
+              case 2:
+                let localIncludedRule = repository[reference.ruleName];
+                if (localIncludedRule) {
+                  ruleId = _RuleFactory.getCompiledRuleId(localIncludedRule, helper, repository);
+                } else {
+                }
+                break;
+              case 3:
+              case 4:
+                const externalGrammarName = reference.scopeName;
+                const externalGrammarInclude = reference.kind === 4 ? reference.ruleName : null;
+                const externalGrammar = helper.getExternalGrammar(externalGrammarName, repository);
+                if (externalGrammar) {
+                  if (externalGrammarInclude) {
+                    let externalIncludedRule = externalGrammar.repository[externalGrammarInclude];
+                    if (externalIncludedRule) {
+                      ruleId = _RuleFactory.getCompiledRuleId(externalIncludedRule, helper, externalGrammar.repository);
+                    } else {
+                    }
+                  } else {
+                    ruleId = _RuleFactory.getCompiledRuleId(externalGrammar.repository.$self, helper, externalGrammar.repository);
+                  }
+                } else {
+                }
+                break;
+            }
+          } else {
+            ruleId = _RuleFactory.getCompiledRuleId(pattern, helper, repository);
+          }
+          if (ruleId !== -1) {
+            const rule = helper.getRule(ruleId);
+            let skipRule = false;
+            if (rule instanceof IncludeOnlyRule || rule instanceof BeginEndRule || rule instanceof BeginWhileRule) {
+              if (rule.hasMissingPatterns && rule.patterns.length === 0) {
+                skipRule = true;
+              }
+            }
+            if (skipRule) {
+              continue;
+            }
+            r4.push(ruleId);
+          }
+        }
+      }
+      return {
+        patterns: r4,
+        hasMissingPatterns: (patterns ? patterns.length : 0) !== r4.length
+      };
+    }
+  };
+  var RegExpSource = class _RegExpSource {
+    source;
+    ruleId;
+    hasAnchor;
+    hasBackReferences;
+    _anchorCache;
+    constructor(regExpSource, ruleId) {
+      if (regExpSource && typeof regExpSource === "string") {
+        const len = regExpSource.length;
+        let lastPushedPos = 0;
+        let output = [];
+        let hasAnchor = false;
+        for (let pos = 0; pos < len; pos++) {
+          const ch = regExpSource.charAt(pos);
+          if (ch === "\\") {
+            if (pos + 1 < len) {
+              const nextCh = regExpSource.charAt(pos + 1);
+              if (nextCh === "z") {
+                output.push(regExpSource.substring(lastPushedPos, pos));
+                output.push("$(?!\\n)(?<!\\n)");
+                lastPushedPos = pos + 2;
+              } else if (nextCh === "A" || nextCh === "G") {
+                hasAnchor = true;
+              }
+              pos++;
+            }
+          }
+        }
+        this.hasAnchor = hasAnchor;
+        if (lastPushedPos === 0) {
+          this.source = regExpSource;
+        } else {
+          output.push(regExpSource.substring(lastPushedPos, len));
+          this.source = output.join("");
+        }
+      } else {
+        this.hasAnchor = false;
+        this.source = regExpSource;
+      }
+      if (this.hasAnchor) {
+        this._anchorCache = this._buildAnchorCache();
+      } else {
+        this._anchorCache = null;
+      }
+      this.ruleId = ruleId;
+      if (typeof this.source === "string") {
+        this.hasBackReferences = HAS_BACK_REFERENCES.test(this.source);
+      } else {
+        this.hasBackReferences = false;
+      }
+    }
+    clone() {
+      return new _RegExpSource(this.source, this.ruleId);
+    }
+    setSource(newSource) {
+      if (this.source === newSource) {
+        return;
+      }
+      this.source = newSource;
+      if (this.hasAnchor) {
+        this._anchorCache = this._buildAnchorCache();
+      }
+    }
+    resolveBackReferences(lineText, captureIndices) {
+      if (typeof this.source !== "string") {
+        throw new Error("This method should only be called if the source is a string");
+      }
+      let capturedValues = captureIndices.map((capture) => {
+        return lineText.substring(capture.start, capture.end);
+      });
+      BACK_REFERENCING_END.lastIndex = 0;
+      return this.source.replace(BACK_REFERENCING_END, (match, g1) => {
+        return escapeRegExpCharacters(capturedValues[parseInt(g1, 10)] || "");
+      });
+    }
+    _buildAnchorCache() {
+      if (typeof this.source !== "string") {
+        throw new Error("This method should only be called if the source is a string");
+      }
+      let A0_G0_result = [];
+      let A0_G1_result = [];
+      let A1_G0_result = [];
+      let A1_G1_result = [];
+      let pos, len, ch, nextCh;
+      for (pos = 0, len = this.source.length; pos < len; pos++) {
+        ch = this.source.charAt(pos);
+        A0_G0_result[pos] = ch;
+        A0_G1_result[pos] = ch;
+        A1_G0_result[pos] = ch;
+        A1_G1_result[pos] = ch;
+        if (ch === "\\") {
+          if (pos + 1 < len) {
+            nextCh = this.source.charAt(pos + 1);
+            if (nextCh === "A") {
+              A0_G0_result[pos + 1] = "\uFFFF";
+              A0_G1_result[pos + 1] = "\uFFFF";
+              A1_G0_result[pos + 1] = "A";
+              A1_G1_result[pos + 1] = "A";
+            } else if (nextCh === "G") {
+              A0_G0_result[pos + 1] = "\uFFFF";
+              A0_G1_result[pos + 1] = "G";
+              A1_G0_result[pos + 1] = "\uFFFF";
+              A1_G1_result[pos + 1] = "G";
+            } else {
+              A0_G0_result[pos + 1] = nextCh;
+              A0_G1_result[pos + 1] = nextCh;
+              A1_G0_result[pos + 1] = nextCh;
+              A1_G1_result[pos + 1] = nextCh;
+            }
+            pos++;
+          }
+        }
+      }
+      return {
+        A0_G0: A0_G0_result.join(""),
+        A0_G1: A0_G1_result.join(""),
+        A1_G0: A1_G0_result.join(""),
+        A1_G1: A1_G1_result.join("")
+      };
+    }
+    resolveAnchors(allowA, allowG) {
+      if (!this.hasAnchor || !this._anchorCache || typeof this.source !== "string") {
+        return this.source;
+      }
+      if (allowA) {
+        if (allowG) {
+          return this._anchorCache.A1_G1;
+        } else {
+          return this._anchorCache.A1_G0;
+        }
+      } else {
+        if (allowG) {
+          return this._anchorCache.A0_G1;
+        } else {
+          return this._anchorCache.A0_G0;
+        }
+      }
+    }
+  };
+  var RegExpSourceList = class {
+    _items;
+    _hasAnchors;
+    _cached;
+    _anchorCache;
+    constructor() {
+      this._items = [];
+      this._hasAnchors = false;
+      this._cached = null;
+      this._anchorCache = {
+        A0_G0: null,
+        A0_G1: null,
+        A1_G0: null,
+        A1_G1: null
+      };
+    }
+    dispose() {
+      this._disposeCaches();
+    }
+    _disposeCaches() {
+      if (this._cached) {
+        this._cached.dispose();
+        this._cached = null;
+      }
+      if (this._anchorCache.A0_G0) {
+        this._anchorCache.A0_G0.dispose();
+        this._anchorCache.A0_G0 = null;
+      }
+      if (this._anchorCache.A0_G1) {
+        this._anchorCache.A0_G1.dispose();
+        this._anchorCache.A0_G1 = null;
+      }
+      if (this._anchorCache.A1_G0) {
+        this._anchorCache.A1_G0.dispose();
+        this._anchorCache.A1_G0 = null;
+      }
+      if (this._anchorCache.A1_G1) {
+        this._anchorCache.A1_G1.dispose();
+        this._anchorCache.A1_G1 = null;
+      }
+    }
+    push(item) {
+      this._items.push(item);
+      this._hasAnchors = this._hasAnchors || item.hasAnchor;
+    }
+    unshift(item) {
+      this._items.unshift(item);
+      this._hasAnchors = this._hasAnchors || item.hasAnchor;
+    }
+    length() {
+      return this._items.length;
+    }
+    setSource(index, newSource) {
+      if (this._items[index].source !== newSource) {
+        this._disposeCaches();
+        this._items[index].setSource(newSource);
+      }
+    }
+    compile(onigLib) {
+      if (!this._cached) {
+        let regExps = this._items.map((e) => e.source);
+        this._cached = new CompiledRule(onigLib, regExps, this._items.map((e) => e.ruleId));
+      }
+      return this._cached;
+    }
+    compileAG(onigLib, allowA, allowG) {
+      if (!this._hasAnchors) {
+        return this.compile(onigLib);
+      } else {
+        if (allowA) {
+          if (allowG) {
+            if (!this._anchorCache.A1_G1) {
+              this._anchorCache.A1_G1 = this._resolveAnchors(onigLib, allowA, allowG);
+            }
+            return this._anchorCache.A1_G1;
+          } else {
+            if (!this._anchorCache.A1_G0) {
+              this._anchorCache.A1_G0 = this._resolveAnchors(onigLib, allowA, allowG);
+            }
+            return this._anchorCache.A1_G0;
+          }
+        } else {
+          if (allowG) {
+            if (!this._anchorCache.A0_G1) {
+              this._anchorCache.A0_G1 = this._resolveAnchors(onigLib, allowA, allowG);
+            }
+            return this._anchorCache.A0_G1;
+          } else {
+            if (!this._anchorCache.A0_G0) {
+              this._anchorCache.A0_G0 = this._resolveAnchors(onigLib, allowA, allowG);
+            }
+            return this._anchorCache.A0_G0;
+          }
+        }
+      }
+    }
+    _resolveAnchors(onigLib, allowA, allowG) {
+      let regExps = this._items.map((e) => e.resolveAnchors(allowA, allowG));
+      return new CompiledRule(onigLib, regExps, this._items.map((e) => e.ruleId));
+    }
+  };
+  var CompiledRule = class {
+    constructor(onigLib, regExps, rules) {
+      this.regExps = regExps;
+      this.rules = rules;
+      this.scanner = onigLib.createOnigScanner(regExps);
+    }
+    regExps;
+    rules;
+    scanner;
+    dispose() {
+      if (typeof this.scanner.dispose === "function") {
+        this.scanner.dispose();
+      }
+    }
+    toString() {
+      const r4 = [];
+      for (let i2 = 0, len = this.rules.length; i2 < len; i2++) {
+        r4.push("   - " + this.rules[i2] + ": " + this.regExps[i2]);
+      }
+      return r4.join("\n");
+    }
+    findNextMatchSync(string, startPosition, options) {
+      const result = this.scanner.findNextMatchSync(string, startPosition, options);
+      if (!result) {
+        return null;
+      }
+      return {
+        ruleId: this.rules[result.index],
+        captureIndices: result.captureIndices
+      };
+    }
+  };
+  var BasicScopeAttributes = class {
+    constructor(languageId, tokenType) {
+      this.languageId = languageId;
+      this.tokenType = tokenType;
+    }
+    languageId;
+    tokenType;
+  };
+  var BasicScopeAttributesProvider = class _BasicScopeAttributesProvider {
+    _defaultAttributes;
+    _embeddedLanguagesMatcher;
+    constructor(initialLanguageId, embeddedLanguages) {
+      this._defaultAttributes = new BasicScopeAttributes(
+        initialLanguageId,
+        8
+        /* NotSet */
+      );
+      this._embeddedLanguagesMatcher = new ScopeMatcher(Object.entries(embeddedLanguages || {}));
+    }
+    getDefaultAttributes() {
+      return this._defaultAttributes;
+    }
+    getBasicScopeAttributes(scopeName) {
+      if (scopeName === null) {
+        return _BasicScopeAttributesProvider._NULL_SCOPE_METADATA;
+      }
+      return this._getBasicScopeAttributes.get(scopeName);
+    }
+    static _NULL_SCOPE_METADATA = new BasicScopeAttributes(0, 0);
+    _getBasicScopeAttributes = new CachedFn((scopeName) => {
+      const languageId = this._scopeToLanguage(scopeName);
+      const standardTokenType = this._toStandardTokenType(scopeName);
+      return new BasicScopeAttributes(languageId, standardTokenType);
+    });
+    /**
+     * Given a produced TM scope, return the language that token describes or null if unknown.
+     * e.g. source.html => html, source.css.embedded.html => css, punctuation.definition.tag.html => null
+     */
+    _scopeToLanguage(scope) {
+      return this._embeddedLanguagesMatcher.match(scope) || 0;
+    }
+    _toStandardTokenType(scopeName) {
+      const m4 = scopeName.match(_BasicScopeAttributesProvider.STANDARD_TOKEN_TYPE_REGEXP);
+      if (!m4) {
+        return 8;
+      }
+      switch (m4[1]) {
+        case "comment":
+          return 1;
+        case "string":
+          return 2;
+        case "regex":
+          return 3;
+        case "meta.embedded":
+          return 0;
+      }
+      throw new Error("Unexpected match for standard token type!");
+    }
+    static STANDARD_TOKEN_TYPE_REGEXP = /\b(comment|string|regex|meta\.embedded)\b/;
+  };
+  var ScopeMatcher = class {
+    values;
+    scopesRegExp;
+    constructor(values) {
+      if (values.length === 0) {
+        this.values = null;
+        this.scopesRegExp = null;
+      } else {
+        this.values = new Map(values);
+        const escapedScopes = values.map(
+          ([scopeName, value]) => escapeRegExpCharacters(scopeName)
+        );
+        escapedScopes.sort();
+        escapedScopes.reverse();
+        this.scopesRegExp = new RegExp(
+          `^((${escapedScopes.join(")|(")}))($|\\.)`,
+          ""
+        );
+      }
+    }
+    match(scope) {
+      if (!this.scopesRegExp) {
+        return void 0;
+      }
+      const m4 = scope.match(this.scopesRegExp);
+      if (!m4) {
+        return void 0;
+      }
+      return this.values.get(m4[1]);
+    }
+  };
+  var DebugFlags = {
+    InDebugMode: typeof process !== "undefined" && !!process.env["VSCODE_TEXTMATE_DEBUG"]
+  };
+  var UseOnigurumaFindOptions = false;
+  var TokenizeStringResult = class {
+    constructor(stack, stoppedEarly) {
+      this.stack = stack;
+      this.stoppedEarly = stoppedEarly;
+    }
+    stack;
+    stoppedEarly;
+  };
+  function _tokenizeString(grammar, lineText, isFirstLine, linePos, stack, lineTokens, checkWhileConditions, timeLimit) {
+    const lineLength = lineText.content.length;
+    let STOP = false;
+    let anchorPosition = -1;
+    if (checkWhileConditions) {
+      const whileCheckResult = _checkWhileConditions(
+        grammar,
+        lineText,
+        isFirstLine,
+        linePos,
+        stack,
+        lineTokens
+      );
+      stack = whileCheckResult.stack;
+      linePos = whileCheckResult.linePos;
+      isFirstLine = whileCheckResult.isFirstLine;
+      anchorPosition = whileCheckResult.anchorPosition;
+    }
+    const startTime = Date.now();
+    while (!STOP) {
+      if (timeLimit !== 0) {
+        const elapsedTime = Date.now() - startTime;
+        if (elapsedTime > timeLimit) {
+          return new TokenizeStringResult(stack, true);
+        }
+      }
+      scanNext();
+    }
+    return new TokenizeStringResult(stack, false);
+    function scanNext() {
+      if (false) {
+        console.log("");
+        console.log(
+          `@@scanNext ${linePos}: |${lineText.content.substr(linePos).replace(/\n$/, "\\n")}|`
+        );
+      }
+      const r4 = matchRuleOrInjections(
+        grammar,
+        lineText,
+        isFirstLine,
+        linePos,
+        stack,
+        anchorPosition
+      );
+      if (!r4) {
+        lineTokens.produce(stack, lineLength);
+        STOP = true;
+        return;
+      }
+      const captureIndices = r4.captureIndices;
+      const matchedRuleId = r4.matchedRuleId;
+      const hasAdvanced = captureIndices && captureIndices.length > 0 ? captureIndices[0].end > linePos : false;
+      if (matchedRuleId === endRuleId) {
+        const poppedRule = stack.getRule(grammar);
+        if (false) {
+          console.log(
+            "  popping " + poppedRule.debugName + " - " + poppedRule.debugEndRegExp
+          );
+        }
+        lineTokens.produce(stack, captureIndices[0].start);
+        stack = stack.withContentNameScopesList(stack.nameScopesList);
+        handleCaptures(
+          grammar,
+          lineText,
+          isFirstLine,
+          stack,
+          lineTokens,
+          poppedRule.endCaptures,
+          captureIndices
+        );
+        lineTokens.produce(stack, captureIndices[0].end);
+        const popped = stack;
+        stack = stack.parent;
+        anchorPosition = popped.getAnchorPos();
+        if (!hasAdvanced && popped.getEnterPos() === linePos) {
+          if (false) {
+            console.error(
+              "[1] - Grammar is in an endless loop - Grammar pushed & popped a rule without advancing"
+            );
+          }
+          stack = popped;
+          lineTokens.produce(stack, lineLength);
+          STOP = true;
+          return;
+        }
+      } else {
+        const _rule = grammar.getRule(matchedRuleId);
+        lineTokens.produce(stack, captureIndices[0].start);
+        const beforePush = stack;
+        const scopeName = _rule.getName(lineText.content, captureIndices);
+        const nameScopesList = stack.contentNameScopesList.pushAttributed(
+          scopeName,
+          grammar
+        );
+        stack = stack.push(
+          matchedRuleId,
+          linePos,
+          anchorPosition,
+          captureIndices[0].end === lineLength,
+          null,
+          nameScopesList,
+          nameScopesList
+        );
+        if (_rule instanceof BeginEndRule) {
+          const pushedRule = _rule;
+          if (false) {
+            console.log(
+              "  pushing " + pushedRule.debugName + " - " + pushedRule.debugBeginRegExp
+            );
+          }
+          handleCaptures(
+            grammar,
+            lineText,
+            isFirstLine,
+            stack,
+            lineTokens,
+            pushedRule.beginCaptures,
+            captureIndices
+          );
+          lineTokens.produce(stack, captureIndices[0].end);
+          anchorPosition = captureIndices[0].end;
+          const contentName = pushedRule.getContentName(
+            lineText.content,
+            captureIndices
+          );
+          const contentNameScopesList = nameScopesList.pushAttributed(
+            contentName,
+            grammar
+          );
+          stack = stack.withContentNameScopesList(contentNameScopesList);
+          if (pushedRule.endHasBackReferences) {
+            stack = stack.withEndRule(
+              pushedRule.getEndWithResolvedBackReferences(
+                lineText.content,
+                captureIndices
+              )
+            );
+          }
+          if (!hasAdvanced && beforePush.hasSameRuleAs(stack)) {
+            if (false) {
+              console.error(
+                "[2] - Grammar is in an endless loop - Grammar pushed the same rule without advancing"
+              );
+            }
+            stack = stack.pop();
+            lineTokens.produce(stack, lineLength);
+            STOP = true;
+            return;
+          }
+        } else if (_rule instanceof BeginWhileRule) {
+          const pushedRule = _rule;
+          if (false) {
+            console.log("  pushing " + pushedRule.debugName);
+          }
+          handleCaptures(
+            grammar,
+            lineText,
+            isFirstLine,
+            stack,
+            lineTokens,
+            pushedRule.beginCaptures,
+            captureIndices
+          );
+          lineTokens.produce(stack, captureIndices[0].end);
+          anchorPosition = captureIndices[0].end;
+          const contentName = pushedRule.getContentName(
+            lineText.content,
+            captureIndices
+          );
+          const contentNameScopesList = nameScopesList.pushAttributed(
+            contentName,
+            grammar
+          );
+          stack = stack.withContentNameScopesList(contentNameScopesList);
+          if (pushedRule.whileHasBackReferences) {
+            stack = stack.withEndRule(
+              pushedRule.getWhileWithResolvedBackReferences(
+                lineText.content,
+                captureIndices
+              )
+            );
+          }
+          if (!hasAdvanced && beforePush.hasSameRuleAs(stack)) {
+            if (false) {
+              console.error(
+                "[3] - Grammar is in an endless loop - Grammar pushed the same rule without advancing"
+              );
+            }
+            stack = stack.pop();
+            lineTokens.produce(stack, lineLength);
+            STOP = true;
+            return;
+          }
+        } else {
+          const matchingRule = _rule;
+          if (false) {
+            console.log(
+              "  matched " + matchingRule.debugName + " - " + matchingRule.debugMatchRegExp
+            );
+          }
+          handleCaptures(
+            grammar,
+            lineText,
+            isFirstLine,
+            stack,
+            lineTokens,
+            matchingRule.captures,
+            captureIndices
+          );
+          lineTokens.produce(stack, captureIndices[0].end);
+          stack = stack.pop();
+          if (!hasAdvanced) {
+            if (false) {
+              console.error(
+                "[4] - Grammar is in an endless loop - Grammar is not advancing, nor is it pushing/popping"
+              );
+            }
+            stack = stack.safePop();
+            lineTokens.produce(stack, lineLength);
+            STOP = true;
+            return;
+          }
+        }
+      }
+      if (captureIndices[0].end > linePos) {
+        linePos = captureIndices[0].end;
+        isFirstLine = false;
+      }
+    }
+  }
+  function _checkWhileConditions(grammar, lineText, isFirstLine, linePos, stack, lineTokens) {
+    let anchorPosition = stack.beginRuleCapturedEOL ? 0 : -1;
+    const whileRules = [];
+    for (let node = stack; node; node = node.pop()) {
+      const nodeRule = node.getRule(grammar);
+      if (nodeRule instanceof BeginWhileRule) {
+        whileRules.push({
+          rule: nodeRule,
+          stack: node
+        });
+      }
+    }
+    for (let whileRule = whileRules.pop(); whileRule; whileRule = whileRules.pop()) {
+      const { ruleScanner, findOptions } = prepareRuleWhileSearch(whileRule.rule, grammar, whileRule.stack.endRule, isFirstLine, linePos === anchorPosition);
+      const r4 = ruleScanner.findNextMatchSync(lineText, linePos, findOptions);
+      if (false) {
+        console.log("  scanning for while rule");
+        console.log(ruleScanner.toString());
+      }
+      if (r4) {
+        const matchedRuleId = r4.ruleId;
+        if (matchedRuleId !== whileRuleId) {
+          stack = whileRule.stack.pop();
+          break;
+        }
+        if (r4.captureIndices && r4.captureIndices.length) {
+          lineTokens.produce(whileRule.stack, r4.captureIndices[0].start);
+          handleCaptures(grammar, lineText, isFirstLine, whileRule.stack, lineTokens, whileRule.rule.whileCaptures, r4.captureIndices);
+          lineTokens.produce(whileRule.stack, r4.captureIndices[0].end);
+          anchorPosition = r4.captureIndices[0].end;
+          if (r4.captureIndices[0].end > linePos) {
+            linePos = r4.captureIndices[0].end;
+            isFirstLine = false;
+          }
+        }
+      } else {
+        if (false) {
+          console.log("  popping " + whileRule.rule.debugName + " - " + whileRule.rule.debugWhileRegExp);
+        }
+        stack = whileRule.stack.pop();
+        break;
+      }
+    }
+    return { stack, linePos, anchorPosition, isFirstLine };
+  }
+  function matchRuleOrInjections(grammar, lineText, isFirstLine, linePos, stack, anchorPosition) {
+    const matchResult = matchRule(grammar, lineText, isFirstLine, linePos, stack, anchorPosition);
+    const injections = grammar.getInjections();
+    if (injections.length === 0) {
+      return matchResult;
+    }
+    const injectionResult = matchInjections(injections, grammar, lineText, isFirstLine, linePos, stack, anchorPosition);
+    if (!injectionResult) {
+      return matchResult;
+    }
+    if (!matchResult) {
+      return injectionResult;
+    }
+    const matchResultScore = matchResult.captureIndices[0].start;
+    const injectionResultScore = injectionResult.captureIndices[0].start;
+    if (injectionResultScore < matchResultScore || injectionResult.priorityMatch && injectionResultScore === matchResultScore) {
+      return injectionResult;
+    }
+    return matchResult;
+  }
+  function matchRule(grammar, lineText, isFirstLine, linePos, stack, anchorPosition) {
+    const rule = stack.getRule(grammar);
+    const { ruleScanner, findOptions } = prepareRuleSearch(rule, grammar, stack.endRule, isFirstLine, linePos === anchorPosition);
+    const r4 = ruleScanner.findNextMatchSync(lineText, linePos, findOptions);
+    if (r4) {
+      return {
+        captureIndices: r4.captureIndices,
+        matchedRuleId: r4.ruleId
+      };
+    }
+    return null;
+  }
+  function matchInjections(injections, grammar, lineText, isFirstLine, linePos, stack, anchorPosition) {
+    let bestMatchRating = Number.MAX_VALUE;
+    let bestMatchCaptureIndices = null;
+    let bestMatchRuleId;
+    let bestMatchResultPriority = 0;
+    const scopes = stack.contentNameScopesList.getScopeNames();
+    for (let i2 = 0, len = injections.length; i2 < len; i2++) {
+      const injection = injections[i2];
+      if (!injection.matcher(scopes)) {
+        continue;
+      }
+      const rule = grammar.getRule(injection.ruleId);
+      const { ruleScanner, findOptions } = prepareRuleSearch(rule, grammar, null, isFirstLine, linePos === anchorPosition);
+      const matchResult = ruleScanner.findNextMatchSync(lineText, linePos, findOptions);
+      if (!matchResult) {
+        continue;
+      }
+      if (false) {
+        console.log(`  matched injection: ${injection.debugSelector}`);
+        console.log(ruleScanner.toString());
+      }
+      const matchRating = matchResult.captureIndices[0].start;
+      if (matchRating >= bestMatchRating) {
+        continue;
+      }
+      bestMatchRating = matchRating;
+      bestMatchCaptureIndices = matchResult.captureIndices;
+      bestMatchRuleId = matchResult.ruleId;
+      bestMatchResultPriority = injection.priority;
+      if (bestMatchRating === linePos) {
+        break;
+      }
+    }
+    if (bestMatchCaptureIndices) {
+      return {
+        priorityMatch: bestMatchResultPriority === -1,
+        captureIndices: bestMatchCaptureIndices,
+        matchedRuleId: bestMatchRuleId
+      };
+    }
+    return null;
+  }
+  function prepareRuleSearch(rule, grammar, endRegexSource, allowA, allowG) {
+    if (UseOnigurumaFindOptions) {
+      const ruleScanner2 = rule.compile(grammar, endRegexSource);
+      const findOptions = getFindOptions(allowA, allowG);
+      return { ruleScanner: ruleScanner2, findOptions };
+    }
+    const ruleScanner = rule.compileAG(grammar, endRegexSource, allowA, allowG);
+    return {
+      ruleScanner,
+      findOptions: 0
+      /* None */
+    };
+  }
+  function prepareRuleWhileSearch(rule, grammar, endRegexSource, allowA, allowG) {
+    if (UseOnigurumaFindOptions) {
+      const ruleScanner2 = rule.compileWhile(grammar, endRegexSource);
+      const findOptions = getFindOptions(allowA, allowG);
+      return { ruleScanner: ruleScanner2, findOptions };
+    }
+    const ruleScanner = rule.compileWhileAG(grammar, endRegexSource, allowA, allowG);
+    return {
+      ruleScanner,
+      findOptions: 0
+      /* None */
+    };
+  }
+  function getFindOptions(allowA, allowG) {
+    let options = 0;
+    if (!allowA) {
+      options |= 1;
+    }
+    if (!allowG) {
+      options |= 4;
+    }
+    return options;
+  }
+  function handleCaptures(grammar, lineText, isFirstLine, stack, lineTokens, captures, captureIndices) {
+    if (captures.length === 0) {
+      return;
+    }
+    const lineTextContent = lineText.content;
+    const len = Math.min(captures.length, captureIndices.length);
+    const localStack = [];
+    const maxEnd = captureIndices[0].end;
+    for (let i2 = 0; i2 < len; i2++) {
+      const captureRule = captures[i2];
+      if (captureRule === null) {
+        continue;
+      }
+      const captureIndex = captureIndices[i2];
+      if (captureIndex.length === 0) {
+        continue;
+      }
+      if (captureIndex.start > maxEnd) {
+        break;
+      }
+      while (localStack.length > 0 && localStack[localStack.length - 1].endPos <= captureIndex.start) {
+        lineTokens.produceFromScopes(localStack[localStack.length - 1].scopes, localStack[localStack.length - 1].endPos);
+        localStack.pop();
+      }
+      if (localStack.length > 0) {
+        lineTokens.produceFromScopes(localStack[localStack.length - 1].scopes, captureIndex.start);
+      } else {
+        lineTokens.produce(stack, captureIndex.start);
+      }
+      if (captureRule.retokenizeCapturedWithRuleId) {
+        const scopeName = captureRule.getName(lineTextContent, captureIndices);
+        const nameScopesList = stack.contentNameScopesList.pushAttributed(scopeName, grammar);
+        const contentName = captureRule.getContentName(lineTextContent, captureIndices);
+        const contentNameScopesList = nameScopesList.pushAttributed(contentName, grammar);
+        const stackClone = stack.push(captureRule.retokenizeCapturedWithRuleId, captureIndex.start, -1, false, null, nameScopesList, contentNameScopesList);
+        const onigSubStr = grammar.createOnigString(lineTextContent.substring(0, captureIndex.end));
+        _tokenizeString(
+          grammar,
+          onigSubStr,
+          isFirstLine && captureIndex.start === 0,
+          captureIndex.start,
+          stackClone,
+          lineTokens,
+          false,
+          /* no time limit */
+          0
+        );
+        disposeOnigString(onigSubStr);
+        continue;
+      }
+      const captureRuleScopeName = captureRule.getName(lineTextContent, captureIndices);
+      if (captureRuleScopeName !== null) {
+        const base2 = localStack.length > 0 ? localStack[localStack.length - 1].scopes : stack.contentNameScopesList;
+        const captureRuleScopesList = base2.pushAttributed(captureRuleScopeName, grammar);
+        localStack.push(new LocalStackElement(captureRuleScopesList, captureIndex.end));
+      }
+    }
+    while (localStack.length > 0) {
+      lineTokens.produceFromScopes(localStack[localStack.length - 1].scopes, localStack[localStack.length - 1].endPos);
+      localStack.pop();
+    }
+  }
+  var LocalStackElement = class {
+    scopes;
+    endPos;
+    constructor(scopes, endPos) {
+      this.scopes = scopes;
+      this.endPos = endPos;
+    }
+  };
+  function createGrammar(scopeName, grammar, initialLanguage, embeddedLanguages, tokenTypes, balancedBracketSelectors, grammarRepository, onigLib) {
+    return new Grammar(
+      scopeName,
+      grammar,
+      initialLanguage,
+      embeddedLanguages,
+      tokenTypes,
+      balancedBracketSelectors,
+      grammarRepository,
+      onigLib
+    );
+  }
+  function collectInjections(result, selector, rule, ruleFactoryHelper, grammar) {
+    const matchers = createMatchers(selector, nameMatcher);
+    const ruleId = RuleFactory.getCompiledRuleId(rule, ruleFactoryHelper, grammar.repository);
+    for (const matcher of matchers) {
+      result.push({
+        debugSelector: selector,
+        matcher: matcher.matcher,
+        ruleId,
+        grammar,
+        priority: matcher.priority
+      });
+    }
+  }
+  function nameMatcher(identifers, scopes) {
+    if (scopes.length < identifers.length) {
+      return false;
+    }
+    let lastIndex = 0;
+    return identifers.every((identifier) => {
+      for (let i2 = lastIndex; i2 < scopes.length; i2++) {
+        if (scopesAreMatching(scopes[i2], identifier)) {
+          lastIndex = i2 + 1;
+          return true;
+        }
+      }
+      return false;
+    });
+  }
+  function scopesAreMatching(thisScopeName, scopeName) {
+    if (!thisScopeName) {
+      return false;
+    }
+    if (thisScopeName === scopeName) {
+      return true;
+    }
+    const len = scopeName.length;
+    return thisScopeName.length > len && thisScopeName.substr(0, len) === scopeName && thisScopeName[len] === ".";
+  }
+  var Grammar = class {
+    constructor(_rootScopeName, grammar, initialLanguage, embeddedLanguages, tokenTypes, balancedBracketSelectors, grammarRepository, _onigLib) {
+      this._rootScopeName = _rootScopeName;
+      this.balancedBracketSelectors = balancedBracketSelectors;
+      this._onigLib = _onigLib;
+      this._basicScopeAttributesProvider = new BasicScopeAttributesProvider(
+        initialLanguage,
+        embeddedLanguages
+      );
+      this._rootId = -1;
+      this._lastRuleId = 0;
+      this._ruleId2desc = [null];
+      this._includedGrammars = {};
+      this._grammarRepository = grammarRepository;
+      this._grammar = initGrammar(grammar, null);
+      this._injections = null;
+      this._tokenTypeMatchers = [];
+      if (tokenTypes) {
+        for (const selector of Object.keys(tokenTypes)) {
+          const matchers = createMatchers(selector, nameMatcher);
+          for (const matcher of matchers) {
+            this._tokenTypeMatchers.push({
+              matcher: matcher.matcher,
+              type: tokenTypes[selector]
+            });
+          }
+        }
+      }
+    }
+    _rootScopeName;
+    balancedBracketSelectors;
+    _onigLib;
+    _rootId;
+    _lastRuleId;
+    _ruleId2desc;
+    _includedGrammars;
+    _grammarRepository;
+    _grammar;
+    _injections;
+    _basicScopeAttributesProvider;
+    _tokenTypeMatchers;
+    get themeProvider() {
+      return this._grammarRepository;
+    }
+    dispose() {
+      for (const rule of this._ruleId2desc) {
+        if (rule) {
+          rule.dispose();
+        }
+      }
+    }
+    createOnigScanner(sources) {
+      return this._onigLib.createOnigScanner(sources);
+    }
+    createOnigString(sources) {
+      return this._onigLib.createOnigString(sources);
+    }
+    getMetadataForScope(scope) {
+      return this._basicScopeAttributesProvider.getBasicScopeAttributes(scope);
+    }
+    _collectInjections() {
+      const grammarRepository = {
+        lookup: (scopeName2) => {
+          if (scopeName2 === this._rootScopeName) {
+            return this._grammar;
+          }
+          return this.getExternalGrammar(scopeName2);
+        },
+        injections: (scopeName2) => {
+          return this._grammarRepository.injections(scopeName2);
+        }
+      };
+      const result = [];
+      const scopeName = this._rootScopeName;
+      const grammar = grammarRepository.lookup(scopeName);
+      if (grammar) {
+        const rawInjections = grammar.injections;
+        if (rawInjections) {
+          for (let expression in rawInjections) {
+            collectInjections(
+              result,
+              expression,
+              rawInjections[expression],
+              this,
+              grammar
+            );
+          }
+        }
+        const injectionScopeNames = this._grammarRepository.injections(scopeName);
+        if (injectionScopeNames) {
+          injectionScopeNames.forEach((injectionScopeName) => {
+            const injectionGrammar = this.getExternalGrammar(injectionScopeName);
+            if (injectionGrammar) {
+              const selector = injectionGrammar.injectionSelector;
+              if (selector) {
+                collectInjections(
+                  result,
+                  selector,
+                  injectionGrammar,
+                  this,
+                  injectionGrammar
+                );
+              }
+            }
+          });
+        }
+      }
+      result.sort((i1, i2) => i1.priority - i2.priority);
+      return result;
+    }
+    getInjections() {
+      if (this._injections === null) {
+        this._injections = this._collectInjections();
+      }
+      return this._injections;
+    }
+    registerRule(factory) {
+      const id = ++this._lastRuleId;
+      const result = factory(ruleIdFromNumber(id));
+      this._ruleId2desc[id] = result;
+      return result;
+    }
+    getRule(ruleId) {
+      return this._ruleId2desc[ruleIdToNumber(ruleId)];
+    }
+    getExternalGrammar(scopeName, repository) {
+      if (this._includedGrammars[scopeName]) {
+        return this._includedGrammars[scopeName];
+      } else if (this._grammarRepository) {
+        const rawIncludedGrammar = this._grammarRepository.lookup(scopeName);
+        if (rawIncludedGrammar) {
+          this._includedGrammars[scopeName] = initGrammar(
+            rawIncludedGrammar,
+            repository && repository.$base
+          );
+          return this._includedGrammars[scopeName];
+        }
+      }
+      return void 0;
+    }
+    tokenizeLine(lineText, prevState, timeLimit = 0) {
+      const r4 = this._tokenize(lineText, prevState, false, timeLimit);
+      return {
+        tokens: r4.lineTokens.getResult(r4.ruleStack, r4.lineLength),
+        ruleStack: r4.ruleStack,
+        stoppedEarly: r4.stoppedEarly
+      };
+    }
+    tokenizeLine2(lineText, prevState, timeLimit = 0) {
+      const r4 = this._tokenize(lineText, prevState, true, timeLimit);
+      return {
+        tokens: r4.lineTokens.getBinaryResult(r4.ruleStack, r4.lineLength),
+        ruleStack: r4.ruleStack,
+        stoppedEarly: r4.stoppedEarly
+      };
+    }
+    _tokenize(lineText, prevState, emitBinaryTokens, timeLimit) {
+      if (this._rootId === -1) {
+        this._rootId = RuleFactory.getCompiledRuleId(
+          this._grammar.repository.$self,
+          this,
+          this._grammar.repository
+        );
+        this.getInjections();
+      }
+      let isFirstLine;
+      if (!prevState || prevState === StateStackImpl.NULL) {
+        isFirstLine = true;
+        const rawDefaultMetadata = this._basicScopeAttributesProvider.getDefaultAttributes();
+        const defaultStyle = this.themeProvider.getDefaults();
+        const defaultMetadata = EncodedTokenMetadata.set(
+          0,
+          rawDefaultMetadata.languageId,
+          rawDefaultMetadata.tokenType,
+          null,
+          defaultStyle.fontStyle,
+          defaultStyle.foregroundId,
+          defaultStyle.backgroundId
+        );
+        const rootScopeName = this.getRule(this._rootId).getName(
+          null,
+          null
+        );
+        let scopeList;
+        if (rootScopeName) {
+          scopeList = AttributedScopeStack.createRootAndLookUpScopeName(
+            rootScopeName,
+            defaultMetadata,
+            this
+          );
+        } else {
+          scopeList = AttributedScopeStack.createRoot(
+            "unknown",
+            defaultMetadata
+          );
+        }
+        prevState = new StateStackImpl(
+          null,
+          this._rootId,
+          -1,
+          -1,
+          false,
+          null,
+          scopeList,
+          scopeList
+        );
+      } else {
+        isFirstLine = false;
+        prevState.reset();
+      }
+      lineText = lineText + "\n";
+      const onigLineText = this.createOnigString(lineText);
+      const lineLength = onigLineText.content.length;
+      const lineTokens = new LineTokens(
+        emitBinaryTokens,
+        lineText,
+        this._tokenTypeMatchers,
+        this.balancedBracketSelectors
+      );
+      const r4 = _tokenizeString(
+        this,
+        onigLineText,
+        isFirstLine,
+        0,
+        prevState,
+        lineTokens,
+        true,
+        timeLimit
+      );
+      disposeOnigString(onigLineText);
+      return {
+        lineLength,
+        lineTokens,
+        ruleStack: r4.stack,
+        stoppedEarly: r4.stoppedEarly
+      };
+    }
+  };
+  function initGrammar(grammar, base2) {
+    grammar = clone(grammar);
+    grammar.repository = grammar.repository || {};
+    grammar.repository.$self = {
+      $vscodeTextmateLocation: grammar.$vscodeTextmateLocation,
+      patterns: grammar.patterns,
+      name: grammar.scopeName
+    };
+    grammar.repository.$base = base2 || grammar.repository.$self;
+    return grammar;
+  }
+  var AttributedScopeStack = class _AttributedScopeStack {
+    /**
+     * Invariant:
+     * ```
+     * if (parent && !scopePath.extends(parent.scopePath)) {
+     * 	throw new Error();
+     * }
+     * ```
+     */
+    constructor(parent, scopePath, tokenAttributes) {
+      this.parent = parent;
+      this.scopePath = scopePath;
+      this.tokenAttributes = tokenAttributes;
+    }
+    parent;
+    scopePath;
+    tokenAttributes;
+    static fromExtension(namesScopeList, contentNameScopesList) {
+      let current = namesScopeList;
+      let scopeNames = namesScopeList?.scopePath ?? null;
+      for (const frame of contentNameScopesList) {
+        scopeNames = ScopeStack.push(scopeNames, frame.scopeNames);
+        current = new _AttributedScopeStack(current, scopeNames, frame.encodedTokenAttributes);
+      }
+      return current;
+    }
+    static createRoot(scopeName, tokenAttributes) {
+      return new _AttributedScopeStack(null, new ScopeStack(null, scopeName), tokenAttributes);
+    }
+    static createRootAndLookUpScopeName(scopeName, tokenAttributes, grammar) {
+      const rawRootMetadata = grammar.getMetadataForScope(scopeName);
+      const scopePath = new ScopeStack(null, scopeName);
+      const rootStyle = grammar.themeProvider.themeMatch(scopePath);
+      const resolvedTokenAttributes = _AttributedScopeStack.mergeAttributes(
+        tokenAttributes,
+        rawRootMetadata,
+        rootStyle
+      );
+      return new _AttributedScopeStack(null, scopePath, resolvedTokenAttributes);
+    }
+    get scopeName() {
+      return this.scopePath.scopeName;
+    }
+    toString() {
+      return this.getScopeNames().join(" ");
+    }
+    equals(other) {
+      return _AttributedScopeStack.equals(this, other);
+    }
+    static equals(a2, b4) {
+      do {
+        if (a2 === b4) {
+          return true;
+        }
+        if (!a2 && !b4) {
+          return true;
+        }
+        if (!a2 || !b4) {
+          return false;
+        }
+        if (a2.scopeName !== b4.scopeName || a2.tokenAttributes !== b4.tokenAttributes) {
+          return false;
+        }
+        a2 = a2.parent;
+        b4 = b4.parent;
+      } while (true);
+    }
+    static mergeAttributes(existingTokenAttributes, basicScopeAttributes, styleAttributes) {
+      let fontStyle = -1;
+      let foreground = 0;
+      let background = 0;
+      if (styleAttributes !== null) {
+        fontStyle = styleAttributes.fontStyle;
+        foreground = styleAttributes.foregroundId;
+        background = styleAttributes.backgroundId;
+      }
+      return EncodedTokenMetadata.set(
+        existingTokenAttributes,
+        basicScopeAttributes.languageId,
+        basicScopeAttributes.tokenType,
+        null,
+        fontStyle,
+        foreground,
+        background
+      );
+    }
+    pushAttributed(scopePath, grammar) {
+      if (scopePath === null) {
+        return this;
+      }
+      if (scopePath.indexOf(" ") === -1) {
+        return _AttributedScopeStack._pushAttributed(this, scopePath, grammar);
+      }
+      const scopes = scopePath.split(/ /g);
+      let result = this;
+      for (const scope of scopes) {
+        result = _AttributedScopeStack._pushAttributed(result, scope, grammar);
+      }
+      return result;
+    }
+    static _pushAttributed(target, scopeName, grammar) {
+      const rawMetadata = grammar.getMetadataForScope(scopeName);
+      const newPath = target.scopePath.push(scopeName);
+      const scopeThemeMatchResult = grammar.themeProvider.themeMatch(newPath);
+      const metadata = _AttributedScopeStack.mergeAttributes(
+        target.tokenAttributes,
+        rawMetadata,
+        scopeThemeMatchResult
+      );
+      return new _AttributedScopeStack(target, newPath, metadata);
+    }
+    getScopeNames() {
+      return this.scopePath.getSegments();
+    }
+    getExtensionIfDefined(base2) {
+      const result = [];
+      let self = this;
+      while (self && self !== base2) {
+        result.push({
+          encodedTokenAttributes: self.tokenAttributes,
+          scopeNames: self.scopePath.getExtensionIfDefined(self.parent?.scopePath ?? null)
+        });
+        self = self.parent;
+      }
+      return self === base2 ? result.reverse() : void 0;
+    }
+  };
+  var StateStackImpl = class _StateStackImpl {
+    /**
+     * Invariant:
+     * ```
+     * if (contentNameScopesList !== nameScopesList && contentNameScopesList?.parent !== nameScopesList) {
+     * 	throw new Error();
+     * }
+     * if (this.parent && !nameScopesList.extends(this.parent.contentNameScopesList)) {
+     * 	throw new Error();
+     * }
+     * ```
+     */
+    constructor(parent, ruleId, enterPos, anchorPos, beginRuleCapturedEOL, endRule, nameScopesList, contentNameScopesList) {
+      this.parent = parent;
+      this.ruleId = ruleId;
+      this.beginRuleCapturedEOL = beginRuleCapturedEOL;
+      this.endRule = endRule;
+      this.nameScopesList = nameScopesList;
+      this.contentNameScopesList = contentNameScopesList;
+      this.depth = this.parent ? this.parent.depth + 1 : 1;
+      this._enterPos = enterPos;
+      this._anchorPos = anchorPos;
+    }
+    parent;
+    ruleId;
+    beginRuleCapturedEOL;
+    endRule;
+    nameScopesList;
+    contentNameScopesList;
+    _stackElementBrand = void 0;
+    // TODO remove me
+    static NULL = new _StateStackImpl(
+      null,
+      0,
+      0,
+      0,
+      false,
+      null,
+      null,
+      null
+    );
+    /**
+     * The position on the current line where this state was pushed.
+     * This is relevant only while tokenizing a line, to detect endless loops.
+     * Its value is meaningless across lines.
+     */
+    _enterPos;
+    /**
+     * The captured anchor position when this stack element was pushed.
+     * This is relevant only while tokenizing a line, to restore the anchor position when popping.
+     * Its value is meaningless across lines.
+     */
+    _anchorPos;
+    /**
+     * The depth of the stack.
+     */
+    depth;
+    equals(other) {
+      if (other === null) {
+        return false;
+      }
+      return _StateStackImpl._equals(this, other);
+    }
+    static _equals(a2, b4) {
+      if (a2 === b4) {
+        return true;
+      }
+      if (!this._structuralEquals(a2, b4)) {
+        return false;
+      }
+      return AttributedScopeStack.equals(a2.contentNameScopesList, b4.contentNameScopesList);
+    }
+    /**
+     * A structural equals check. Does not take into account `scopes`.
+     */
+    static _structuralEquals(a2, b4) {
+      do {
+        if (a2 === b4) {
+          return true;
+        }
+        if (!a2 && !b4) {
+          return true;
+        }
+        if (!a2 || !b4) {
+          return false;
+        }
+        if (a2.depth !== b4.depth || a2.ruleId !== b4.ruleId || a2.endRule !== b4.endRule) {
+          return false;
+        }
+        a2 = a2.parent;
+        b4 = b4.parent;
+      } while (true);
+    }
+    clone() {
+      return this;
+    }
+    static _reset(el) {
+      while (el) {
+        el._enterPos = -1;
+        el._anchorPos = -1;
+        el = el.parent;
+      }
+    }
+    reset() {
+      _StateStackImpl._reset(this);
+    }
+    pop() {
+      return this.parent;
+    }
+    safePop() {
+      if (this.parent) {
+        return this.parent;
+      }
+      return this;
+    }
+    push(ruleId, enterPos, anchorPos, beginRuleCapturedEOL, endRule, nameScopesList, contentNameScopesList) {
+      return new _StateStackImpl(
+        this,
+        ruleId,
+        enterPos,
+        anchorPos,
+        beginRuleCapturedEOL,
+        endRule,
+        nameScopesList,
+        contentNameScopesList
+      );
+    }
+    getEnterPos() {
+      return this._enterPos;
+    }
+    getAnchorPos() {
+      return this._anchorPos;
+    }
+    getRule(grammar) {
+      return grammar.getRule(this.ruleId);
+    }
+    toString() {
+      const r4 = [];
+      this._writeString(r4, 0);
+      return "[" + r4.join(",") + "]";
+    }
+    _writeString(res, outIndex) {
+      if (this.parent) {
+        outIndex = this.parent._writeString(res, outIndex);
+      }
+      res[outIndex++] = `(${this.ruleId}, ${this.nameScopesList?.toString()}, ${this.contentNameScopesList?.toString()})`;
+      return outIndex;
+    }
+    withContentNameScopesList(contentNameScopeStack) {
+      if (this.contentNameScopesList === contentNameScopeStack) {
+        return this;
+      }
+      return this.parent.push(
+        this.ruleId,
+        this._enterPos,
+        this._anchorPos,
+        this.beginRuleCapturedEOL,
+        this.endRule,
+        this.nameScopesList,
+        contentNameScopeStack
+      );
+    }
+    withEndRule(endRule) {
+      if (this.endRule === endRule) {
+        return this;
+      }
+      return new _StateStackImpl(
+        this.parent,
+        this.ruleId,
+        this._enterPos,
+        this._anchorPos,
+        this.beginRuleCapturedEOL,
+        endRule,
+        this.nameScopesList,
+        this.contentNameScopesList
+      );
+    }
+    // Used to warn of endless loops
+    hasSameRuleAs(other) {
+      let el = this;
+      while (el && el._enterPos === other._enterPos) {
+        if (el.ruleId === other.ruleId) {
+          return true;
+        }
+        el = el.parent;
+      }
+      return false;
+    }
+    toStateStackFrame() {
+      return {
+        ruleId: ruleIdToNumber(this.ruleId),
+        beginRuleCapturedEOL: this.beginRuleCapturedEOL,
+        endRule: this.endRule,
+        nameScopesList: this.nameScopesList?.getExtensionIfDefined(this.parent?.nameScopesList ?? null) ?? [],
+        contentNameScopesList: this.contentNameScopesList?.getExtensionIfDefined(this.nameScopesList) ?? []
+      };
+    }
+    static pushFrame(self, frame) {
+      const namesScopeList = AttributedScopeStack.fromExtension(self?.nameScopesList ?? null, frame.nameScopesList);
+      return new _StateStackImpl(
+        self,
+        ruleIdFromNumber(frame.ruleId),
+        frame.enterPos ?? -1,
+        frame.anchorPos ?? -1,
+        frame.beginRuleCapturedEOL,
+        frame.endRule,
+        namesScopeList,
+        AttributedScopeStack.fromExtension(namesScopeList, frame.contentNameScopesList)
+      );
+    }
+  };
+  var BalancedBracketSelectors = class {
+    balancedBracketScopes;
+    unbalancedBracketScopes;
+    allowAny = false;
+    constructor(balancedBracketScopes, unbalancedBracketScopes) {
+      this.balancedBracketScopes = balancedBracketScopes.flatMap(
+        (selector) => {
+          if (selector === "*") {
+            this.allowAny = true;
+            return [];
+          }
+          return createMatchers(selector, nameMatcher).map((m4) => m4.matcher);
+        }
+      );
+      this.unbalancedBracketScopes = unbalancedBracketScopes.flatMap(
+        (selector) => createMatchers(selector, nameMatcher).map((m4) => m4.matcher)
+      );
+    }
+    get matchesAlways() {
+      return this.allowAny && this.unbalancedBracketScopes.length === 0;
+    }
+    get matchesNever() {
+      return this.balancedBracketScopes.length === 0 && !this.allowAny;
+    }
+    match(scopes) {
+      for (const excluder of this.unbalancedBracketScopes) {
+        if (excluder(scopes)) {
+          return false;
+        }
+      }
+      for (const includer of this.balancedBracketScopes) {
+        if (includer(scopes)) {
+          return true;
+        }
+      }
+      return this.allowAny;
+    }
+  };
+  var LineTokens = class {
+    constructor(emitBinaryTokens, lineText, tokenTypeOverrides, balancedBracketSelectors) {
+      this.balancedBracketSelectors = balancedBracketSelectors;
+      this._emitBinaryTokens = emitBinaryTokens;
+      this._tokenTypeOverrides = tokenTypeOverrides;
+      if (false) {
+        this._lineText = lineText;
+      } else {
+        this._lineText = null;
+      }
+      this._tokens = [];
+      this._binaryTokens = [];
+      this._lastTokenEndIndex = 0;
+    }
+    balancedBracketSelectors;
+    _emitBinaryTokens;
+    /**
+     * defined only if `false`.
+     */
+    _lineText;
+    /**
+     * used only if `_emitBinaryTokens` is false.
+     */
+    _tokens;
+    /**
+     * used only if `_emitBinaryTokens` is true.
+     */
+    _binaryTokens;
+    _lastTokenEndIndex;
+    _tokenTypeOverrides;
+    produce(stack, endIndex) {
+      this.produceFromScopes(stack.contentNameScopesList, endIndex);
+    }
+    produceFromScopes(scopesList, endIndex) {
+      if (this._lastTokenEndIndex >= endIndex) {
+        return;
+      }
+      if (this._emitBinaryTokens) {
+        let metadata = scopesList?.tokenAttributes ?? 0;
+        let containsBalancedBrackets = false;
+        if (this.balancedBracketSelectors?.matchesAlways) {
+          containsBalancedBrackets = true;
+        }
+        if (this._tokenTypeOverrides.length > 0 || this.balancedBracketSelectors && !this.balancedBracketSelectors.matchesAlways && !this.balancedBracketSelectors.matchesNever) {
+          const scopes2 = scopesList?.getScopeNames() ?? [];
+          for (const tokenType of this._tokenTypeOverrides) {
+            if (tokenType.matcher(scopes2)) {
+              metadata = EncodedTokenMetadata.set(
+                metadata,
+                0,
+                toOptionalTokenType(tokenType.type),
+                null,
+                -1,
+                0,
+                0
+              );
+            }
+          }
+          if (this.balancedBracketSelectors) {
+            containsBalancedBrackets = this.balancedBracketSelectors.match(scopes2);
+          }
+        }
+        if (containsBalancedBrackets) {
+          metadata = EncodedTokenMetadata.set(
+            metadata,
+            0,
+            8,
+            containsBalancedBrackets,
+            -1,
+            0,
+            0
+          );
+        }
+        if (this._binaryTokens.length > 0 && this._binaryTokens[this._binaryTokens.length - 1] === metadata) {
+          this._lastTokenEndIndex = endIndex;
+          return;
+        }
+        this._binaryTokens.push(this._lastTokenEndIndex);
+        this._binaryTokens.push(metadata);
+        this._lastTokenEndIndex = endIndex;
+        return;
+      }
+      const scopes = scopesList?.getScopeNames() ?? [];
+      this._tokens.push({
+        startIndex: this._lastTokenEndIndex,
+        endIndex,
+        // value: lineText.substring(lastTokenEndIndex, endIndex),
+        scopes
+      });
+      this._lastTokenEndIndex = endIndex;
+    }
+    getResult(stack, lineLength) {
+      if (this._tokens.length > 0 && this._tokens[this._tokens.length - 1].startIndex === lineLength - 1) {
+        this._tokens.pop();
+      }
+      if (this._tokens.length === 0) {
+        this._lastTokenEndIndex = -1;
+        this.produce(stack, lineLength);
+        this._tokens[this._tokens.length - 1].startIndex = 0;
+      }
+      return this._tokens;
+    }
+    getBinaryResult(stack, lineLength) {
+      if (this._binaryTokens.length > 0 && this._binaryTokens[this._binaryTokens.length - 2] === lineLength - 1) {
+        this._binaryTokens.pop();
+        this._binaryTokens.pop();
+      }
+      if (this._binaryTokens.length === 0) {
+        this._lastTokenEndIndex = -1;
+        this.produce(stack, lineLength);
+        this._binaryTokens[this._binaryTokens.length - 2] = 0;
+      }
+      const result = new Uint32Array(this._binaryTokens.length);
+      for (let i2 = 0, len = this._binaryTokens.length; i2 < len; i2++) {
+        result[i2] = this._binaryTokens[i2];
+      }
+      return result;
+    }
+  };
+  var SyncRegistry = class {
+    constructor(theme, _onigLib) {
+      this._onigLib = _onigLib;
+      this._theme = theme;
+    }
+    _onigLib;
+    _grammars = /* @__PURE__ */ new Map();
+    _rawGrammars = /* @__PURE__ */ new Map();
+    _injectionGrammars = /* @__PURE__ */ new Map();
+    _theme;
+    dispose() {
+      for (const grammar of this._grammars.values()) {
+        grammar.dispose();
+      }
+    }
+    setTheme(theme) {
+      this._theme = theme;
+    }
+    getColorMap() {
+      return this._theme.getColorMap();
+    }
+    /**
+     * Add `grammar` to registry and return a list of referenced scope names
+     */
+    addGrammar(grammar, injectionScopeNames) {
+      this._rawGrammars.set(grammar.scopeName, grammar);
+      if (injectionScopeNames) {
+        this._injectionGrammars.set(grammar.scopeName, injectionScopeNames);
+      }
+    }
+    /**
+     * Lookup a raw grammar.
+     */
+    lookup(scopeName) {
+      return this._rawGrammars.get(scopeName);
+    }
+    /**
+     * Returns the injections for the given grammar
+     */
+    injections(targetScope) {
+      return this._injectionGrammars.get(targetScope);
+    }
+    /**
+     * Get the default theme settings
+     */
+    getDefaults() {
+      return this._theme.getDefaults();
+    }
+    /**
+     * Match a scope in the theme.
+     */
+    themeMatch(scopePath) {
+      return this._theme.match(scopePath);
+    }
+    /**
+     * Lookup a grammar.
+     */
+    grammarForScopeName(scopeName, initialLanguage, embeddedLanguages, tokenTypes, balancedBracketSelectors) {
+      if (!this._grammars.has(scopeName)) {
+        let rawGrammar = this._rawGrammars.get(scopeName);
+        if (!rawGrammar) {
+          return null;
+        }
+        this._grammars.set(scopeName, createGrammar(
+          scopeName,
+          rawGrammar,
+          initialLanguage,
+          embeddedLanguages,
+          tokenTypes,
+          balancedBracketSelectors,
+          this,
+          this._onigLib
+        ));
+      }
+      return this._grammars.get(scopeName);
+    }
+  };
+  var Registry = class {
+    _options;
+    _syncRegistry;
+    _ensureGrammarCache;
+    constructor(options) {
+      this._options = options;
+      this._syncRegistry = new SyncRegistry(
+        Theme.createFromRawTheme(options.theme, options.colorMap),
+        options.onigLib
+      );
+      this._ensureGrammarCache = /* @__PURE__ */ new Map();
+    }
+    dispose() {
+      this._syncRegistry.dispose();
+    }
+    /**
+     * Change the theme. Once called, no previous `ruleStack` should be used anymore.
+     */
+    setTheme(theme, colorMap) {
+      this._syncRegistry.setTheme(Theme.createFromRawTheme(theme, colorMap));
+    }
+    /**
+     * Returns a lookup array for color ids.
+     */
+    getColorMap() {
+      return this._syncRegistry.getColorMap();
+    }
+    /**
+     * Load the grammar for `scopeName` and all referenced included grammars asynchronously.
+     * Please do not use language id 0.
+     */
+    loadGrammarWithEmbeddedLanguages(initialScopeName, initialLanguage, embeddedLanguages) {
+      return this.loadGrammarWithConfiguration(initialScopeName, initialLanguage, { embeddedLanguages });
+    }
+    /**
+     * Load the grammar for `scopeName` and all referenced included grammars asynchronously.
+     * Please do not use language id 0.
+     */
+    loadGrammarWithConfiguration(initialScopeName, initialLanguage, configuration) {
+      return this._loadGrammar(
+        initialScopeName,
+        initialLanguage,
+        configuration.embeddedLanguages,
+        configuration.tokenTypes,
+        new BalancedBracketSelectors(
+          configuration.balancedBracketSelectors || [],
+          configuration.unbalancedBracketSelectors || []
+        )
+      );
+    }
+    /**
+     * Load the grammar for `scopeName` and all referenced included grammars asynchronously.
+     */
+    loadGrammar(initialScopeName) {
+      return this._loadGrammar(initialScopeName, 0, null, null, null);
+    }
+    _loadGrammar(initialScopeName, initialLanguage, embeddedLanguages, tokenTypes, balancedBracketSelectors) {
+      const dependencyProcessor = new ScopeDependencyProcessor(this._syncRegistry, initialScopeName);
+      while (dependencyProcessor.Q.length > 0) {
+        dependencyProcessor.Q.map((request) => this._loadSingleGrammar(request.scopeName));
+        dependencyProcessor.processQueue();
+      }
+      return this._grammarForScopeName(
+        initialScopeName,
+        initialLanguage,
+        embeddedLanguages,
+        tokenTypes,
+        balancedBracketSelectors
+      );
+    }
+    _loadSingleGrammar(scopeName) {
+      if (!this._ensureGrammarCache.has(scopeName)) {
+        this._doLoadSingleGrammar(scopeName);
+        this._ensureGrammarCache.set(scopeName, true);
+      }
+    }
+    _doLoadSingleGrammar(scopeName) {
+      const grammar = this._options.loadGrammar(scopeName);
+      if (grammar) {
+        const injections = typeof this._options.getInjections === "function" ? this._options.getInjections(scopeName) : void 0;
+        this._syncRegistry.addGrammar(grammar, injections);
+      }
+    }
+    /**
+     * Adds a rawGrammar.
+     */
+    addGrammar(rawGrammar, injections = [], initialLanguage = 0, embeddedLanguages = null) {
+      this._syncRegistry.addGrammar(rawGrammar, injections);
+      return this._grammarForScopeName(rawGrammar.scopeName, initialLanguage, embeddedLanguages);
+    }
+    /**
+     * Get the grammar for `scopeName`. The grammar must first be created via `loadGrammar` or `addGrammar`.
+     */
+    _grammarForScopeName(scopeName, initialLanguage = 0, embeddedLanguages = null, tokenTypes = null, balancedBracketSelectors = null) {
+      return this._syncRegistry.grammarForScopeName(
+        scopeName,
+        initialLanguage,
+        embeddedLanguages,
+        tokenTypes,
+        balancedBracketSelectors
+      );
+    }
+  };
+  var INITIAL = StateStackImpl.NULL;
+
+  // node_modules/@shikijs/primitive/dist/index.mjs
+  function resolveColorReplacements(theme, options) {
+    const replacements = typeof theme === "string" ? {} : { ...theme.colorReplacements };
+    const themeName = typeof theme === "string" ? theme : theme.name;
+    for (const [key2, value] of Object.entries(options?.colorReplacements || {})) if (typeof value === "string") replacements[key2] = value;
+    else if (key2 === themeName) Object.assign(replacements, value);
+    return replacements;
+  }
+  function applyColorReplacements(color, replacements) {
+    if (!color) return color;
+    return replacements?.[color?.toLowerCase()] || color;
+  }
+  function toArray(x4) {
+    return Array.isArray(x4) ? x4 : [x4];
+  }
+  async function normalizeGetter(p2) {
+    return Promise.resolve(typeof p2 === "function" ? p2() : p2).then((r4) => r4.default || r4);
+  }
+  function isPlainLang(lang) {
+    return !lang || [
+      "plaintext",
+      "txt",
+      "text",
+      "plain"
+    ].includes(lang);
+  }
+  function isSpecialLang(lang) {
+    return lang === "ansi" || isPlainLang(lang);
+  }
+  function isNoneTheme(theme) {
+    return theme === "none";
+  }
+  function isSpecialTheme(theme) {
+    return isNoneTheme(theme);
+  }
+  var RE_NEWLINE = /(\r?\n)/g;
+  function splitLines(code, preserveEnding = false) {
+    if (code.length === 0) return [["", 0]];
+    const parts = code.split(RE_NEWLINE);
+    let index = 0;
+    const lines = [];
+    for (let i2 = 0; i2 < parts.length; i2 += 2) {
+      const line = preserveEnding ? parts[i2] + (parts[i2 + 1] || "") : parts[i2];
+      lines.push([line, index]);
+      index += parts[i2].length;
+      index += parts[i2 + 1]?.length || 0;
+    }
+    return lines;
+  }
+  var VSCODE_FALLBACK_EDITOR_FG = {
+    light: "#333333",
+    dark: "#bbbbbb"
+  };
+  var VSCODE_FALLBACK_EDITOR_BG = {
+    light: "#fffffe",
+    dark: "#1e1e1e"
+  };
+  var RESOLVED_KEY = "__shiki_resolved";
+  function normalizeTheme(rawTheme) {
+    if (rawTheme?.[RESOLVED_KEY]) return rawTheme;
+    const theme = { ...rawTheme };
+    if (theme.tokenColors && !theme.settings) {
+      theme.settings = theme.tokenColors;
+      delete theme.tokenColors;
+    }
+    theme.type ||= "dark";
+    theme.colorReplacements = { ...theme.colorReplacements };
+    theme.settings ||= [];
+    let { bg, fg } = theme;
+    if (!bg || !fg) {
+      const globalSetting = theme.settings ? theme.settings.find((s2) => !s2.name && !s2.scope) : void 0;
+      if (globalSetting?.settings?.foreground) fg = globalSetting.settings.foreground;
+      if (globalSetting?.settings?.background) bg = globalSetting.settings.background;
+      if (!fg && theme?.colors?.["editor.foreground"]) fg = theme.colors["editor.foreground"];
+      if (!bg && theme?.colors?.["editor.background"]) bg = theme.colors["editor.background"];
+      if (!fg) fg = theme.type === "light" ? VSCODE_FALLBACK_EDITOR_FG.light : VSCODE_FALLBACK_EDITOR_FG.dark;
+      if (!bg) bg = theme.type === "light" ? VSCODE_FALLBACK_EDITOR_BG.light : VSCODE_FALLBACK_EDITOR_BG.dark;
+      theme.fg = fg;
+      theme.bg = bg;
+    }
+    if (!(theme.settings[0] && theme.settings[0].settings && !theme.settings[0].scope)) theme.settings.unshift({ settings: {
+      foreground: theme.fg,
+      background: theme.bg
+    } });
+    let replacementCount = 0;
+    const replacementMap = /* @__PURE__ */ new Map();
+    function getReplacementColor(value) {
+      if (replacementMap.has(value)) return replacementMap.get(value);
+      replacementCount += 1;
+      const hex = `#${replacementCount.toString(16).padStart(8, "0").toLowerCase()}`;
+      if (theme.colorReplacements?.[`#${hex}`]) return getReplacementColor(value);
+      replacementMap.set(value, hex);
+      return hex;
+    }
+    theme.settings = theme.settings.map((setting) => {
+      const replaceFg = setting.settings?.foreground && !setting.settings.foreground.startsWith("#");
+      const replaceBg = setting.settings?.background && !setting.settings.background.startsWith("#");
+      if (!replaceFg && !replaceBg) return setting;
+      const clone2 = {
+        ...setting,
+        settings: { ...setting.settings }
+      };
+      if (replaceFg) {
+        const replacement = getReplacementColor(setting.settings.foreground);
+        theme.colorReplacements[replacement] = setting.settings.foreground;
+        clone2.settings.foreground = replacement;
+      }
+      if (replaceBg) {
+        const replacement = getReplacementColor(setting.settings.background);
+        theme.colorReplacements[replacement] = setting.settings.background;
+        clone2.settings.background = replacement;
+      }
+      return clone2;
+    });
+    for (const key2 of Object.keys(theme.colors || {})) if (key2 === "editor.foreground" || key2 === "editor.background" || key2.startsWith("terminal.ansi")) {
+      if (!theme.colors[key2]?.startsWith("#")) {
+        const replacement = getReplacementColor(theme.colors[key2]);
+        theme.colorReplacements[replacement] = theme.colors[key2];
+        theme.colors[key2] = replacement;
+      }
+    }
+    Object.defineProperty(theme, RESOLVED_KEY, {
+      enumerable: false,
+      writable: false,
+      value: true
+    });
+    return theme;
+  }
+  async function resolveLangs(langs) {
+    return [...new Set((await Promise.all(langs.filter((l3) => !isSpecialLang(l3)).map(async (lang) => await normalizeGetter(lang).then((r4) => Array.isArray(r4) ? r4 : [r4])))).flat())];
+  }
+  async function resolveThemes(themes) {
+    return (await Promise.all(themes.map(async (theme) => isSpecialTheme(theme) ? null : normalizeTheme(await normalizeGetter(theme))))).filter((i2) => !!i2);
+  }
+  function resolveLangAlias(name, alias) {
+    if (!alias) return name;
+    if (alias[name]) {
+      const resolved = /* @__PURE__ */ new Set([name]);
+      while (alias[name]) {
+        name = alias[name];
+        if (resolved.has(name)) throw new ShikiError(`Circular alias \`${[...resolved].join(" -> ")} -> ${name}\``);
+        resolved.add(name);
+      }
+    }
+    return name;
+  }
+  var Registry2 = class extends Registry {
+    _resolver;
+    _themes;
+    _langs;
+    _alias;
+    _resolvedThemes = /* @__PURE__ */ new Map();
+    _resolvedGrammars = /* @__PURE__ */ new Map();
+    _langMap = /* @__PURE__ */ new Map();
+    _langGraph = /* @__PURE__ */ new Map();
+    _textmateThemeCache = /* @__PURE__ */ new WeakMap();
+    _loadedThemesCache = null;
+    _loadedLanguagesCache = null;
+    constructor(_resolver, _themes, _langs, _alias = {}) {
+      super(_resolver);
+      this._resolver = _resolver;
+      this._themes = _themes;
+      this._langs = _langs;
+      this._alias = _alias;
+      this._themes.map((t) => this.loadTheme(t));
+      this.loadLanguages(this._langs);
+    }
+    getTheme(theme) {
+      if (typeof theme === "string") return this._resolvedThemes.get(theme);
+      else return this.loadTheme(theme);
+    }
+    loadTheme(theme) {
+      const _theme = normalizeTheme(theme);
+      if (_theme.name) {
+        this._resolvedThemes.set(_theme.name, _theme);
+        this._loadedThemesCache = null;
+      }
+      return _theme;
+    }
+    getLoadedThemes() {
+      if (!this._loadedThemesCache) this._loadedThemesCache = [...this._resolvedThemes.keys()];
+      return this._loadedThemesCache;
+    }
+    setTheme(theme) {
+      let textmateTheme = this._textmateThemeCache.get(theme);
+      if (!textmateTheme) {
+        textmateTheme = Theme.createFromRawTheme(theme);
+        this._textmateThemeCache.set(theme, textmateTheme);
+      }
+      this._syncRegistry.setTheme(textmateTheme);
+    }
+    getGrammar(name) {
+      name = resolveLangAlias(name, this._alias);
+      return this._resolvedGrammars.get(name);
+    }
+    loadLanguage(lang) {
+      if (this.getGrammar(lang.name)) return;
+      const embeddedLazilyBy = new Set([...this._langMap.values()].filter((i2) => i2.embeddedLangsLazy?.includes(lang.name)));
+      this._resolver.addLanguage(lang);
+      const grammarConfig = {
+        balancedBracketSelectors: lang.balancedBracketSelectors || ["*"],
+        unbalancedBracketSelectors: lang.unbalancedBracketSelectors || []
+      };
+      this._syncRegistry._rawGrammars.set(lang.scopeName, lang);
+      const g = this.loadGrammarWithConfiguration(lang.scopeName, 1, grammarConfig);
+      g.name = lang.name;
+      this._resolvedGrammars.set(lang.name, g);
+      if (lang.aliases) lang.aliases.forEach((alias) => {
+        this._alias[alias] = lang.name;
+      });
+      this._loadedLanguagesCache = null;
+      if (embeddedLazilyBy.size) for (const e of embeddedLazilyBy) {
+        this._syncRegistry?._grammars?.get(e.scopeName)?.dispose();
+        this._resolvedGrammars.delete(e.name);
+        this._loadedLanguagesCache = null;
+        this._syncRegistry?._injectionGrammars?.delete(e.scopeName);
+        this._syncRegistry?._grammars?.delete(e.scopeName);
+        this.loadLanguage(this._langMap.get(e.name));
+      }
+    }
+    dispose() {
+      super.dispose();
+      this._resolvedThemes.clear();
+      this._resolvedGrammars.clear();
+      this._langMap.clear();
+      this._langGraph.clear();
+      this._loadedThemesCache = null;
+    }
+    loadLanguages(langs) {
+      for (const lang of langs) this.resolveEmbeddedLanguages(lang);
+      const langsGraphArray = [...this._langGraph.entries()];
+      const missingLangs = langsGraphArray.filter(([_4, lang]) => !lang);
+      if (missingLangs.length) {
+        const dependents = langsGraphArray.filter(([_4, lang]) => {
+          if (!lang) return false;
+          return (lang.embeddedLanguages || lang.embeddedLangs)?.some((l3) => missingLangs.map(([name]) => name).includes(l3));
+        }).filter((lang) => !missingLangs.includes(lang));
+        throw new ShikiError(`Missing languages ${missingLangs.map(([name]) => `\`${name}\``).join(", ")}, required by ${dependents.map(([name]) => `\`${name}\``).join(", ")}`);
+      }
+      for (const [_4, lang] of langsGraphArray) this._resolver.addLanguage(lang);
+      for (const [_4, lang] of langsGraphArray) this.loadLanguage(lang);
+    }
+    getLoadedLanguages() {
+      if (!this._loadedLanguagesCache) this._loadedLanguagesCache = [.../* @__PURE__ */ new Set([...this._resolvedGrammars.keys(), ...Object.keys(this._alias)])];
+      return this._loadedLanguagesCache;
+    }
+    resolveEmbeddedLanguages(lang) {
+      this._langMap.set(lang.name, lang);
+      this._langGraph.set(lang.name, lang);
+      const embedded = lang.embeddedLanguages ?? lang.embeddedLangs;
+      if (embedded) for (const embeddedLang of embedded) this._langGraph.set(embeddedLang, this._langMap.get(embeddedLang));
+    }
+  };
+  var Resolver = class {
+    _langs = /* @__PURE__ */ new Map();
+    _scopeToLang = /* @__PURE__ */ new Map();
+    _injections = /* @__PURE__ */ new Map();
+    _onigLib;
+    constructor(engine, langs) {
+      this._onigLib = {
+        createOnigScanner: (patterns) => engine.createScanner(patterns),
+        createOnigString: (s2) => engine.createString(s2)
+      };
+      langs.forEach((i2) => this.addLanguage(i2));
+    }
+    get onigLib() {
+      return this._onigLib;
+    }
+    getLangRegistration(langIdOrAlias) {
+      return this._langs.get(langIdOrAlias);
+    }
+    loadGrammar(scopeName) {
+      return this._scopeToLang.get(scopeName);
+    }
+    addLanguage(l3) {
+      this._langs.set(l3.name, l3);
+      if (l3.aliases) l3.aliases.forEach((a2) => {
+        this._langs.set(a2, l3);
+      });
+      this._scopeToLang.set(l3.scopeName, l3);
+      if (l3.injectTo) l3.injectTo.forEach((i2) => {
+        if (!this._injections.get(i2)) this._injections.set(i2, []);
+        if (!this._injections.get(i2).includes(l3.scopeName)) this._injections.get(i2).push(l3.scopeName);
+      });
+    }
+    getInjections(scopeName) {
+      const scopeParts = scopeName.split(".");
+      let injections = [];
+      for (let i2 = 1; i2 <= scopeParts.length; i2++) {
+        const subScopeName = scopeParts.slice(0, i2).join(".");
+        injections = [...injections, ...this._injections.get(subScopeName) || []];
+      }
+      return injections;
+    }
+  };
+  var instancesCount = 0;
+  function createShikiPrimitive(options) {
+    instancesCount += 1;
+    if (options.warnings !== false && instancesCount >= 10 && instancesCount % 10 === 0) console.warn(`[Shiki] ${instancesCount} instances have been created. Shiki is supposed to be used as a singleton, consider refactoring your code to cache your highlighter instance; Or call \`highlighter.dispose()\` to release unused instances.`);
+    let isDisposed = false;
+    if (!options.engine) throw new ShikiError("`engine` option is required for synchronous mode");
+    const langs = (options.langs || []).flat(1);
+    const themes = (options.themes || []).flat(1).map(normalizeTheme);
+    const _registry = new Registry2(new Resolver(options.engine, langs), themes, langs, options.langAlias);
+    let _lastTheme;
+    function resolveLangAlias$1(name) {
+      return resolveLangAlias(name, options.langAlias);
+    }
+    function getLanguage(name) {
+      ensureNotDisposed();
+      const _lang = _registry.getGrammar(typeof name === "string" ? name : name.name);
+      if (!_lang) throw new ShikiError(`Language \`${name}\` not found, you may need to load it first`);
+      return _lang;
+    }
+    function getTheme(name) {
+      if (name === "none") return {
+        bg: "",
+        fg: "",
+        name: "none",
+        settings: [],
+        type: "dark"
+      };
+      ensureNotDisposed();
+      const _theme = _registry.getTheme(name);
+      if (!_theme) throw new ShikiError(`Theme \`${name}\` not found, you may need to load it first`);
+      return _theme;
+    }
+    function setTheme(name) {
+      ensureNotDisposed();
+      const theme = getTheme(name);
+      if (_lastTheme !== name) {
+        _registry.setTheme(theme);
+        _lastTheme = name;
+      }
+      return {
+        theme,
+        colorMap: _registry.getColorMap()
+      };
+    }
+    function getLoadedThemes() {
+      ensureNotDisposed();
+      return _registry.getLoadedThemes();
+    }
+    function getLoadedLanguages() {
+      ensureNotDisposed();
+      return _registry.getLoadedLanguages();
+    }
+    function loadLanguageSync(...langs2) {
+      ensureNotDisposed();
+      _registry.loadLanguages(langs2.flat(1));
+    }
+    async function loadLanguage(...langs2) {
+      return loadLanguageSync(await resolveLangs(langs2));
+    }
+    function loadThemeSync(...themes2) {
+      ensureNotDisposed();
+      for (const theme of themes2.flat(1)) _registry.loadTheme(theme);
+    }
+    async function loadTheme(...themes2) {
+      ensureNotDisposed();
+      return loadThemeSync(await resolveThemes(themes2));
+    }
+    function ensureNotDisposed() {
+      if (isDisposed) throw new ShikiError("Shiki instance has been disposed");
+    }
+    function dispose() {
+      if (isDisposed) return;
+      isDisposed = true;
+      _registry.dispose();
+      instancesCount -= 1;
+    }
+    return {
+      setTheme,
+      getTheme,
+      getLanguage,
+      getLoadedThemes,
+      getLoadedLanguages,
+      resolveLangAlias: resolveLangAlias$1,
+      loadLanguage,
+      loadLanguageSync,
+      loadTheme,
+      loadThemeSync,
+      dispose,
+      [Symbol.dispose]: dispose
+    };
+  }
+  async function createShikiPrimitiveAsync(options) {
+    if (!options.engine) console.warn("`engine` option is required. Use `createOnigurumaEngine` or `createJavaScriptRegexEngine` to create an engine.");
+    const [themes, langs, engine] = await Promise.all([
+      resolveThemes(options.themes || []),
+      resolveLangs(options.langs || []),
+      options.engine
+    ]);
+    return createShikiPrimitive({
+      ...options,
+      themes,
+      langs,
+      engine
+    });
+  }
+  var _grammarStateMap = /* @__PURE__ */ new WeakMap();
+  function setLastGrammarStateToMap(keys2, state) {
+    _grammarStateMap.set(keys2, state);
+  }
+  function getLastGrammarStateFromMap(keys2) {
+    return _grammarStateMap.get(keys2);
+  }
+  var GrammarState = class GrammarState2 {
+    /**
+    * Theme to Stack mapping
+    */
+    _stacks = {};
+    lang;
+    get themes() {
+      return Object.keys(this._stacks);
+    }
+    get theme() {
+      return this.themes[0];
+    }
+    get _stack() {
+      return this._stacks[this.theme];
+    }
+    /**
+    * Static method to create a initial grammar state.
+    */
+    static initial(lang, themes) {
+      return new GrammarState2(Object.fromEntries(toArray(themes).map((theme) => [theme, INITIAL])), lang);
+    }
+    constructor(...args) {
+      if (args.length === 2) {
+        const [stacksMap, lang] = args;
+        this.lang = lang;
+        this._stacks = stacksMap;
+      } else {
+        const [stack, lang, theme] = args;
+        this.lang = lang;
+        this._stacks = { [theme]: stack };
+      }
+    }
+    /**
+    * Get the internal stack object.
+    * @internal
+    */
+    getInternalStack(theme = this.theme) {
+      return this._stacks[theme];
+    }
+    getScopes(theme = this.theme) {
+      return getScopes(this._stacks[theme]);
+    }
+    toJSON() {
+      return {
+        lang: this.lang,
+        theme: this.theme,
+        themes: this.themes,
+        scopes: this.getScopes()
+      };
+    }
+  };
+  function getScopes(stack) {
+    const scopes = [];
+    const visited = /* @__PURE__ */ new Set();
+    function pushScope(stack2) {
+      if (visited.has(stack2)) return;
+      visited.add(stack2);
+      const name = stack2?.nameScopesList?.scopeName;
+      if (name) scopes.push(name);
+      if (stack2.parent) pushScope(stack2.parent);
+    }
+    pushScope(stack);
+    return scopes;
+  }
+  function getGrammarStack(state, theme) {
+    if (!(state instanceof GrammarState)) throw new ShikiError("Invalid grammar state");
+    return state.getInternalStack(theme);
+  }
+  var RE_COMMA = /,/;
+  var RE_SPACE = / /;
+  function codeToTokensBase(primitive, code, options = {}) {
+    const { theme: themeName = primitive.getLoadedThemes()[0] } = options;
+    if (isPlainLang(primitive.resolveLangAlias(options.lang || "text")) || isNoneTheme(themeName)) return splitLines(code).map((line) => [{
+      content: line[0],
+      offset: line[1]
+    }]);
+    const { theme, colorMap } = primitive.setTheme(themeName);
+    const _grammar = primitive.getLanguage(options.lang || "text");
+    if (options.grammarState) {
+      if (options.grammarState.lang !== _grammar.name) throw new ShikiError(`Grammar state language "${options.grammarState.lang}" does not match highlight language "${_grammar.name}"`);
+      if (!options.grammarState.themes.includes(theme.name)) throw new ShikiError(`Grammar state themes "${options.grammarState.themes}" do not contain highlight theme "${theme.name}"`);
+    }
+    return tokenizeWithTheme(code, _grammar, theme, colorMap, options);
+  }
+  function getLastGrammarState(...args) {
+    if (args.length === 2) return getLastGrammarStateFromMap(args[1]);
+    const [primitive, code, options = {}] = args;
+    const { lang = "text", theme: themeName = primitive.getLoadedThemes()[0] } = options;
+    if (isPlainLang(lang) || isNoneTheme(themeName)) throw new ShikiError("Plain language does not have grammar state");
+    if (lang === "ansi") throw new ShikiError("ANSI language does not have grammar state");
+    const { theme, colorMap } = primitive.setTheme(themeName);
+    const _grammar = primitive.getLanguage(lang);
+    return new GrammarState(_tokenizeWithTheme(code, _grammar, theme, colorMap, options).stateStack, _grammar.name, theme.name);
+  }
+  function tokenizeWithTheme(code, grammar, theme, colorMap, options) {
+    const result = _tokenizeWithTheme(code, grammar, theme, colorMap, options);
+    const grammarState = new GrammarState(result.stateStack, grammar.name, theme.name);
+    setLastGrammarStateToMap(result.tokens, grammarState);
+    return result.tokens;
+  }
+  function _tokenizeWithTheme(code, grammar, theme, colorMap, options) {
+    const colorReplacements = resolveColorReplacements(theme, options);
+    const { tokenizeMaxLineLength = 0, tokenizeTimeLimit = 500, includeExplanation = false } = options;
+    const lines = splitLines(code);
+    let stateStack = options.grammarState ? getGrammarStack(options.grammarState, theme.name) ?? INITIAL : options.grammarContextCode != null ? _tokenizeWithTheme(options.grammarContextCode, grammar, theme, colorMap, {
+      ...options,
+      grammarState: void 0,
+      grammarContextCode: void 0
+    }).stateStack : INITIAL;
+    let actual = [];
+    const final = [];
+    for (let i2 = 0, len = lines.length; i2 < len; i2++) {
+      const [line, lineOffset] = lines[i2];
+      if (line === "") {
+        actual = [];
+        final.push([]);
+        continue;
+      }
+      if (tokenizeMaxLineLength > 0 && line.length >= tokenizeMaxLineLength) {
+        actual = [];
+        final.push([{
+          content: line,
+          offset: lineOffset,
+          color: "",
+          fontStyle: 0
+        }]);
+        continue;
+      }
+      let resultWithScopes;
+      let tokensWithScopes;
+      let tokensWithScopesIndex;
+      if (includeExplanation && includeExplanation !== "tokenType") {
+        resultWithScopes = grammar.tokenizeLine(line, stateStack, tokenizeTimeLimit);
+        tokensWithScopes = resultWithScopes.tokens;
+        tokensWithScopesIndex = 0;
+      }
+      const result = grammar.tokenizeLine2(line, stateStack, tokenizeTimeLimit);
+      const tokensLength = result.tokens.length / 2;
+      for (let j3 = 0; j3 < tokensLength; j3++) {
+        const startIndex = result.tokens[2 * j3];
+        const nextStartIndex = j3 + 1 < tokensLength ? result.tokens[2 * j3 + 2] : line.length;
+        if (startIndex === nextStartIndex) continue;
+        const metadata = result.tokens[2 * j3 + 1];
+        const color = applyColorReplacements(colorMap[EncodedTokenMetadata.getForeground(metadata)], colorReplacements);
+        const fontStyle = EncodedTokenMetadata.getFontStyle(metadata);
+        const token2 = {
+          content: line.substring(startIndex, nextStartIndex),
+          offset: lineOffset + startIndex,
+          color,
+          fontStyle
+        };
+        if (includeExplanation === "tokenType") token2.type = EncodedTokenMetadata.getTokenType(metadata);
+        else if (includeExplanation) {
+          const themeSettingsSelectors = [];
+          if (includeExplanation !== "scopeName") for (const setting of theme.settings) {
+            let selectors;
+            switch (typeof setting.scope) {
+              case "string":
+                selectors = setting.scope.split(RE_COMMA).map((scope) => scope.trim());
+                break;
+              case "object":
+                selectors = setting.scope;
+                break;
+              default:
+                continue;
+            }
+            themeSettingsSelectors.push({
+              settings: setting,
+              selectors: selectors.map((selector) => selector.split(RE_SPACE))
+            });
+          }
+          token2.explanation = [];
+          let offset = 0;
+          while (startIndex + offset < nextStartIndex) {
+            const tokenWithScopes = tokensWithScopes[tokensWithScopesIndex];
+            const tokenWithScopesText = line.substring(tokenWithScopes.startIndex, tokenWithScopes.endIndex);
+            offset += tokenWithScopesText.length;
+            token2.explanation.push({
+              content: tokenWithScopesText,
+              scopes: includeExplanation === "scopeName" ? explainThemeScopesNameOnly(tokenWithScopes.scopes) : explainThemeScopesFull(themeSettingsSelectors, tokenWithScopes.scopes)
+            });
+            tokensWithScopesIndex += 1;
+          }
+        }
+        actual.push(token2);
+      }
+      final.push(actual);
+      actual = [];
+      stateStack = result.ruleStack;
+    }
+    return {
+      tokens: final,
+      stateStack
+    };
+  }
+  function explainThemeScopesNameOnly(scopes) {
+    return scopes.map((scope) => ({ scopeName: scope }));
+  }
+  function explainThemeScopesFull(themeSelectors, scopes) {
+    const result = [];
+    for (let i2 = 0, len = scopes.length; i2 < len; i2++) {
+      const scope = scopes[i2];
+      result[i2] = {
+        scopeName: scope,
+        themeMatches: explainThemeScope(themeSelectors, scope, scopes.slice(0, i2))
+      };
+    }
+    return result;
+  }
+  function matchesOne(selector, scope) {
+    return selector === scope || scope.substring(0, selector.length) === selector && scope[selector.length] === ".";
+  }
+  function matches2(selectors, scope, parentScopes) {
+    if (!matchesOne(selectors.at(-1), scope)) return false;
+    let selectorParentIndex = selectors.length - 2;
+    let parentIndex = parentScopes.length - 1;
+    while (selectorParentIndex >= 0 && parentIndex >= 0) {
+      if (matchesOne(selectors[selectorParentIndex], parentScopes[parentIndex])) selectorParentIndex -= 1;
+      parentIndex -= 1;
+    }
+    if (selectorParentIndex === -1) return true;
+    return false;
+  }
+  function explainThemeScope(themeSettingsSelectors, scope, parentScopes) {
+    const result = [];
+    for (const { selectors, settings } of themeSettingsSelectors) for (const selectorPieces of selectors) if (matches2(selectorPieces, scope, parentScopes)) {
+      result.push(settings);
+      break;
+    }
+    return result;
+  }
+  function codeToTokensWithThemes(primitive, code, options, codeToTokensBaseFn = codeToTokensBase) {
+    const themes = Object.entries(options.themes).filter((i2) => i2[1]).map((i2) => ({
+      color: i2[0],
+      theme: i2[1]
+    }));
+    const themedTokens = themes.map((t) => {
+      const tokens2 = codeToTokensBaseFn(primitive, code, {
+        ...options,
+        theme: t.theme
+      });
+      return {
+        tokens: tokens2,
+        state: getLastGrammarStateFromMap(tokens2),
+        theme: typeof t.theme === "string" ? t.theme : t.theme.name
+      };
+    });
+    const tokens = alignThemesTokenization(...themedTokens.map((i2) => i2.tokens));
+    const mergedTokens = tokens[0].map((line, lineIdx) => line.map((_token, tokenIdx) => {
+      const mergedToken = {
+        content: _token.content,
+        variants: {},
+        offset: _token.offset
+      };
+      if ("includeExplanation" in options && options.includeExplanation) mergedToken.explanation = _token.explanation;
+      tokens.forEach((t, themeIdx) => {
+        const { content: _4, explanation: __, offset: ___, ...styles2 } = t[lineIdx][tokenIdx];
+        mergedToken.variants[themes[themeIdx].color] = styles2;
+      });
+      return mergedToken;
+    }));
+    const mergedGrammarState = themedTokens[0].state ? new GrammarState(Object.fromEntries(themedTokens.map((s2) => [s2.theme, s2.state?.getInternalStack(s2.theme)])), themedTokens[0].state.lang) : void 0;
+    if (mergedGrammarState) setLastGrammarStateToMap(mergedTokens, mergedGrammarState);
+    return mergedTokens;
+  }
+  function alignThemesTokenization(...themes) {
+    const outThemes = themes.map(() => []);
+    const count = themes.length;
+    for (let i2 = 0; i2 < themes[0].length; i2++) {
+      const lines = themes.map((t) => t[i2]);
+      const outLines = outThemes.map(() => []);
+      outThemes.forEach((t, i3) => t.push(outLines[i3]));
+      const indexes = lines.map(() => 0);
+      const current = lines.map((l3) => l3[0]);
+      while (current.every((t) => t)) {
+        const minLength = Math.min(...current.map((t) => t.content.length));
+        for (let n = 0; n < count; n++) {
+          const token2 = current[n];
+          if (token2.content.length === minLength) {
+            outLines[n].push(token2);
+            indexes[n] += 1;
+            current[n] = lines[n][indexes[n]];
+          } else {
+            outLines[n].push({
+              ...token2,
+              content: token2.content.slice(0, minLength)
+            });
+            current[n] = {
+              ...token2,
+              content: token2.content.slice(minLength),
+              offset: token2.offset + minLength
+            };
+          }
+        }
+      }
+    }
+    return outThemes;
+  }
+
+  // node_modules/html-void-elements/index.js
+  var htmlVoidElements = [
+    "area",
+    "base",
+    "basefont",
+    "bgsound",
+    "br",
+    "col",
+    "command",
+    "embed",
+    "frame",
+    "hr",
+    "image",
+    "img",
+    "input",
+    "keygen",
+    "link",
+    "meta",
+    "param",
+    "source",
+    "track",
+    "wbr"
+  ];
+
+  // node_modules/property-information/lib/util/schema.js
+  var Schema2 = class {
+    /**
+     * @param {SchemaType['property']} property
+     *   Property.
+     * @param {SchemaType['normal']} normal
+     *   Normal.
+     * @param {Space | undefined} [space]
+     *   Space.
+     * @returns
+     *   Schema.
+     */
+    constructor(property, normal, space) {
+      this.normal = normal;
+      this.property = property;
+      if (space) {
+        this.space = space;
+      }
+    }
+  };
+  Schema2.prototype.normal = {};
+  Schema2.prototype.property = {};
+  Schema2.prototype.space = void 0;
+
+  // node_modules/property-information/lib/util/merge.js
+  function merge(definitions, space) {
+    const property = {};
+    const normal = {};
+    for (const definition of definitions) {
+      Object.assign(property, definition.property);
+      Object.assign(normal, definition.normal);
+    }
+    return new Schema2(property, normal, space);
+  }
+
+  // node_modules/property-information/lib/normalize.js
+  function normalize2(value) {
+    return value.toLowerCase();
+  }
+
+  // node_modules/property-information/lib/util/info.js
+  var Info = class {
+    /**
+     * @param {string} property
+     *   Property.
+     * @param {string} attribute
+     *   Attribute.
+     * @returns
+     *   Info.
+     */
+    constructor(property, attribute) {
+      this.attribute = attribute;
+      this.property = property;
+    }
+  };
+  Info.prototype.attribute = "";
+  Info.prototype.booleanish = false;
+  Info.prototype.boolean = false;
+  Info.prototype.commaOrSpaceSeparated = false;
+  Info.prototype.commaSeparated = false;
+  Info.prototype.defined = false;
+  Info.prototype.mustUseProperty = false;
+  Info.prototype.number = false;
+  Info.prototype.overloadedBoolean = false;
+  Info.prototype.property = "";
+  Info.prototype.spaceSeparated = false;
+  Info.prototype.space = void 0;
+
+  // node_modules/property-information/lib/util/types.js
+  var types_exports = {};
+  __export(types_exports, {
+    boolean: () => boolean,
+    booleanish: () => booleanish,
+    commaOrSpaceSeparated: () => commaOrSpaceSeparated,
+    commaSeparated: () => commaSeparated,
+    number: () => number,
+    overloadedBoolean: () => overloadedBoolean,
+    spaceSeparated: () => spaceSeparated
+  });
+  var powers = 0;
+  var boolean = increment();
+  var booleanish = increment();
+  var overloadedBoolean = increment();
+  var number = increment();
+  var spaceSeparated = increment();
+  var commaSeparated = increment();
+  var commaOrSpaceSeparated = increment();
+  function increment() {
+    return 2 ** ++powers;
+  }
+
+  // node_modules/property-information/lib/util/defined-info.js
+  var checks = (
+    /** @type {ReadonlyArray<keyof typeof types>} */
+    Object.keys(types_exports)
+  );
+  var DefinedInfo = class extends Info {
+    /**
+     * @constructor
+     * @param {string} property
+     *   Property.
+     * @param {string} attribute
+     *   Attribute.
+     * @param {number | null | undefined} [mask]
+     *   Mask.
+     * @param {Space | undefined} [space]
+     *   Space.
+     * @returns
+     *   Info.
+     */
+    constructor(property, attribute, mask, space) {
+      let index = -1;
+      super(property, attribute);
+      mark(this, "space", space);
+      if (typeof mask === "number") {
+        while (++index < checks.length) {
+          const check = checks[index];
+          mark(this, checks[index], (mask & types_exports[check]) === types_exports[check]);
+        }
+      }
+    }
+  };
+  DefinedInfo.prototype.defined = true;
+  function mark(values, key2, value) {
+    if (value) {
+      values[key2] = value;
+    }
+  }
+
+  // node_modules/property-information/lib/util/create.js
+  function create(definition) {
+    const properties = {};
+    const normals = {};
+    for (const [property, value] of Object.entries(definition.properties)) {
+      const info = new DefinedInfo(
+        property,
+        definition.transform(definition.attributes || {}, property),
+        value,
+        definition.space
+      );
+      if (definition.mustUseProperty && definition.mustUseProperty.includes(property)) {
+        info.mustUseProperty = true;
+      }
+      properties[property] = info;
+      normals[normalize2(property)] = property;
+      normals[normalize2(info.attribute)] = property;
+    }
+    return new Schema2(properties, normals, definition.space);
+  }
+
+  // node_modules/property-information/lib/aria.js
+  var aria = create({
+    properties: {
+      ariaActiveDescendant: null,
+      ariaAtomic: booleanish,
+      ariaAutoComplete: null,
+      ariaBusy: booleanish,
+      ariaChecked: booleanish,
+      ariaColCount: number,
+      ariaColIndex: number,
+      ariaColSpan: number,
+      ariaControls: spaceSeparated,
+      ariaCurrent: null,
+      ariaDescribedBy: spaceSeparated,
+      ariaDetails: null,
+      ariaDisabled: booleanish,
+      ariaDropEffect: spaceSeparated,
+      ariaErrorMessage: null,
+      ariaExpanded: booleanish,
+      ariaFlowTo: spaceSeparated,
+      ariaGrabbed: booleanish,
+      ariaHasPopup: null,
+      ariaHidden: booleanish,
+      ariaInvalid: null,
+      ariaKeyShortcuts: null,
+      ariaLabel: null,
+      ariaLabelledBy: spaceSeparated,
+      ariaLevel: number,
+      ariaLive: null,
+      ariaModal: booleanish,
+      ariaMultiLine: booleanish,
+      ariaMultiSelectable: booleanish,
+      ariaOrientation: null,
+      ariaOwns: spaceSeparated,
+      ariaPlaceholder: null,
+      ariaPosInSet: number,
+      ariaPressed: booleanish,
+      ariaReadOnly: booleanish,
+      ariaRelevant: null,
+      ariaRequired: booleanish,
+      ariaRoleDescription: spaceSeparated,
+      ariaRowCount: number,
+      ariaRowIndex: number,
+      ariaRowSpan: number,
+      ariaSelected: booleanish,
+      ariaSetSize: number,
+      ariaSort: null,
+      ariaValueMax: number,
+      ariaValueMin: number,
+      ariaValueNow: number,
+      ariaValueText: null,
+      role: null
+    },
+    transform(_4, property) {
+      return property === "role" ? property : "aria-" + property.slice(4).toLowerCase();
+    }
+  });
+
+  // node_modules/property-information/lib/util/case-sensitive-transform.js
+  function caseSensitiveTransform(attributes, attribute) {
+    return attribute in attributes ? attributes[attribute] : attribute;
+  }
+
+  // node_modules/property-information/lib/util/case-insensitive-transform.js
+  function caseInsensitiveTransform(attributes, property) {
+    return caseSensitiveTransform(attributes, property.toLowerCase());
+  }
+
+  // node_modules/property-information/lib/html.js
+  var html = create({
+    attributes: {
+      acceptcharset: "accept-charset",
+      classname: "class",
+      htmlfor: "for",
+      httpequiv: "http-equiv"
+    },
+    mustUseProperty: ["checked", "multiple", "muted", "selected"],
+    properties: {
+      // Standard Properties.
+      abbr: null,
+      accept: commaSeparated,
+      acceptCharset: spaceSeparated,
+      accessKey: spaceSeparated,
+      action: null,
+      allow: null,
+      allowFullScreen: boolean,
+      allowPaymentRequest: boolean,
+      allowUserMedia: boolean,
+      alpha: boolean,
+      alt: null,
+      as: null,
+      async: boolean,
+      autoCapitalize: null,
+      autoComplete: spaceSeparated,
+      autoFocus: boolean,
+      autoPlay: boolean,
+      blocking: spaceSeparated,
+      capture: null,
+      charSet: null,
+      checked: boolean,
+      cite: null,
+      className: spaceSeparated,
+      closedBy: null,
+      colorSpace: null,
+      cols: number,
+      colSpan: number,
+      command: null,
+      commandFor: null,
+      content: null,
+      contentEditable: booleanish,
+      controls: boolean,
+      controlsList: spaceSeparated,
+      coords: number | commaSeparated,
+      crossOrigin: null,
+      data: null,
+      dateTime: null,
+      decoding: null,
+      default: boolean,
+      defer: boolean,
+      dir: null,
+      dirName: null,
+      disabled: boolean,
+      download: overloadedBoolean,
+      draggable: booleanish,
+      encType: null,
+      enterKeyHint: null,
+      fetchPriority: null,
+      form: null,
+      formAction: null,
+      formEncType: null,
+      formMethod: null,
+      formNoValidate: boolean,
+      formTarget: null,
+      headers: spaceSeparated,
+      height: number,
+      hidden: overloadedBoolean,
+      high: number,
+      href: null,
+      hrefLang: null,
+      htmlFor: spaceSeparated,
+      httpEquiv: spaceSeparated,
+      id: null,
+      imageSizes: null,
+      imageSrcSet: null,
+      inert: boolean,
+      inputMode: null,
+      integrity: null,
+      is: null,
+      isMap: boolean,
+      itemId: null,
+      itemProp: spaceSeparated,
+      itemRef: spaceSeparated,
+      itemScope: boolean,
+      itemType: spaceSeparated,
+      kind: null,
+      label: null,
+      lang: null,
+      language: null,
+      list: null,
+      loading: null,
+      loop: boolean,
+      low: number,
+      manifest: null,
+      max: null,
+      maxLength: number,
+      media: null,
+      method: null,
+      min: null,
+      minLength: number,
+      multiple: boolean,
+      muted: boolean,
+      name: null,
+      nonce: null,
+      noModule: boolean,
+      noValidate: boolean,
+      onAbort: null,
+      onAfterPrint: null,
+      onAuxClick: null,
+      onBeforeMatch: null,
+      onBeforePrint: null,
+      onBeforeToggle: null,
+      onBeforeUnload: null,
+      onBlur: null,
+      onCancel: null,
+      onCanPlay: null,
+      onCanPlayThrough: null,
+      onChange: null,
+      onClick: null,
+      onClose: null,
+      onContextLost: null,
+      onContextMenu: null,
+      onContextRestored: null,
+      onCopy: null,
+      onCueChange: null,
+      onCut: null,
+      onDblClick: null,
+      onDrag: null,
+      onDragEnd: null,
+      onDragEnter: null,
+      onDragExit: null,
+      onDragLeave: null,
+      onDragOver: null,
+      onDragStart: null,
+      onDrop: null,
+      onDurationChange: null,
+      onEmptied: null,
+      onEnded: null,
+      onError: null,
+      onFocus: null,
+      onFormData: null,
+      onHashChange: null,
+      onInput: null,
+      onInvalid: null,
+      onKeyDown: null,
+      onKeyPress: null,
+      onKeyUp: null,
+      onLanguageChange: null,
+      onLoad: null,
+      onLoadedData: null,
+      onLoadedMetadata: null,
+      onLoadEnd: null,
+      onLoadStart: null,
+      onMessage: null,
+      onMessageError: null,
+      onMouseDown: null,
+      onMouseEnter: null,
+      onMouseLeave: null,
+      onMouseMove: null,
+      onMouseOut: null,
+      onMouseOver: null,
+      onMouseUp: null,
+      onOffline: null,
+      onOnline: null,
+      onPageHide: null,
+      onPageShow: null,
+      onPaste: null,
+      onPause: null,
+      onPlay: null,
+      onPlaying: null,
+      onPopState: null,
+      onProgress: null,
+      onRateChange: null,
+      onRejectionHandled: null,
+      onReset: null,
+      onResize: null,
+      onScroll: null,
+      onScrollEnd: null,
+      onSecurityPolicyViolation: null,
+      onSeeked: null,
+      onSeeking: null,
+      onSelect: null,
+      onSlotChange: null,
+      onStalled: null,
+      onStorage: null,
+      onSubmit: null,
+      onSuspend: null,
+      onTimeUpdate: null,
+      onToggle: null,
+      onUnhandledRejection: null,
+      onUnload: null,
+      onVolumeChange: null,
+      onWaiting: null,
+      onWheel: null,
+      open: boolean,
+      optimum: number,
+      pattern: null,
+      ping: spaceSeparated,
+      placeholder: null,
+      playsInline: boolean,
+      popover: null,
+      popoverTarget: null,
+      popoverTargetAction: null,
+      poster: null,
+      preload: null,
+      readOnly: boolean,
+      referrerPolicy: null,
+      rel: spaceSeparated,
+      required: boolean,
+      reversed: boolean,
+      rows: number,
+      rowSpan: number,
+      sandbox: spaceSeparated,
+      scope: null,
+      scoped: boolean,
+      seamless: boolean,
+      selected: boolean,
+      shadowRootClonable: boolean,
+      shadowRootCustomElementRegistry: boolean,
+      shadowRootDelegatesFocus: boolean,
+      shadowRootMode: null,
+      shadowRootSerializable: boolean,
+      shape: null,
+      size: number,
+      sizes: null,
+      slot: null,
+      span: number,
+      spellCheck: booleanish,
+      src: null,
+      srcDoc: null,
+      srcLang: null,
+      srcSet: null,
+      start: number,
+      step: null,
+      style: null,
+      tabIndex: number,
+      target: null,
+      title: null,
+      translate: null,
+      type: null,
+      typeMustMatch: boolean,
+      useMap: null,
+      value: booleanish,
+      width: number,
+      wrap: null,
+      writingSuggestions: null,
+      // Legacy.
+      // See: https://html.spec.whatwg.org/#other-elements,-attributes-and-apis
+      align: null,
+      // Several. Use CSS `text-align` instead,
+      aLink: null,
+      // `<body>`. Use CSS `a:active {color}` instead
+      archive: spaceSeparated,
+      // `<object>`. List of URIs to archives
+      axis: null,
+      // `<td>` and `<th>`. Use `scope` on `<th>`
+      background: null,
+      // `<body>`. Use CSS `background-image` instead
+      bgColor: null,
+      // `<body>` and table elements. Use CSS `background-color` instead
+      border: number,
+      // `<table>`. Use CSS `border-width` instead,
+      borderColor: null,
+      // `<table>`. Use CSS `border-color` instead,
+      bottomMargin: number,
+      // `<body>`
+      cellPadding: null,
+      // `<table>`
+      cellSpacing: null,
+      // `<table>`
+      char: null,
+      // Several table elements. When `align=char`, sets the character to align on
+      charOff: null,
+      // Several table elements. When `char`, offsets the alignment
+      classId: null,
+      // `<object>`
+      clear: null,
+      // `<br>`. Use CSS `clear` instead
+      code: null,
+      // `<object>`
+      codeBase: null,
+      // `<object>`
+      codeType: null,
+      // `<object>`
+      color: null,
+      // `<font>` and `<hr>`. Use CSS instead
+      compact: boolean,
+      // Lists. Use CSS to reduce space between items instead
+      declare: boolean,
+      // `<object>`
+      event: null,
+      // `<script>`
+      face: null,
+      // `<font>`. Use CSS instead
+      frame: null,
+      // `<table>`
+      frameBorder: null,
+      // `<iframe>`. Use CSS `border` instead
+      hSpace: number,
+      // `<img>` and `<object>`
+      leftMargin: number,
+      // `<body>`
+      link: null,
+      // `<body>`. Use CSS `a:link {color: *}` instead
+      longDesc: null,
+      // `<frame>`, `<iframe>`, and `<img>`. Use an `<a>`
+      lowSrc: null,
+      // `<img>`. Use a `<picture>`
+      marginHeight: number,
+      // `<body>`
+      marginWidth: number,
+      // `<body>`
+      noResize: boolean,
+      // `<frame>`
+      noHref: boolean,
+      // `<area>`. Use no href instead of an explicit `nohref`
+      noShade: boolean,
+      // `<hr>`. Use background-color and height instead of borders
+      noWrap: boolean,
+      // `<td>` and `<th>`
+      object: null,
+      // `<applet>`
+      profile: null,
+      // `<head>`
+      prompt: null,
+      // `<isindex>`
+      rev: null,
+      // `<link>`
+      rightMargin: number,
+      // `<body>`
+      rules: null,
+      // `<table>`
+      scheme: null,
+      // `<meta>`
+      scrolling: booleanish,
+      // `<frame>`. Use overflow in the child context
+      standby: null,
+      // `<object>`
+      summary: null,
+      // `<table>`
+      text: null,
+      // `<body>`. Use CSS `color` instead
+      topMargin: number,
+      // `<body>`
+      valueType: null,
+      // `<param>`
+      version: null,
+      // `<html>`. Use a doctype.
+      vAlign: null,
+      // Several. Use CSS `vertical-align` instead
+      vLink: null,
+      // `<body>`. Use CSS `a:visited {color}` instead
+      vSpace: number,
+      // `<img>` and `<object>`
+      // Non-standard Properties.
+      allowTransparency: null,
+      autoCorrect: null,
+      autoSave: null,
+      credentialless: boolean,
+      disablePictureInPicture: boolean,
+      disableRemotePlayback: boolean,
+      exportParts: commaSeparated,
+      part: spaceSeparated,
+      prefix: null,
+      property: null,
+      results: number,
+      security: null,
+      unselectable: null
+    },
+    space: "html",
+    transform: caseInsensitiveTransform
+  });
+
+  // node_modules/property-information/lib/svg.js
+  var svg = create({
+    attributes: {
+      accentHeight: "accent-height",
+      alignmentBaseline: "alignment-baseline",
+      arabicForm: "arabic-form",
+      baselineShift: "baseline-shift",
+      capHeight: "cap-height",
+      className: "class",
+      clipPath: "clip-path",
+      clipRule: "clip-rule",
+      colorInterpolation: "color-interpolation",
+      colorInterpolationFilters: "color-interpolation-filters",
+      colorProfile: "color-profile",
+      colorRendering: "color-rendering",
+      crossOrigin: "crossorigin",
+      dataType: "datatype",
+      dominantBaseline: "dominant-baseline",
+      enableBackground: "enable-background",
+      fillOpacity: "fill-opacity",
+      fillRule: "fill-rule",
+      floodColor: "flood-color",
+      floodOpacity: "flood-opacity",
+      fontFamily: "font-family",
+      fontSize: "font-size",
+      fontSizeAdjust: "font-size-adjust",
+      fontStretch: "font-stretch",
+      fontStyle: "font-style",
+      fontVariant: "font-variant",
+      fontWeight: "font-weight",
+      glyphName: "glyph-name",
+      glyphOrientationHorizontal: "glyph-orientation-horizontal",
+      glyphOrientationVertical: "glyph-orientation-vertical",
+      hrefLang: "hreflang",
+      horizAdvX: "horiz-adv-x",
+      horizOriginX: "horiz-origin-x",
+      horizOriginY: "horiz-origin-y",
+      imageRendering: "image-rendering",
+      letterSpacing: "letter-spacing",
+      lightingColor: "lighting-color",
+      markerEnd: "marker-end",
+      markerMid: "marker-mid",
+      markerStart: "marker-start",
+      maskType: "mask-type",
+      navDown: "nav-down",
+      navDownLeft: "nav-down-left",
+      navDownRight: "nav-down-right",
+      navLeft: "nav-left",
+      navNext: "nav-next",
+      navPrev: "nav-prev",
+      navRight: "nav-right",
+      navUp: "nav-up",
+      navUpLeft: "nav-up-left",
+      navUpRight: "nav-up-right",
+      onAbort: "onabort",
+      onActivate: "onactivate",
+      onAfterPrint: "onafterprint",
+      onBeforePrint: "onbeforeprint",
+      onBegin: "onbegin",
+      onCancel: "oncancel",
+      onCanPlay: "oncanplay",
+      onCanPlayThrough: "oncanplaythrough",
+      onChange: "onchange",
+      onClick: "onclick",
+      onClose: "onclose",
+      onCopy: "oncopy",
+      onCueChange: "oncuechange",
+      onCut: "oncut",
+      onDblClick: "ondblclick",
+      onDrag: "ondrag",
+      onDragEnd: "ondragend",
+      onDragEnter: "ondragenter",
+      onDragExit: "ondragexit",
+      onDragLeave: "ondragleave",
+      onDragOver: "ondragover",
+      onDragStart: "ondragstart",
+      onDrop: "ondrop",
+      onDurationChange: "ondurationchange",
+      onEmptied: "onemptied",
+      onEnd: "onend",
+      onEnded: "onended",
+      onError: "onerror",
+      onFocus: "onfocus",
+      onFocusIn: "onfocusin",
+      onFocusOut: "onfocusout",
+      onHashChange: "onhashchange",
+      onInput: "oninput",
+      onInvalid: "oninvalid",
+      onKeyDown: "onkeydown",
+      onKeyPress: "onkeypress",
+      onKeyUp: "onkeyup",
+      onLoad: "onload",
+      onLoadedData: "onloadeddata",
+      onLoadedMetadata: "onloadedmetadata",
+      onLoadStart: "onloadstart",
+      onMessage: "onmessage",
+      onMouseDown: "onmousedown",
+      onMouseEnter: "onmouseenter",
+      onMouseLeave: "onmouseleave",
+      onMouseMove: "onmousemove",
+      onMouseOut: "onmouseout",
+      onMouseOver: "onmouseover",
+      onMouseUp: "onmouseup",
+      onMouseWheel: "onmousewheel",
+      onOffline: "onoffline",
+      onOnline: "ononline",
+      onPageHide: "onpagehide",
+      onPageShow: "onpageshow",
+      onPaste: "onpaste",
+      onPause: "onpause",
+      onPlay: "onplay",
+      onPlaying: "onplaying",
+      onPopState: "onpopstate",
+      onProgress: "onprogress",
+      onRateChange: "onratechange",
+      onRepeat: "onrepeat",
+      onReset: "onreset",
+      onResize: "onresize",
+      onScroll: "onscroll",
+      onSeeked: "onseeked",
+      onSeeking: "onseeking",
+      onSelect: "onselect",
+      onShow: "onshow",
+      onStalled: "onstalled",
+      onStorage: "onstorage",
+      onSubmit: "onsubmit",
+      onSuspend: "onsuspend",
+      onTimeUpdate: "ontimeupdate",
+      onToggle: "ontoggle",
+      onUnload: "onunload",
+      onVolumeChange: "onvolumechange",
+      onWaiting: "onwaiting",
+      onZoom: "onzoom",
+      overlinePosition: "overline-position",
+      overlineThickness: "overline-thickness",
+      paintOrder: "paint-order",
+      panose1: "panose-1",
+      pointerEvents: "pointer-events",
+      referrerPolicy: "referrerpolicy",
+      renderingIntent: "rendering-intent",
+      shapeRendering: "shape-rendering",
+      stopColor: "stop-color",
+      stopOpacity: "stop-opacity",
+      strikethroughPosition: "strikethrough-position",
+      strikethroughThickness: "strikethrough-thickness",
+      strokeDashArray: "stroke-dasharray",
+      strokeDashOffset: "stroke-dashoffset",
+      strokeLineCap: "stroke-linecap",
+      strokeLineJoin: "stroke-linejoin",
+      strokeMiterLimit: "stroke-miterlimit",
+      strokeOpacity: "stroke-opacity",
+      strokeWidth: "stroke-width",
+      tabIndex: "tabindex",
+      textAnchor: "text-anchor",
+      textDecoration: "text-decoration",
+      textRendering: "text-rendering",
+      transformOrigin: "transform-origin",
+      typeOf: "typeof",
+      underlinePosition: "underline-position",
+      underlineThickness: "underline-thickness",
+      unicodeBidi: "unicode-bidi",
+      unicodeRange: "unicode-range",
+      unitsPerEm: "units-per-em",
+      vAlphabetic: "v-alphabetic",
+      vHanging: "v-hanging",
+      vIdeographic: "v-ideographic",
+      vMathematical: "v-mathematical",
+      vectorEffect: "vector-effect",
+      vertAdvY: "vert-adv-y",
+      vertOriginX: "vert-origin-x",
+      vertOriginY: "vert-origin-y",
+      wordSpacing: "word-spacing",
+      writingMode: "writing-mode",
+      xHeight: "x-height",
+      // These were camelcased in Tiny. Now lowercased in SVG 2
+      playbackOrder: "playbackorder",
+      timelineBegin: "timelinebegin"
+    },
+    properties: {
+      about: commaOrSpaceSeparated,
+      accentHeight: number,
+      accumulate: null,
+      additive: null,
+      alignmentBaseline: null,
+      alphabetic: number,
+      amplitude: number,
+      arabicForm: null,
+      ascent: number,
+      attributeName: null,
+      attributeType: null,
+      azimuth: number,
+      bandwidth: null,
+      baselineShift: null,
+      baseFrequency: null,
+      baseProfile: null,
+      bbox: null,
+      begin: null,
+      bias: number,
+      by: null,
+      calcMode: null,
+      capHeight: number,
+      className: spaceSeparated,
+      clip: null,
+      clipPath: null,
+      clipPathUnits: null,
+      clipRule: null,
+      color: null,
+      colorInterpolation: null,
+      colorInterpolationFilters: null,
+      colorProfile: null,
+      colorRendering: null,
+      content: null,
+      contentScriptType: null,
+      contentStyleType: null,
+      crossOrigin: null,
+      cursor: null,
+      cx: null,
+      cy: null,
+      d: null,
+      dataType: null,
+      defaultAction: null,
+      descent: number,
+      diffuseConstant: number,
+      direction: null,
+      display: null,
+      dur: null,
+      divisor: number,
+      dominantBaseline: null,
+      download: boolean,
+      dx: null,
+      dy: null,
+      edgeMode: null,
+      editable: null,
+      elevation: number,
+      enableBackground: null,
+      end: null,
+      event: null,
+      exponent: number,
+      externalResourcesRequired: null,
+      fill: null,
+      fillOpacity: number,
+      fillRule: null,
+      filter: null,
+      filterRes: null,
+      filterUnits: null,
+      floodColor: null,
+      floodOpacity: null,
+      focusable: null,
+      focusHighlight: null,
+      fontFamily: null,
+      fontSize: null,
+      fontSizeAdjust: null,
+      fontStretch: null,
+      fontStyle: null,
+      fontVariant: null,
+      fontWeight: null,
+      format: null,
+      fr: null,
+      from: null,
+      fx: null,
+      fy: null,
+      g1: commaSeparated,
+      g2: commaSeparated,
+      glyphName: commaSeparated,
+      glyphOrientationHorizontal: null,
+      glyphOrientationVertical: null,
+      glyphRef: null,
+      gradientTransform: null,
+      gradientUnits: null,
+      handler: null,
+      hanging: number,
+      hatchContentUnits: null,
+      hatchUnits: null,
+      height: null,
+      href: null,
+      hrefLang: null,
+      horizAdvX: number,
+      horizOriginX: number,
+      horizOriginY: number,
+      id: null,
+      ideographic: number,
+      imageRendering: null,
+      initialVisibility: null,
+      in: null,
+      in2: null,
+      intercept: number,
+      k: number,
+      k1: number,
+      k2: number,
+      k3: number,
+      k4: number,
+      kernelMatrix: commaOrSpaceSeparated,
+      kernelUnitLength: null,
+      keyPoints: null,
+      // SEMI_COLON_SEPARATED
+      keySplines: null,
+      // SEMI_COLON_SEPARATED
+      keyTimes: null,
+      // SEMI_COLON_SEPARATED
+      kerning: null,
+      lang: null,
+      lengthAdjust: null,
+      letterSpacing: null,
+      lightingColor: null,
+      limitingConeAngle: number,
+      local: null,
+      markerEnd: null,
+      markerMid: null,
+      markerStart: null,
+      markerHeight: null,
+      markerUnits: null,
+      markerWidth: null,
+      mask: null,
+      maskContentUnits: null,
+      maskType: null,
+      maskUnits: null,
+      mathematical: null,
+      max: null,
+      media: null,
+      mediaCharacterEncoding: null,
+      mediaContentEncodings: null,
+      mediaSize: number,
+      mediaTime: null,
+      method: null,
+      min: null,
+      mode: null,
+      name: null,
+      navDown: null,
+      navDownLeft: null,
+      navDownRight: null,
+      navLeft: null,
+      navNext: null,
+      navPrev: null,
+      navRight: null,
+      navUp: null,
+      navUpLeft: null,
+      navUpRight: null,
+      numOctaves: null,
+      observer: null,
+      offset: null,
+      onAbort: null,
+      onActivate: null,
+      onAfterPrint: null,
+      onBeforePrint: null,
+      onBegin: null,
+      onCancel: null,
+      onCanPlay: null,
+      onCanPlayThrough: null,
+      onChange: null,
+      onClick: null,
+      onClose: null,
+      onCopy: null,
+      onCueChange: null,
+      onCut: null,
+      onDblClick: null,
+      onDrag: null,
+      onDragEnd: null,
+      onDragEnter: null,
+      onDragExit: null,
+      onDragLeave: null,
+      onDragOver: null,
+      onDragStart: null,
+      onDrop: null,
+      onDurationChange: null,
+      onEmptied: null,
+      onEnd: null,
+      onEnded: null,
+      onError: null,
+      onFocus: null,
+      onFocusIn: null,
+      onFocusOut: null,
+      onHashChange: null,
+      onInput: null,
+      onInvalid: null,
+      onKeyDown: null,
+      onKeyPress: null,
+      onKeyUp: null,
+      onLoad: null,
+      onLoadedData: null,
+      onLoadedMetadata: null,
+      onLoadStart: null,
+      onMessage: null,
+      onMouseDown: null,
+      onMouseEnter: null,
+      onMouseLeave: null,
+      onMouseMove: null,
+      onMouseOut: null,
+      onMouseOver: null,
+      onMouseUp: null,
+      onMouseWheel: null,
+      onOffline: null,
+      onOnline: null,
+      onPageHide: null,
+      onPageShow: null,
+      onPaste: null,
+      onPause: null,
+      onPlay: null,
+      onPlaying: null,
+      onPopState: null,
+      onProgress: null,
+      onRateChange: null,
+      onRepeat: null,
+      onReset: null,
+      onResize: null,
+      onScroll: null,
+      onSeeked: null,
+      onSeeking: null,
+      onSelect: null,
+      onShow: null,
+      onStalled: null,
+      onStorage: null,
+      onSubmit: null,
+      onSuspend: null,
+      onTimeUpdate: null,
+      onToggle: null,
+      onUnload: null,
+      onVolumeChange: null,
+      onWaiting: null,
+      onZoom: null,
+      opacity: null,
+      operator: null,
+      order: null,
+      orient: null,
+      orientation: null,
+      origin: null,
+      overflow: null,
+      overlay: null,
+      overlinePosition: number,
+      overlineThickness: number,
+      paintOrder: null,
+      panose1: null,
+      path: null,
+      pathLength: number,
+      patternContentUnits: null,
+      patternTransform: null,
+      patternUnits: null,
+      phase: null,
+      ping: spaceSeparated,
+      pitch: null,
+      playbackOrder: null,
+      pointerEvents: null,
+      points: null,
+      pointsAtX: number,
+      pointsAtY: number,
+      pointsAtZ: number,
+      preserveAlpha: null,
+      preserveAspectRatio: null,
+      primitiveUnits: null,
+      propagate: null,
+      property: commaOrSpaceSeparated,
+      r: null,
+      radius: null,
+      referrerPolicy: null,
+      refX: null,
+      refY: null,
+      rel: commaOrSpaceSeparated,
+      rev: commaOrSpaceSeparated,
+      renderingIntent: null,
+      repeatCount: null,
+      repeatDur: null,
+      requiredExtensions: commaOrSpaceSeparated,
+      requiredFeatures: commaOrSpaceSeparated,
+      requiredFonts: commaOrSpaceSeparated,
+      requiredFormats: commaOrSpaceSeparated,
+      resource: null,
+      restart: null,
+      result: null,
+      rotate: null,
+      rx: null,
+      ry: null,
+      scale: null,
+      seed: null,
+      shapeRendering: null,
+      side: null,
+      slope: null,
+      snapshotTime: null,
+      specularConstant: number,
+      specularExponent: number,
+      spreadMethod: null,
+      spacing: null,
+      startOffset: null,
+      stdDeviation: null,
+      stemh: null,
+      stemv: null,
+      stitchTiles: null,
+      stopColor: null,
+      stopOpacity: null,
+      strikethroughPosition: number,
+      strikethroughThickness: number,
+      string: null,
+      stroke: null,
+      strokeDashArray: commaOrSpaceSeparated,
+      strokeDashOffset: null,
+      strokeLineCap: null,
+      strokeLineJoin: null,
+      strokeMiterLimit: number,
+      strokeOpacity: number,
+      strokeWidth: null,
+      style: null,
+      surfaceScale: number,
+      syncBehavior: null,
+      syncBehaviorDefault: null,
+      syncMaster: null,
+      syncTolerance: null,
+      syncToleranceDefault: null,
+      systemLanguage: commaOrSpaceSeparated,
+      tabIndex: number,
+      tableValues: null,
+      target: null,
+      targetX: number,
+      targetY: number,
+      textAnchor: null,
+      textDecoration: null,
+      textRendering: null,
+      textLength: null,
+      timelineBegin: null,
+      title: null,
+      transformBehavior: null,
+      type: null,
+      typeOf: commaOrSpaceSeparated,
+      to: null,
+      transform: null,
+      transformOrigin: null,
+      u1: null,
+      u2: null,
+      underlinePosition: number,
+      underlineThickness: number,
+      unicode: null,
+      unicodeBidi: null,
+      unicodeRange: null,
+      unitsPerEm: number,
+      values: null,
+      vAlphabetic: number,
+      vMathematical: number,
+      vectorEffect: null,
+      vHanging: number,
+      vIdeographic: number,
+      version: null,
+      vertAdvY: number,
+      vertOriginX: number,
+      vertOriginY: number,
+      viewBox: null,
+      viewTarget: null,
+      visibility: null,
+      width: null,
+      widths: null,
+      wordSpacing: null,
+      writingMode: null,
+      x: null,
+      x1: null,
+      x2: null,
+      xChannelSelector: null,
+      xHeight: number,
+      y: null,
+      y1: null,
+      y2: null,
+      yChannelSelector: null,
+      z: null,
+      zoomAndPan: null
+    },
+    space: "svg",
+    transform: caseSensitiveTransform
+  });
+
+  // node_modules/property-information/lib/xlink.js
+  var xlink = create({
+    properties: {
+      xLinkActuate: null,
+      xLinkArcRole: null,
+      xLinkHref: null,
+      xLinkRole: null,
+      xLinkShow: null,
+      xLinkTitle: null,
+      xLinkType: null
+    },
+    space: "xlink",
+    transform(_4, property) {
+      return "xlink:" + property.slice(5).toLowerCase();
+    }
+  });
+
+  // node_modules/property-information/lib/xmlns.js
+  var xmlns = create({
+    attributes: { xmlnsxlink: "xmlns:xlink" },
+    properties: { xmlnsXLink: null, xmlns: null },
+    space: "xmlns",
+    transform: caseInsensitiveTransform
+  });
+
+  // node_modules/property-information/lib/xml.js
+  var xml = create({
+    properties: { xmlBase: null, xmlLang: null, xmlSpace: null },
+    space: "xml",
+    transform(_4, property) {
+      return "xml:" + property.slice(3).toLowerCase();
+    }
+  });
+
+  // node_modules/property-information/lib/find.js
+  var cap = /[A-Z]/g;
+  var dash = /-[a-z]/g;
+  var valid = /^data[-\w.:]+$/i;
+  function find(schema3, value) {
+    const normal = normalize2(value);
+    let property = value;
+    let Type = Info;
+    if (normal in schema3.normal) {
+      return schema3.property[schema3.normal[normal]];
+    }
+    if (normal.length > 4 && normal.slice(0, 4) === "data" && valid.test(value)) {
+      if (value.charAt(4) === "-") {
+        const rest = value.slice(5).replace(dash, camelcase);
+        property = "data" + rest.charAt(0).toUpperCase() + rest.slice(1);
+      } else {
+        const rest = value.slice(4);
+        if (!dash.test(rest)) {
+          let dashes = rest.replace(cap, kebab);
+          if (dashes.charAt(0) !== "-") {
+            dashes = "-" + dashes;
+          }
+          value = "data" + dashes;
+        }
+      }
+      Type = DefinedInfo;
+    }
+    return new Type(property, value);
+  }
+  function kebab($0) {
+    return "-" + $0.toLowerCase();
+  }
+  function camelcase($0) {
+    return $0.charAt(1).toUpperCase();
+  }
+
+  // node_modules/property-information/index.js
+  var html2 = merge([aria, html, xlink, xmlns, xml], "html");
+  var svg2 = merge([aria, svg, xlink, xmlns, xml], "svg");
+
+  // node_modules/zwitch/index.js
+  var own = {}.hasOwnProperty;
+  function zwitch(key2, options) {
+    const settings = options || {};
+    function one2(value, ...parameters) {
+      let fn = one2.invalid;
+      const handlers2 = one2.handlers;
+      if (value && own.call(value, key2)) {
+        const id = String(value[key2]);
+        fn = own.call(handlers2, id) ? handlers2[id] : one2.unknown;
+      }
+      if (fn) {
+        return fn.call(this, value, ...parameters);
+      }
+    }
+    one2.handlers = settings.handlers || {};
+    one2.invalid = settings.invalid;
+    one2.unknown = settings.unknown;
+    return one2;
+  }
+
+  // node_modules/stringify-entities/lib/core.js
+  var defaultSubsetRegex = /["&'<>`]/g;
+  var surrogatePairsRegex = /[\uD800-\uDBFF][\uDC00-\uDFFF]/g;
+  var controlCharactersRegex = (
+    // eslint-disable-next-line no-control-regex, unicorn/no-hex-escape
+    /[\x01-\t\v\f\x0E-\x1F\x7F\x81\x8D\x8F\x90\x9D\xA0-\uFFFF]/g
+  );
+  var regexEscapeRegex = /[|\\{}()[\]^$+*?.]/g;
+  var subsetToRegexCache = /* @__PURE__ */ new WeakMap();
+  function core(value, options) {
+    value = value.replace(
+      options.subset ? charactersToExpressionCached(options.subset) : defaultSubsetRegex,
+      basic
+    );
+    if (options.subset || options.escapeOnly) {
+      return value;
+    }
+    return value.replace(surrogatePairsRegex, surrogate).replace(controlCharactersRegex, basic);
+    function surrogate(pair, index, all2) {
+      return options.format(
+        (pair.charCodeAt(0) - 55296) * 1024 + pair.charCodeAt(1) - 56320 + 65536,
+        all2.charCodeAt(index + 2),
+        options
+      );
+    }
+    function basic(character, index, all2) {
+      return options.format(
+        character.charCodeAt(0),
+        all2.charCodeAt(index + 1),
+        options
+      );
+    }
+  }
+  function charactersToExpressionCached(subset) {
+    let cached = subsetToRegexCache.get(subset);
+    if (!cached) {
+      cached = charactersToExpression(subset);
+      subsetToRegexCache.set(subset, cached);
+    }
+    return cached;
+  }
+  function charactersToExpression(subset) {
+    const groups = [];
+    let index = -1;
+    while (++index < subset.length) {
+      groups.push(subset[index].replace(regexEscapeRegex, "\\$&"));
+    }
+    return new RegExp("(?:" + groups.join("|") + ")", "g");
+  }
+
+  // node_modules/stringify-entities/lib/util/to-hexadecimal.js
+  var hexadecimalRegex = /[\dA-Fa-f]/;
+  function toHexadecimal(code, next, omit) {
+    const value = "&#x" + code.toString(16).toUpperCase();
+    return omit && next && !hexadecimalRegex.test(String.fromCharCode(next)) ? value : value + ";";
+  }
+
+  // node_modules/stringify-entities/lib/util/to-decimal.js
+  var decimalRegex = /\d/;
+  function toDecimal(code, next, omit) {
+    const value = "&#" + String(code);
+    return omit && next && !decimalRegex.test(String.fromCharCode(next)) ? value : value + ";";
+  }
+
+  // node_modules/character-entities-legacy/index.js
+  var characterEntitiesLegacy = [
+    "AElig",
+    "AMP",
+    "Aacute",
+    "Acirc",
+    "Agrave",
+    "Aring",
+    "Atilde",
+    "Auml",
+    "COPY",
+    "Ccedil",
+    "ETH",
+    "Eacute",
+    "Ecirc",
+    "Egrave",
+    "Euml",
+    "GT",
+    "Iacute",
+    "Icirc",
+    "Igrave",
+    "Iuml",
+    "LT",
+    "Ntilde",
+    "Oacute",
+    "Ocirc",
+    "Ograve",
+    "Oslash",
+    "Otilde",
+    "Ouml",
+    "QUOT",
+    "REG",
+    "THORN",
+    "Uacute",
+    "Ucirc",
+    "Ugrave",
+    "Uuml",
+    "Yacute",
+    "aacute",
+    "acirc",
+    "acute",
+    "aelig",
+    "agrave",
+    "amp",
+    "aring",
+    "atilde",
+    "auml",
+    "brvbar",
+    "ccedil",
+    "cedil",
+    "cent",
+    "copy",
+    "curren",
+    "deg",
+    "divide",
+    "eacute",
+    "ecirc",
+    "egrave",
+    "eth",
+    "euml",
+    "frac12",
+    "frac14",
+    "frac34",
+    "gt",
+    "iacute",
+    "icirc",
+    "iexcl",
+    "igrave",
+    "iquest",
+    "iuml",
+    "laquo",
+    "lt",
+    "macr",
+    "micro",
+    "middot",
+    "nbsp",
+    "not",
+    "ntilde",
+    "oacute",
+    "ocirc",
+    "ograve",
+    "ordf",
+    "ordm",
+    "oslash",
+    "otilde",
+    "ouml",
+    "para",
+    "plusmn",
+    "pound",
+    "quot",
+    "raquo",
+    "reg",
+    "sect",
+    "shy",
+    "sup1",
+    "sup2",
+    "sup3",
+    "szlig",
+    "thorn",
+    "times",
+    "uacute",
+    "ucirc",
+    "ugrave",
+    "uml",
+    "uuml",
+    "yacute",
+    "yen",
+    "yuml"
+  ];
+
+  // node_modules/character-entities-html4/index.js
+  var characterEntitiesHtml4 = {
+    nbsp: "\xA0",
+    iexcl: "\xA1",
+    cent: "\xA2",
+    pound: "\xA3",
+    curren: "\xA4",
+    yen: "\xA5",
+    brvbar: "\xA6",
+    sect: "\xA7",
+    uml: "\xA8",
+    copy: "\xA9",
+    ordf: "\xAA",
+    laquo: "\xAB",
+    not: "\xAC",
+    shy: "\xAD",
+    reg: "\xAE",
+    macr: "\xAF",
+    deg: "\xB0",
+    plusmn: "\xB1",
+    sup2: "\xB2",
+    sup3: "\xB3",
+    acute: "\xB4",
+    micro: "\xB5",
+    para: "\xB6",
+    middot: "\xB7",
+    cedil: "\xB8",
+    sup1: "\xB9",
+    ordm: "\xBA",
+    raquo: "\xBB",
+    frac14: "\xBC",
+    frac12: "\xBD",
+    frac34: "\xBE",
+    iquest: "\xBF",
+    Agrave: "\xC0",
+    Aacute: "\xC1",
+    Acirc: "\xC2",
+    Atilde: "\xC3",
+    Auml: "\xC4",
+    Aring: "\xC5",
+    AElig: "\xC6",
+    Ccedil: "\xC7",
+    Egrave: "\xC8",
+    Eacute: "\xC9",
+    Ecirc: "\xCA",
+    Euml: "\xCB",
+    Igrave: "\xCC",
+    Iacute: "\xCD",
+    Icirc: "\xCE",
+    Iuml: "\xCF",
+    ETH: "\xD0",
+    Ntilde: "\xD1",
+    Ograve: "\xD2",
+    Oacute: "\xD3",
+    Ocirc: "\xD4",
+    Otilde: "\xD5",
+    Ouml: "\xD6",
+    times: "\xD7",
+    Oslash: "\xD8",
+    Ugrave: "\xD9",
+    Uacute: "\xDA",
+    Ucirc: "\xDB",
+    Uuml: "\xDC",
+    Yacute: "\xDD",
+    THORN: "\xDE",
+    szlig: "\xDF",
+    agrave: "\xE0",
+    aacute: "\xE1",
+    acirc: "\xE2",
+    atilde: "\xE3",
+    auml: "\xE4",
+    aring: "\xE5",
+    aelig: "\xE6",
+    ccedil: "\xE7",
+    egrave: "\xE8",
+    eacute: "\xE9",
+    ecirc: "\xEA",
+    euml: "\xEB",
+    igrave: "\xEC",
+    iacute: "\xED",
+    icirc: "\xEE",
+    iuml: "\xEF",
+    eth: "\xF0",
+    ntilde: "\xF1",
+    ograve: "\xF2",
+    oacute: "\xF3",
+    ocirc: "\xF4",
+    otilde: "\xF5",
+    ouml: "\xF6",
+    divide: "\xF7",
+    oslash: "\xF8",
+    ugrave: "\xF9",
+    uacute: "\xFA",
+    ucirc: "\xFB",
+    uuml: "\xFC",
+    yacute: "\xFD",
+    thorn: "\xFE",
+    yuml: "\xFF",
+    fnof: "\u0192",
+    Alpha: "\u0391",
+    Beta: "\u0392",
+    Gamma: "\u0393",
+    Delta: "\u0394",
+    Epsilon: "\u0395",
+    Zeta: "\u0396",
+    Eta: "\u0397",
+    Theta: "\u0398",
+    Iota: "\u0399",
+    Kappa: "\u039A",
+    Lambda: "\u039B",
+    Mu: "\u039C",
+    Nu: "\u039D",
+    Xi: "\u039E",
+    Omicron: "\u039F",
+    Pi: "\u03A0",
+    Rho: "\u03A1",
+    Sigma: "\u03A3",
+    Tau: "\u03A4",
+    Upsilon: "\u03A5",
+    Phi: "\u03A6",
+    Chi: "\u03A7",
+    Psi: "\u03A8",
+    Omega: "\u03A9",
+    alpha: "\u03B1",
+    beta: "\u03B2",
+    gamma: "\u03B3",
+    delta: "\u03B4",
+    epsilon: "\u03B5",
+    zeta: "\u03B6",
+    eta: "\u03B7",
+    theta: "\u03B8",
+    iota: "\u03B9",
+    kappa: "\u03BA",
+    lambda: "\u03BB",
+    mu: "\u03BC",
+    nu: "\u03BD",
+    xi: "\u03BE",
+    omicron: "\u03BF",
+    pi: "\u03C0",
+    rho: "\u03C1",
+    sigmaf: "\u03C2",
+    sigma: "\u03C3",
+    tau: "\u03C4",
+    upsilon: "\u03C5",
+    phi: "\u03C6",
+    chi: "\u03C7",
+    psi: "\u03C8",
+    omega: "\u03C9",
+    thetasym: "\u03D1",
+    upsih: "\u03D2",
+    piv: "\u03D6",
+    bull: "\u2022",
+    hellip: "\u2026",
+    prime: "\u2032",
+    Prime: "\u2033",
+    oline: "\u203E",
+    frasl: "\u2044",
+    weierp: "\u2118",
+    image: "\u2111",
+    real: "\u211C",
+    trade: "\u2122",
+    alefsym: "\u2135",
+    larr: "\u2190",
+    uarr: "\u2191",
+    rarr: "\u2192",
+    darr: "\u2193",
+    harr: "\u2194",
+    crarr: "\u21B5",
+    lArr: "\u21D0",
+    uArr: "\u21D1",
+    rArr: "\u21D2",
+    dArr: "\u21D3",
+    hArr: "\u21D4",
+    forall: "\u2200",
+    part: "\u2202",
+    exist: "\u2203",
+    empty: "\u2205",
+    nabla: "\u2207",
+    isin: "\u2208",
+    notin: "\u2209",
+    ni: "\u220B",
+    prod: "\u220F",
+    sum: "\u2211",
+    minus: "\u2212",
+    lowast: "\u2217",
+    radic: "\u221A",
+    prop: "\u221D",
+    infin: "\u221E",
+    ang: "\u2220",
+    and: "\u2227",
+    or: "\u2228",
+    cap: "\u2229",
+    cup: "\u222A",
+    int: "\u222B",
+    there4: "\u2234",
+    sim: "\u223C",
+    cong: "\u2245",
+    asymp: "\u2248",
+    ne: "\u2260",
+    equiv: "\u2261",
+    le: "\u2264",
+    ge: "\u2265",
+    sub: "\u2282",
+    sup: "\u2283",
+    nsub: "\u2284",
+    sube: "\u2286",
+    supe: "\u2287",
+    oplus: "\u2295",
+    otimes: "\u2297",
+    perp: "\u22A5",
+    sdot: "\u22C5",
+    lceil: "\u2308",
+    rceil: "\u2309",
+    lfloor: "\u230A",
+    rfloor: "\u230B",
+    lang: "\u2329",
+    rang: "\u232A",
+    loz: "\u25CA",
+    spades: "\u2660",
+    clubs: "\u2663",
+    hearts: "\u2665",
+    diams: "\u2666",
+    quot: '"',
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    OElig: "\u0152",
+    oelig: "\u0153",
+    Scaron: "\u0160",
+    scaron: "\u0161",
+    Yuml: "\u0178",
+    circ: "\u02C6",
+    tilde: "\u02DC",
+    ensp: "\u2002",
+    emsp: "\u2003",
+    thinsp: "\u2009",
+    zwnj: "\u200C",
+    zwj: "\u200D",
+    lrm: "\u200E",
+    rlm: "\u200F",
+    ndash: "\u2013",
+    mdash: "\u2014",
+    lsquo: "\u2018",
+    rsquo: "\u2019",
+    sbquo: "\u201A",
+    ldquo: "\u201C",
+    rdquo: "\u201D",
+    bdquo: "\u201E",
+    dagger: "\u2020",
+    Dagger: "\u2021",
+    permil: "\u2030",
+    lsaquo: "\u2039",
+    rsaquo: "\u203A",
+    euro: "\u20AC"
+  };
+
+  // node_modules/stringify-entities/lib/constant/dangerous.js
+  var dangerous = [
+    "cent",
+    "copy",
+    "divide",
+    "gt",
+    "lt",
+    "not",
+    "para",
+    "times"
+  ];
+
+  // node_modules/stringify-entities/lib/util/to-named.js
+  var own2 = {}.hasOwnProperty;
+  var characters = {};
+  var key;
+  for (key in characterEntitiesHtml4) {
+    if (own2.call(characterEntitiesHtml4, key)) {
+      characters[characterEntitiesHtml4[key]] = key;
+    }
+  }
+  var notAlphanumericRegex = /[^\dA-Za-z]/;
+  function toNamed(code, next, omit, attribute) {
+    const character = String.fromCharCode(code);
+    if (own2.call(characters, character)) {
+      const name = characters[character];
+      const value = "&" + name;
+      if (omit && characterEntitiesLegacy.includes(name) && !dangerous.includes(name) && (!attribute || next && next !== 61 && notAlphanumericRegex.test(String.fromCharCode(next)))) {
+        return value;
+      }
+      return value + ";";
+    }
+    return "";
+  }
+
+  // node_modules/stringify-entities/lib/util/format-smart.js
+  function formatSmart(code, next, options) {
+    let numeric = toHexadecimal(code, next, options.omitOptionalSemicolons);
+    let named;
+    if (options.useNamedReferences || options.useShortestReferences) {
+      named = toNamed(
+        code,
+        next,
+        options.omitOptionalSemicolons,
+        options.attribute
+      );
+    }
+    if ((options.useShortestReferences || !named) && options.useShortestReferences) {
+      const decimal = toDecimal(code, next, options.omitOptionalSemicolons);
+      if (decimal.length < numeric.length) {
+        numeric = decimal;
+      }
+    }
+    return named && (!options.useShortestReferences || named.length < numeric.length) ? named : numeric;
+  }
+
+  // node_modules/stringify-entities/lib/index.js
+  function stringifyEntities(value, options) {
+    return core(value, Object.assign({ format: formatSmart }, options));
+  }
+
+  // node_modules/hast-util-to-html/lib/handle/comment.js
+  var htmlCommentRegex = /^>|^->|<!--|-->|--!>|<!-$/g;
+  var bogusCommentEntitySubset = [">"];
+  var commentEntitySubset = ["<", ">"];
+  function comment(node, _1, _22, state) {
+    return state.settings.bogusComments ? "<?" + stringifyEntities(
+      node.value,
+      Object.assign({}, state.settings.characterReferences, {
+        subset: bogusCommentEntitySubset
+      })
+    ) + ">" : "<!--" + node.value.replace(htmlCommentRegex, encode) + "-->";
+    function encode($0) {
+      return stringifyEntities(
+        $0,
+        Object.assign({}, state.settings.characterReferences, {
+          subset: commentEntitySubset
+        })
+      );
+    }
+  }
+
+  // node_modules/hast-util-to-html/lib/handle/doctype.js
+  function doctype(_1, _22, _32, state) {
+    return "<!" + (state.settings.upperDoctype ? "DOCTYPE" : "doctype") + (state.settings.tightDoctype ? "" : " ") + "html>";
+  }
+
+  // node_modules/ccount/index.js
+  function ccount(value, character) {
+    const source = String(value);
+    if (typeof character !== "string") {
+      throw new TypeError("Expected character");
+    }
+    let count = 0;
+    let index = source.indexOf(character);
+    while (index !== -1) {
+      count++;
+      index = source.indexOf(character, index + character.length);
+    }
+    return count;
+  }
+
+  // node_modules/comma-separated-tokens/index.js
+  function stringify(values, options) {
+    const settings = options || {};
+    const input = values[values.length - 1] === "" ? [...values, ""] : values;
+    return input.join(
+      (settings.padRight ? " " : "") + "," + (settings.padLeft === false ? "" : " ")
+    ).trim();
+  }
+
+  // node_modules/space-separated-tokens/index.js
+  function stringify2(values) {
+    return values.join(" ").trim();
+  }
+
+  // node_modules/hast-util-whitespace/lib/index.js
+  var re2 = /[ \t\n\f\r]/g;
+  function whitespace(thing) {
+    return typeof thing === "object" ? thing.type === "text" ? empty2(thing.value) : false : empty2(thing);
+  }
+  function empty2(value) {
+    return value.replace(re2, "") === "";
+  }
+
+  // node_modules/hast-util-to-html/lib/omission/util/siblings.js
+  var siblingAfter = siblings(1);
+  var siblingBefore = siblings(-1);
+  var emptyChildren = [];
+  function siblings(increment2) {
+    return sibling;
+    function sibling(parent, index, includeWhitespace) {
+      const siblings2 = parent ? parent.children : emptyChildren;
+      let offset = (index || 0) + increment2;
+      let next = siblings2[offset];
+      if (!includeWhitespace) {
+        while (next && whitespace(next)) {
+          offset += increment2;
+          next = siblings2[offset];
+        }
+      }
+      return next;
+    }
+  }
+
+  // node_modules/hast-util-to-html/lib/omission/omission.js
+  var own3 = {}.hasOwnProperty;
+  function omission(handlers2) {
+    return omit;
+    function omit(node, index, parent) {
+      return own3.call(handlers2, node.tagName) && handlers2[node.tagName](node, index, parent);
+    }
+  }
+
+  // node_modules/hast-util-to-html/lib/omission/closing.js
+  var closing = omission({
+    body,
+    caption: headOrColgroupOrCaption,
+    colgroup: headOrColgroupOrCaption,
+    dd,
+    dt,
+    head: headOrColgroupOrCaption,
+    html: html3,
+    li,
+    optgroup,
+    option,
+    p,
+    rp: rubyElement,
+    rt: rubyElement,
+    tbody,
+    td: cells,
+    tfoot,
+    th: cells,
+    thead,
+    tr
+  });
+  function headOrColgroupOrCaption(_4, index, parent) {
+    const next = siblingAfter(parent, index, true);
+    return !next || next.type !== "comment" && !(next.type === "text" && whitespace(next.value.charAt(0)));
+  }
+  function html3(_4, index, parent) {
+    const next = siblingAfter(parent, index);
+    return !next || next.type !== "comment";
+  }
+  function body(_4, index, parent) {
+    const next = siblingAfter(parent, index);
+    return !next || next.type !== "comment";
+  }
+  function p(_4, index, parent) {
+    const next = siblingAfter(parent, index);
+    return next ? next.type === "element" && (next.tagName === "address" || next.tagName === "article" || next.tagName === "aside" || next.tagName === "blockquote" || next.tagName === "details" || next.tagName === "div" || next.tagName === "dl" || next.tagName === "fieldset" || next.tagName === "figcaption" || next.tagName === "figure" || next.tagName === "footer" || next.tagName === "form" || next.tagName === "h1" || next.tagName === "h2" || next.tagName === "h3" || next.tagName === "h4" || next.tagName === "h5" || next.tagName === "h6" || next.tagName === "header" || next.tagName === "hgroup" || next.tagName === "hr" || next.tagName === "main" || next.tagName === "menu" || next.tagName === "nav" || next.tagName === "ol" || next.tagName === "p" || next.tagName === "pre" || next.tagName === "section" || next.tagName === "table" || next.tagName === "ul") : !parent || // Confusing parent.
+    !(parent.type === "element" && (parent.tagName === "a" || parent.tagName === "audio" || parent.tagName === "del" || parent.tagName === "ins" || parent.tagName === "map" || parent.tagName === "noscript" || parent.tagName === "video"));
+  }
+  function li(_4, index, parent) {
+    const next = siblingAfter(parent, index);
+    return !next || next.type === "element" && next.tagName === "li";
+  }
+  function dt(_4, index, parent) {
+    const next = siblingAfter(parent, index);
+    return Boolean(
+      next && next.type === "element" && (next.tagName === "dt" || next.tagName === "dd")
+    );
+  }
+  function dd(_4, index, parent) {
+    const next = siblingAfter(parent, index);
+    return !next || next.type === "element" && (next.tagName === "dt" || next.tagName === "dd");
+  }
+  function rubyElement(_4, index, parent) {
+    const next = siblingAfter(parent, index);
+    return !next || next.type === "element" && (next.tagName === "rp" || next.tagName === "rt");
+  }
+  function optgroup(_4, index, parent) {
+    const next = siblingAfter(parent, index);
+    return !next || next.type === "element" && next.tagName === "optgroup";
+  }
+  function option(_4, index, parent) {
+    const next = siblingAfter(parent, index);
+    return !next || next.type === "element" && (next.tagName === "option" || next.tagName === "optgroup");
+  }
+  function thead(_4, index, parent) {
+    const next = siblingAfter(parent, index);
+    return Boolean(
+      next && next.type === "element" && (next.tagName === "tbody" || next.tagName === "tfoot")
+    );
+  }
+  function tbody(_4, index, parent) {
+    const next = siblingAfter(parent, index);
+    return !next || next.type === "element" && (next.tagName === "tbody" || next.tagName === "tfoot");
+  }
+  function tfoot(_4, index, parent) {
+    return !siblingAfter(parent, index);
+  }
+  function tr(_4, index, parent) {
+    const next = siblingAfter(parent, index);
+    return !next || next.type === "element" && next.tagName === "tr";
+  }
+  function cells(_4, index, parent) {
+    const next = siblingAfter(parent, index);
+    return !next || next.type === "element" && (next.tagName === "td" || next.tagName === "th");
+  }
+
+  // node_modules/hast-util-to-html/lib/omission/opening.js
+  var opening = omission({
+    body: body2,
+    colgroup,
+    head,
+    html: html4,
+    tbody: tbody2
+  });
+  function html4(node) {
+    const head2 = siblingAfter(node, -1);
+    return !head2 || head2.type !== "comment";
+  }
+  function head(node) {
+    const seen = /* @__PURE__ */ new Set();
+    for (const child2 of node.children) {
+      if (child2.type === "element" && (child2.tagName === "base" || child2.tagName === "title")) {
+        if (seen.has(child2.tagName)) return false;
+        seen.add(child2.tagName);
+      }
+    }
+    const child = node.children[0];
+    return !child || child.type === "element";
+  }
+  function body2(node) {
+    const head2 = siblingAfter(node, -1, true);
+    return !head2 || head2.type !== "comment" && !(head2.type === "text" && whitespace(head2.value.charAt(0))) && !(head2.type === "element" && (head2.tagName === "meta" || head2.tagName === "link" || head2.tagName === "script" || head2.tagName === "style" || head2.tagName === "template"));
+  }
+  function colgroup(node, index, parent) {
+    const previous = siblingBefore(parent, index);
+    const head2 = siblingAfter(node, -1, true);
+    if (parent && previous && previous.type === "element" && previous.tagName === "colgroup" && closing(previous, parent.children.indexOf(previous), parent)) {
+      return false;
+    }
+    return Boolean(head2 && head2.type === "element" && head2.tagName === "col");
+  }
+  function tbody2(node, index, parent) {
+    const previous = siblingBefore(parent, index);
+    const head2 = siblingAfter(node, -1);
+    if (parent && previous && previous.type === "element" && (previous.tagName === "thead" || previous.tagName === "tbody") && closing(previous, parent.children.indexOf(previous), parent)) {
+      return false;
+    }
+    return Boolean(head2 && head2.type === "element" && head2.tagName === "tr");
+  }
+
+  // node_modules/hast-util-to-html/lib/handle/element.js
+  var constants = {
+    // See: <https://html.spec.whatwg.org/#attribute-name-state>.
+    name: [
+      ["	\n\f\r &/=>".split(""), "	\n\f\r \"&'/=>`".split("")],
+      [`\0	
+\f\r "&'/<=>`.split(""), "\0	\n\f\r \"&'/<=>`".split("")]
+    ],
+    // See: <https://html.spec.whatwg.org/#attribute-value-(unquoted)-state>.
+    unquoted: [
+      ["	\n\f\r &>".split(""), "\0	\n\f\r \"&'<=>`".split("")],
+      ["\0	\n\f\r \"&'<=>`".split(""), "\0	\n\f\r \"&'<=>`".split("")]
+    ],
+    // See: <https://html.spec.whatwg.org/#attribute-value-(single-quoted)-state>.
+    single: [
+      ["&'".split(""), "\"&'`".split("")],
+      ["\0&'".split(""), "\0\"&'`".split("")]
+    ],
+    // See: <https://html.spec.whatwg.org/#attribute-value-(double-quoted)-state>.
+    double: [
+      ['"&'.split(""), "\"&'`".split("")],
+      ['\0"&'.split(""), "\0\"&'`".split("")]
+    ]
+  };
+  function element(node, index, parent, state) {
+    const schema3 = state.schema;
+    const omit = schema3.space === "svg" ? false : state.settings.omitOptionalTags;
+    let selfClosing = schema3.space === "svg" ? state.settings.closeEmptyElements : state.settings.voids.includes(node.tagName.toLowerCase());
+    const parts = [];
+    let last;
+    if (schema3.space === "html" && node.tagName === "svg") {
+      state.schema = svg2;
+    }
+    const attributes = serializeAttributes(state, node.properties);
+    const content = state.all(
+      schema3.space === "html" && node.tagName === "template" ? node.content : node
+    );
+    state.schema = schema3;
+    if (content) selfClosing = false;
+    if (attributes || !omit || !opening(node, index, parent)) {
+      parts.push("<", node.tagName, attributes ? " " + attributes : "");
+      if (selfClosing && (schema3.space === "svg" || state.settings.closeSelfClosing)) {
+        last = attributes.charAt(attributes.length - 1);
+        if (!state.settings.tightSelfClosing || last === "/" || last && last !== '"' && last !== "'") {
+          parts.push(" ");
+        }
+        parts.push("/");
+      }
+      parts.push(">");
+    }
+    parts.push(content);
+    if (!selfClosing && (!omit || !closing(node, index, parent))) {
+      parts.push("</" + node.tagName + ">");
+    }
+    return parts.join("");
+  }
+  function serializeAttributes(state, properties) {
+    const values = [];
+    let index = -1;
+    let key2;
+    if (properties) {
+      for (key2 in properties) {
+        if (properties[key2] !== null && properties[key2] !== void 0) {
+          const value = serializeAttribute(state, key2, properties[key2]);
+          if (value) values.push(value);
+        }
+      }
+    }
+    while (++index < values.length) {
+      const last = state.settings.tightAttributes ? values[index].charAt(values[index].length - 1) : void 0;
+      if (index !== values.length - 1 && last !== '"' && last !== "'") {
+        values[index] += " ";
+      }
+    }
+    return values.join("");
+  }
+  function serializeAttribute(state, key2, value) {
+    const info = find(state.schema, key2);
+    const x4 = state.settings.allowParseErrors && state.schema.space === "html" ? 0 : 1;
+    const y4 = state.settings.allowDangerousCharacters ? 0 : 1;
+    let quote = state.quote;
+    let result;
+    if (info.overloadedBoolean && (value === info.attribute || value === "")) {
+      value = true;
+    } else if ((info.boolean || info.overloadedBoolean) && (typeof value !== "string" || value === info.attribute || value === "")) {
+      value = Boolean(value);
+    }
+    if (value === null || value === void 0 || value === false || typeof value === "number" && Number.isNaN(value)) {
+      return "";
+    }
+    const name = stringifyEntities(
+      info.attribute,
+      Object.assign({}, state.settings.characterReferences, {
+        // Always encode without parse errors in non-HTML.
+        subset: constants.name[x4][y4]
+      })
+    );
+    if (value === true) return name;
+    value = Array.isArray(value) ? (info.commaSeparated ? stringify : stringify2)(value, {
+      padLeft: !state.settings.tightCommaSeparatedLists
+    }) : String(value);
+    if (state.settings.collapseEmptyAttributes && !value) return name;
+    if (state.settings.preferUnquoted) {
+      result = stringifyEntities(
+        value,
+        Object.assign({}, state.settings.characterReferences, {
+          attribute: true,
+          subset: constants.unquoted[x4][y4]
+        })
+      );
+    }
+    if (result !== value) {
+      if (state.settings.quoteSmart && ccount(value, quote) > ccount(value, state.alternative)) {
+        quote = state.alternative;
+      }
+      result = quote + stringifyEntities(
+        value,
+        Object.assign({}, state.settings.characterReferences, {
+          // Always encode without parse errors in non-HTML.
+          subset: (quote === "'" ? constants.single : constants.double)[x4][y4],
+          attribute: true
+        })
+      ) + quote;
+    }
+    return name + (result ? "=" + result : result);
+  }
+
+  // node_modules/hast-util-to-html/lib/handle/text.js
+  var textEntitySubset = ["<", "&"];
+  function text2(node, _4, parent, state) {
+    return parent && parent.type === "element" && (parent.tagName === "script" || parent.tagName === "style") ? node.value : stringifyEntities(
+      node.value,
+      Object.assign({}, state.settings.characterReferences, {
+        subset: textEntitySubset
+      })
+    );
+  }
+
+  // node_modules/hast-util-to-html/lib/handle/raw.js
+  function raw(node, index, parent, state) {
+    return state.settings.allowDangerousHtml ? node.value : text2(node, index, parent, state);
+  }
+
+  // node_modules/hast-util-to-html/lib/handle/root.js
+  function root(node, _1, _22, state) {
+    return state.all(node);
+  }
+
+  // node_modules/hast-util-to-html/lib/handle/index.js
+  var handle = zwitch("type", {
+    invalid,
+    unknown,
+    handlers: { comment, doctype, element, raw, root, text: text2 }
+  });
+  function invalid(node) {
+    throw new Error("Expected node, not `" + node + "`");
+  }
+  function unknown(node_) {
+    const node = (
+      /** @type {Nodes} */
+      node_
+    );
+    throw new Error("Cannot compile unknown node `" + node.type + "`");
+  }
+
+  // node_modules/hast-util-to-html/lib/index.js
+  var emptyOptions = {};
+  var emptyCharacterReferences = {};
+  var emptyChildren2 = [];
+  function toHtml(tree, options) {
+    const options_ = options || emptyOptions;
+    const quote = options_.quote || '"';
+    const alternative = quote === '"' ? "'" : '"';
+    if (quote !== '"' && quote !== "'") {
+      throw new Error("Invalid quote `" + quote + "`, expected `'` or `\"`");
+    }
+    const state = {
+      one,
+      all,
+      settings: {
+        omitOptionalTags: options_.omitOptionalTags || false,
+        allowParseErrors: options_.allowParseErrors || false,
+        allowDangerousCharacters: options_.allowDangerousCharacters || false,
+        quoteSmart: options_.quoteSmart || false,
+        preferUnquoted: options_.preferUnquoted || false,
+        tightAttributes: options_.tightAttributes || false,
+        upperDoctype: options_.upperDoctype || false,
+        tightDoctype: options_.tightDoctype || false,
+        bogusComments: options_.bogusComments || false,
+        tightCommaSeparatedLists: options_.tightCommaSeparatedLists || false,
+        tightSelfClosing: options_.tightSelfClosing || false,
+        collapseEmptyAttributes: options_.collapseEmptyAttributes || false,
+        allowDangerousHtml: options_.allowDangerousHtml || false,
+        voids: options_.voids || htmlVoidElements,
+        characterReferences: options_.characterReferences || emptyCharacterReferences,
+        closeSelfClosing: options_.closeSelfClosing || false,
+        closeEmptyElements: options_.closeEmptyElements || false
+      },
+      schema: options_.space === "svg" ? svg2 : html2,
+      quote,
+      alternative
+    };
+    return state.one(
+      Array.isArray(tree) ? { type: "root", children: tree } : tree,
+      void 0,
+      void 0
+    );
+  }
+  function one(node, index, parent) {
+    return handle(node, index, parent, this);
+  }
+  function all(parent) {
+    const results = [];
+    const children = parent && parent.children || emptyChildren2;
+    let index = -1;
+    while (++index < children.length) {
+      results[index] = this.one(children[index], index, parent);
+    }
+    return results.join("");
+  }
+
+  // node_modules/@shikijs/core/dist/index.mjs
+  var RE_WHITESPACE = /\s+/g;
+  function addClassToHast(node, className) {
+    if (!className) return node;
+    node.properties ||= {};
+    node.properties.class ||= [];
+    if (typeof node.properties.class === "string") node.properties.class = node.properties.class.split(RE_WHITESPACE);
+    if (!Array.isArray(node.properties.class)) node.properties.class = [];
+    const targets = Array.isArray(className) ? className : className.split(RE_WHITESPACE);
+    for (const c of targets) if (c && !node.properties.class.includes(c)) node.properties.class.push(c);
+    return node;
+  }
+  function createPositionConverter(code) {
+    const lines = splitLines(code, true).map(([line]) => line);
+    function indexToPos(index) {
+      if (index === code.length) return {
+        line: lines.length - 1,
+        character: lines.at(-1).length
+      };
+      let character = index;
+      let line = 0;
+      for (const lineText of lines) {
+        if (character < lineText.length) break;
+        character -= lineText.length;
+        line++;
+      }
+      return {
+        line,
+        character
+      };
+    }
+    function posToIndex(line, character) {
+      let index = 0;
+      for (let i2 = 0; i2 < line; i2++) index += lines[i2].length;
+      index += character;
+      return index;
+    }
+    return {
+      lines,
+      indexToPos,
+      posToIndex
+    };
+  }
+  var COLOR_KEYS = ["color", "background-color"];
+  function splitToken(token2, offsets) {
+    let lastOffset = 0;
+    const tokens = [];
+    for (const offset of offsets) {
+      if (offset > lastOffset) tokens.push({
+        ...token2,
+        content: token2.content.slice(lastOffset, offset),
+        offset: token2.offset + lastOffset
+      });
+      lastOffset = offset;
+    }
+    if (lastOffset < token2.content.length) tokens.push({
+      ...token2,
+      content: token2.content.slice(lastOffset),
+      offset: token2.offset + lastOffset
+    });
+    return tokens;
+  }
+  function findFirstBreakpointAfter(breakpoints, offset) {
+    let start = 0;
+    let end = breakpoints.length;
+    while (start < end) {
+      const middle = start + (end - start >> 1);
+      if (breakpoints[middle] <= offset) start = middle + 1;
+      else end = middle;
+    }
+    return start;
+  }
+  function splitTokens(tokens, breakpoints) {
+    const sorted = [...breakpoints instanceof Set ? breakpoints : new Set(breakpoints)].sort((a2, b4) => a2 - b4);
+    if (!sorted.length) return tokens;
+    return tokens.map((line) => {
+      return line.flatMap((token2) => {
+        const tokenEnd = token2.offset + token2.content.length;
+        const start = findFirstBreakpointAfter(sorted, token2.offset);
+        let end = start;
+        while (end < sorted.length && sorted[end] < tokenEnd) end++;
+        if (start === end) return token2;
+        const breakpointsInToken = sorted.slice(start, end);
+        for (let index = 0; index < breakpointsInToken.length; index++) breakpointsInToken[index] -= token2.offset;
+        return splitToken(token2, breakpointsInToken);
+      });
+    });
+  }
+  function flatTokenVariants(merged, variantsOrder, cssVariablePrefix, defaultColor, colorsRendering = "css-vars") {
+    const token2 = {
+      content: merged.content,
+      explanation: merged.explanation,
+      offset: merged.offset
+    };
+    const styles2 = variantsOrder.map((t) => getTokenStyleObject(merged.variants[t]));
+    const styleKeys = new Set(styles2.flatMap((t) => Object.keys(t)));
+    const mergedStyles = {};
+    const varKey = (idx, key2) => {
+      const keyName2 = key2 === "color" ? "" : key2 === "background-color" ? "-bg" : `-${key2}`;
+      return cssVariablePrefix + variantsOrder[idx] + (key2 === "color" ? "" : keyName2);
+    };
+    styles2.forEach((cur, idx) => {
+      for (const key2 of styleKeys) {
+        const value = cur[key2] || "inherit";
+        if (idx === 0 && defaultColor && COLOR_KEYS.includes(key2)) {
+          if (defaultColor === "light-dark()" && styles2.length > 1) {
+            const lightIndex = variantsOrder.findIndex((t) => t === "light");
+            const darkIndex = variantsOrder.findIndex((t) => t === "dark");
+            if (lightIndex === -1 || darkIndex === -1) throw new ShikiError('When using `defaultColor: "light-dark()"`, you must provide both `light` and `dark` themes');
+            const lightValue = styles2[lightIndex][key2] || "inherit";
+            const darkValue = styles2[darkIndex][key2] || "inherit";
+            mergedStyles[key2] = `light-dark(${lightValue}, ${darkValue})`;
+            if (colorsRendering === "css-vars") mergedStyles[varKey(idx, key2)] = value;
+          } else mergedStyles[key2] = value;
+        } else if (colorsRendering === "css-vars") mergedStyles[varKey(idx, key2)] = value;
+      }
+    });
+    token2.htmlStyle = mergedStyles;
+    return token2;
+  }
+  function getTokenStyleObject(token2) {
+    const styles2 = {};
+    if (token2.color) styles2.color = token2.color;
+    if (token2.bgColor) styles2["background-color"] = token2.bgColor;
+    if (token2.fontStyle) {
+      if (token2.fontStyle & FontStyle.Italic) styles2["font-style"] = "italic";
+      if (token2.fontStyle & FontStyle.Bold) styles2["font-weight"] = "bold";
+      const decorations2 = [];
+      if (token2.fontStyle & FontStyle.Underline) decorations2.push("underline");
+      if (token2.fontStyle & FontStyle.Strikethrough) decorations2.push("line-through");
+      if (decorations2.length) styles2["text-decoration"] = decorations2.join(" ");
+    }
+    return styles2;
+  }
+  function stringifyTokenStyle(token2) {
+    if (typeof token2 === "string") return token2;
+    return Object.entries(token2).map(([key2, value]) => `${key2}:${value}`).join(";");
+  }
+  function transformerDecorations() {
+    const map2 = /* @__PURE__ */ new WeakMap();
+    function getContext(shiki) {
+      if (!map2.has(shiki.meta)) {
+        let normalizePosition = function(p2) {
+          if (typeof p2 === "number") {
+            if (p2 < 0 || p2 > shiki.source.length) throw new ShikiError(`Invalid decoration offset: ${p2}. Code length: ${shiki.source.length}`);
+            return {
+              ...converter.indexToPos(p2),
+              offset: p2
+            };
+          } else {
+            const line = converter.lines[p2.line];
+            if (line === void 0) throw new ShikiError(`Invalid decoration position ${JSON.stringify(p2)}. Lines length: ${converter.lines.length}`);
+            let character = p2.character;
+            if (character < 0) character = line.length + character;
+            if (character < 0 || character > line.length) throw new ShikiError(`Invalid decoration position ${JSON.stringify(p2)}. Line ${p2.line} length: ${line.length}`);
+            return {
+              ...p2,
+              character,
+              offset: converter.posToIndex(p2.line, character)
+            };
+          }
+        };
+        const converter = createPositionConverter(shiki.source);
+        const decorations2 = (shiki.options.decorations || []).map((d3) => ({
+          ...d3,
+          start: normalizePosition(d3.start),
+          end: normalizePosition(d3.end)
+        }));
+        verifyIntersections(decorations2);
+        map2.set(shiki.meta, {
+          decorations: decorations2,
+          converter,
+          source: shiki.source
+        });
+      }
+      return map2.get(shiki.meta);
+    }
+    return {
+      name: "shiki:decorations",
+      tokens(tokens) {
+        if (!this.options.decorations?.length) return;
+        return splitTokens(tokens, getContext(this).decorations.flatMap((d3) => [d3.start.offset, d3.end.offset]));
+      },
+      code(codeEl) {
+        if (!this.options.decorations?.length) return;
+        const ctx = getContext(this);
+        const lines = [...codeEl.children].filter((i2) => i2.type === "element" && i2.tagName === "span");
+        if (lines.length !== ctx.converter.lines.length) throw new ShikiError(`Number of lines in code element (${lines.length}) does not match the number of lines in the source (${ctx.converter.lines.length}). Failed to apply decorations.`);
+        function applyLineSection(line, start, end, decoration) {
+          const lineEl = lines[line];
+          let text3 = "";
+          let startIndex = -1;
+          let endIndex = -1;
+          if (start === 0) startIndex = 0;
+          if (end === 0) endIndex = 0;
+          if (end === Number.POSITIVE_INFINITY) endIndex = lineEl.children.length;
+          if (startIndex === -1 || endIndex === -1) for (let i2 = 0; i2 < lineEl.children.length; i2++) {
+            text3 += stringify3(lineEl.children[i2]);
+            if (startIndex === -1 && text3.length === start) startIndex = i2 + 1;
+            if (endIndex === -1 && text3.length === end) endIndex = i2 + 1;
+          }
+          if (startIndex === -1) throw new ShikiError(`Failed to find start index for decoration ${JSON.stringify(decoration.start)}`);
+          if (endIndex === -1) throw new ShikiError(`Failed to find end index for decoration ${JSON.stringify(decoration.end)}`);
+          const children = lineEl.children.slice(startIndex, endIndex);
+          if (!decoration.alwaysWrap && children.length === lineEl.children.length) applyDecoration(lineEl, decoration, "line");
+          else if (!decoration.alwaysWrap && children.length === 1 && children[0].type === "element") applyDecoration(children[0], decoration, "token");
+          else {
+            const wrapper = {
+              type: "element",
+              tagName: "span",
+              properties: {},
+              children
+            };
+            applyDecoration(wrapper, decoration, "wrapper");
+            lineEl.children.splice(startIndex, children.length, wrapper);
+          }
+        }
+        function applyLine(line, decoration) {
+          lines[line] = applyDecoration(lines[line], decoration, "line");
+        }
+        function applyDecoration(el, decoration, type) {
+          const properties = decoration.properties || {};
+          const transform2 = decoration.transform || ((i2) => i2);
+          el.tagName = decoration.tagName || "span";
+          el.properties = {
+            ...el.properties,
+            ...properties,
+            class: el.properties.class
+          };
+          if (decoration.properties?.class) addClassToHast(el, decoration.properties.class);
+          el = transform2(el, type) || el;
+          return el;
+        }
+        const lineApplies = [];
+        const sorted = ctx.decorations.sort((a2, b4) => b4.start.offset - a2.start.offset || a2.end.offset - b4.end.offset);
+        for (const decoration of sorted) {
+          const { start, end } = decoration;
+          if (start.line === end.line) applyLineSection(start.line, start.character, end.character, decoration);
+          else if (start.line < end.line) {
+            applyLineSection(start.line, start.character, Number.POSITIVE_INFINITY, decoration);
+            for (let i2 = start.line + 1; i2 < end.line; i2++) lineApplies.unshift(() => applyLine(i2, decoration));
+            applyLineSection(end.line, 0, end.character, decoration);
+          }
+        }
+        lineApplies.forEach((i2) => i2());
+      }
+    };
+  }
+  function verifyIntersections(items) {
+    for (let i2 = 0; i2 < items.length; i2++) {
+      const foo = items[i2];
+      if (foo.start.offset > foo.end.offset) throw new ShikiError(`Invalid decoration range: ${JSON.stringify(foo.start)} - ${JSON.stringify(foo.end)}`);
+      for (let j3 = i2 + 1; j3 < items.length; j3++) {
+        const bar = items[j3];
+        const isFooHasBarStart = foo.start.offset <= bar.start.offset && bar.start.offset < foo.end.offset;
+        const isFooHasBarEnd = foo.start.offset < bar.end.offset && bar.end.offset <= foo.end.offset;
+        const isBarHasFooStart = bar.start.offset <= foo.start.offset && foo.start.offset < bar.end.offset;
+        const isBarHasFooEnd = bar.start.offset < foo.end.offset && foo.end.offset <= bar.end.offset;
+        if (isFooHasBarStart || isFooHasBarEnd || isBarHasFooStart || isBarHasFooEnd) {
+          if (isFooHasBarStart && isFooHasBarEnd) continue;
+          if (isBarHasFooStart && isBarHasFooEnd) continue;
+          if (isBarHasFooStart && foo.start.offset === foo.end.offset) continue;
+          if (isFooHasBarEnd && bar.start.offset === bar.end.offset) continue;
+          throw new ShikiError(`Decorations ${JSON.stringify(foo.start)} and ${JSON.stringify(bar.start)} intersect.`);
+        }
+      }
+    }
+  }
+  function stringify3(el) {
+    if (el.type === "text") return el.value;
+    if (el.type === "element") return el.children.map(stringify3).join("");
+    return "";
+  }
+  var builtInTransformers = [/* @__PURE__ */ transformerDecorations()];
+  function getTransformers(options) {
+    const transformers = sortTransformersByEnforcement(options.transformers || []);
+    return [
+      ...transformers.pre,
+      ...transformers.normal,
+      ...transformers.post,
+      ...builtInTransformers
+    ];
+  }
+  function sortTransformersByEnforcement(transformers) {
+    const pre = [];
+    const post = [];
+    const normal = [];
+    for (const transformer of transformers) switch (transformer.enforce) {
+      case "pre":
+        pre.push(transformer);
+        break;
+      case "post":
+        post.push(transformer);
+        break;
+      default:
+        normal.push(transformer);
+    }
+    return {
+      pre,
+      post,
+      normal
+    };
+  }
+  var namedColors = [
+    "black",
+    "red",
+    "green",
+    "yellow",
+    "blue",
+    "magenta",
+    "cyan",
+    "white",
+    "brightBlack",
+    "brightRed",
+    "brightGreen",
+    "brightYellow",
+    "brightBlue",
+    "brightMagenta",
+    "brightCyan",
+    "brightWhite"
+  ];
+  var decorations = {
+    1: "bold",
+    2: "dim",
+    3: "italic",
+    4: "underline",
+    7: "reverse",
+    8: "hidden",
+    9: "strikethrough"
+  };
+  function findSequence(value, position) {
+    const nextEscape = value.indexOf("\x1B", position);
+    if (nextEscape !== -1) {
+      if (value[nextEscape + 1] === "[") {
+        const nextClose = value.indexOf("m", nextEscape);
+        if (nextClose !== -1) return {
+          sequence: value.substring(nextEscape + 2, nextClose).split(";"),
+          startPosition: nextEscape,
+          position: nextClose + 1
+        };
+      }
+    }
+    return { position: value.length };
+  }
+  function parseColor(sequence) {
+    const colorMode = sequence.shift();
+    if (colorMode === "2") {
+      const rgb = sequence.splice(0, 3).map((x4) => Number.parseInt(x4));
+      if (rgb.length !== 3 || rgb.some((x4) => Number.isNaN(x4))) return;
+      return {
+        type: "rgb",
+        rgb
+      };
+    } else if (colorMode === "5") {
+      const index = sequence.shift();
+      if (index) return {
+        type: "table",
+        index: Number(index)
+      };
+    }
+  }
+  function parseSequence(sequence) {
+    const commands = [];
+    while (sequence.length > 0) {
+      const code = sequence.shift();
+      if (!code) continue;
+      const codeInt = Number.parseInt(code);
+      if (Number.isNaN(codeInt)) continue;
+      if (codeInt === 0) commands.push({ type: "resetAll" });
+      else if (codeInt <= 9) {
+        if (decorations[codeInt]) commands.push({
+          type: "setDecoration",
+          value: decorations[codeInt]
+        });
+      } else if (codeInt <= 29) {
+        const decoration = decorations[codeInt - 20];
+        if (decoration) {
+          commands.push({
+            type: "resetDecoration",
+            value: decoration
+          });
+          if (decoration === "dim") commands.push({
+            type: "resetDecoration",
+            value: "bold"
+          });
+        }
+      } else if (codeInt <= 37) commands.push({
+        type: "setForegroundColor",
+        value: {
+          type: "named",
+          name: namedColors[codeInt - 30]
+        }
+      });
+      else if (codeInt === 38) {
+        const color = parseColor(sequence);
+        if (color) commands.push({
+          type: "setForegroundColor",
+          value: color
+        });
+      } else if (codeInt === 39) commands.push({ type: "resetForegroundColor" });
+      else if (codeInt <= 47) commands.push({
+        type: "setBackgroundColor",
+        value: {
+          type: "named",
+          name: namedColors[codeInt - 40]
+        }
+      });
+      else if (codeInt === 48) {
+        const color = parseColor(sequence);
+        if (color) commands.push({
+          type: "setBackgroundColor",
+          value: color
+        });
+      } else if (codeInt === 49) commands.push({ type: "resetBackgroundColor" });
+      else if (codeInt === 53) commands.push({
+        type: "setDecoration",
+        value: "overline"
+      });
+      else if (codeInt === 55) commands.push({
+        type: "resetDecoration",
+        value: "overline"
+      });
+      else if (codeInt >= 90 && codeInt <= 97) commands.push({
+        type: "setForegroundColor",
+        value: {
+          type: "named",
+          name: namedColors[codeInt - 90 + 8]
+        }
+      });
+      else if (codeInt >= 100 && codeInt <= 107) commands.push({
+        type: "setBackgroundColor",
+        value: {
+          type: "named",
+          name: namedColors[codeInt - 100 + 8]
+        }
+      });
+    }
+    return commands;
+  }
+  function createAnsiSequenceParser() {
+    let foreground = null;
+    let background = null;
+    let decorations2 = /* @__PURE__ */ new Set();
+    return { parse(value) {
+      const tokens = [];
+      let position = 0;
+      do {
+        const findResult = findSequence(value, position);
+        const text3 = findResult.sequence ? value.substring(position, findResult.startPosition) : value.substring(position);
+        if (text3.length > 0) tokens.push({
+          value: text3,
+          foreground,
+          background,
+          decorations: new Set(decorations2)
+        });
+        if (findResult.sequence) {
+          const commands = parseSequence(findResult.sequence);
+          for (const styleToken of commands) if (styleToken.type === "resetAll") {
+            foreground = null;
+            background = null;
+            decorations2.clear();
+          } else if (styleToken.type === "resetForegroundColor") foreground = null;
+          else if (styleToken.type === "resetBackgroundColor") background = null;
+          else if (styleToken.type === "resetDecoration") decorations2.delete(styleToken.value);
+          for (const styleToken of commands) if (styleToken.type === "setForegroundColor") foreground = styleToken.value;
+          else if (styleToken.type === "setBackgroundColor") background = styleToken.value;
+          else if (styleToken.type === "setDecoration") decorations2.add(styleToken.value);
+        }
+        position = findResult.position;
+      } while (position < value.length);
+      return tokens;
+    } };
+  }
+  var defaultNamedColorsMap = {
+    black: "#000000",
+    red: "#bb0000",
+    green: "#00bb00",
+    yellow: "#bbbb00",
+    blue: "#0000bb",
+    magenta: "#ff00ff",
+    cyan: "#00bbbb",
+    white: "#eeeeee",
+    brightBlack: "#555555",
+    brightRed: "#ff5555",
+    brightGreen: "#00ff00",
+    brightYellow: "#ffff55",
+    brightBlue: "#5555ff",
+    brightMagenta: "#ff55ff",
+    brightCyan: "#55ffff",
+    brightWhite: "#ffffff"
+  };
+  function createColorPalette(namedColorsMap = defaultNamedColorsMap) {
+    function namedColor(name) {
+      return namedColorsMap[name];
+    }
+    function rgbColor(rgb) {
+      return `#${rgb.map((x4) => Math.max(0, Math.min(x4, 255)).toString(16).padStart(2, "0")).join("")}`;
+    }
+    let colorTable;
+    function getColorTable() {
+      if (colorTable) return colorTable;
+      colorTable = [];
+      for (let i2 = 0; i2 < namedColors.length; i2++) colorTable.push(namedColor(namedColors[i2]));
+      let levels = [
+        0,
+        95,
+        135,
+        175,
+        215,
+        255
+      ];
+      for (let r4 = 0; r4 < 6; r4++) for (let g = 0; g < 6; g++) for (let b4 = 0; b4 < 6; b4++) colorTable.push(rgbColor([
+        levels[r4],
+        levels[g],
+        levels[b4]
+      ]));
+      let level = 8;
+      for (let i2 = 0; i2 < 24; i2++, level += 10) colorTable.push(rgbColor([
+        level,
+        level,
+        level
+      ]));
+      return colorTable;
+    }
+    function tableColor(index) {
+      return getColorTable()[index];
+    }
+    function value(color) {
+      switch (color.type) {
+        case "named":
+          return namedColor(color.name);
+        case "rgb":
+          return rgbColor(color.rgb);
+        case "table":
+          return tableColor(color.index);
+      }
+    }
+    return { value };
+  }
+  var RE_HEX_COLOR = /#([0-9a-f]{3,8})/i;
+  var RE_CSS_VAR_ANSI = /var\((--[\w-]+-ansi-[\w-]+)\)/;
+  var defaultAnsiColors = {
+    black: "#000000",
+    red: "#cd3131",
+    green: "#0DBC79",
+    yellow: "#E5E510",
+    blue: "#2472C8",
+    magenta: "#BC3FBC",
+    cyan: "#11A8CD",
+    white: "#E5E5E5",
+    brightBlack: "#666666",
+    brightRed: "#F14C4C",
+    brightGreen: "#23D18B",
+    brightYellow: "#F5F543",
+    brightBlue: "#3B8EEA",
+    brightMagenta: "#D670D6",
+    brightCyan: "#29B8DB",
+    brightWhite: "#FFFFFF"
+  };
+  function tokenizeAnsiWithTheme(theme, fileContents, options) {
+    const colorReplacements = resolveColorReplacements(theme, options);
+    const lines = splitLines(fileContents);
+    const colorPalette = createColorPalette(Object.fromEntries(namedColors.map((name) => {
+      const key2 = `terminal.ansi${name[0].toUpperCase()}${name.substring(1)}`;
+      return [name, theme.colors?.[key2] || defaultAnsiColors[name]];
+    })));
+    const parser = createAnsiSequenceParser();
+    return lines.map((line) => parser.parse(line[0]).map((token2) => {
+      let color;
+      let bgColor;
+      if (token2.decorations.has("reverse")) {
+        color = token2.background ? colorPalette.value(token2.background) : theme.bg;
+        bgColor = token2.foreground ? colorPalette.value(token2.foreground) : theme.fg;
+      } else {
+        color = token2.foreground ? colorPalette.value(token2.foreground) : theme.fg;
+        bgColor = token2.background ? colorPalette.value(token2.background) : void 0;
+      }
+      color = applyColorReplacements(color, colorReplacements);
+      bgColor = applyColorReplacements(bgColor, colorReplacements);
+      if (token2.decorations.has("dim")) color = dimColor(color);
+      let fontStyle = FontStyle.None;
+      if (token2.decorations.has("bold")) fontStyle |= FontStyle.Bold;
+      if (token2.decorations.has("italic")) fontStyle |= FontStyle.Italic;
+      if (token2.decorations.has("underline")) fontStyle |= FontStyle.Underline;
+      if (token2.decorations.has("strikethrough")) fontStyle |= FontStyle.Strikethrough;
+      return {
+        content: token2.value,
+        offset: line[1],
+        color,
+        bgColor,
+        fontStyle
+      };
+    }));
+  }
+  function dimColor(color) {
+    const hexMatch = color.match(RE_HEX_COLOR);
+    if (hexMatch) {
+      const hex = hexMatch[1];
+      if (hex.length === 8) {
+        const alpha = Math.round(Number.parseInt(hex.slice(6, 8), 16) / 2).toString(16).padStart(2, "0");
+        return `#${hex.slice(0, 6)}${alpha}`;
+      } else if (hex.length === 6) return `#${hex}80`;
+      else if (hex.length === 4) {
+        const r4 = hex[0];
+        const g = hex[1];
+        const b4 = hex[2];
+        const a2 = hex[3];
+        return `#${r4}${r4}${g}${g}${b4}${b4}${Math.round(Number.parseInt(`${a2}${a2}`, 16) / 2).toString(16).padStart(2, "0")}`;
+      } else if (hex.length === 3) {
+        const r4 = hex[0];
+        const g = hex[1];
+        const b4 = hex[2];
+        return `#${r4}${r4}${g}${g}${b4}${b4}80`;
+      }
+    }
+    const cssVarMatch = color.match(RE_CSS_VAR_ANSI);
+    if (cssVarMatch) return `var(${cssVarMatch[1]}-dim)`;
+    return color;
+  }
+  function codeToTokensBase2(primitive, code, options = {}) {
+    const lang = primitive.resolveLangAlias(options.lang || "text");
+    const { theme: themeName = primitive.getLoadedThemes()[0] } = options;
+    if (!isPlainLang(lang) && !isNoneTheme(themeName) && lang === "ansi") {
+      const { theme } = primitive.setTheme(themeName);
+      return tokenizeAnsiWithTheme(theme, code, options);
+    }
+    return codeToTokensBase(primitive, code, options);
+  }
+  function codeToTokens(primitive, code, options) {
+    let bg;
+    let fg;
+    let tokens;
+    let themeName;
+    let rootStyle;
+    let grammarState;
+    if ("themes" in options) {
+      const { defaultColor = "light", cssVariablePrefix = "--shiki-", colorsRendering = "css-vars" } = options;
+      const themes = Object.entries(options.themes).filter((i2) => i2[1]).map((i2) => ({
+        color: i2[0],
+        theme: i2[1]
+      })).sort((a2, b4) => a2.color === defaultColor ? -1 : b4.color === defaultColor ? 1 : 0);
+      if (themes.length === 0) throw new ShikiError("`themes` option must not be empty");
+      const themeTokens = codeToTokensWithThemes(primitive, code, options, codeToTokensBase2);
+      grammarState = getLastGrammarStateFromMap(themeTokens);
+      if (defaultColor && "light-dark()" !== defaultColor && !themes.some((t) => t.color === defaultColor)) throw new ShikiError(`\`themes\` option must contain the defaultColor key \`${defaultColor}\``);
+      const themeRegs = themes.map((t) => primitive.getTheme(t.theme));
+      const themesOrder = themes.map((t) => t.color);
+      tokens = themeTokens.map((line) => line.map((token2) => flatTokenVariants(token2, themesOrder, cssVariablePrefix, defaultColor, colorsRendering)));
+      if (grammarState) setLastGrammarStateToMap(tokens, grammarState);
+      const themeColorReplacements = themes.map((t) => resolveColorReplacements(t.theme, options));
+      fg = mapThemeColors(themes, themeRegs, themeColorReplacements, cssVariablePrefix, defaultColor, "fg", colorsRendering);
+      bg = mapThemeColors(themes, themeRegs, themeColorReplacements, cssVariablePrefix, defaultColor, "bg", colorsRendering);
+      themeName = `shiki-themes ${themeRegs.map((t) => t.name).join(" ")}`;
+      rootStyle = defaultColor ? void 0 : [fg, bg].join(";");
+    } else if ("theme" in options) {
+      const colorReplacements = resolveColorReplacements(options.theme, options);
+      tokens = codeToTokensBase2(primitive, code, options);
+      const _theme = primitive.getTheme(options.theme);
+      bg = applyColorReplacements(_theme.bg, colorReplacements);
+      fg = applyColorReplacements(_theme.fg, colorReplacements);
+      themeName = _theme.name;
+      grammarState = getLastGrammarStateFromMap(tokens);
+    } else throw new ShikiError("Invalid options, either `theme` or `themes` must be provided");
+    return {
+      tokens,
+      fg,
+      bg,
+      themeName,
+      rootStyle,
+      grammarState
+    };
+  }
+  function mapThemeColors(themes, themeRegs, themeColorReplacements, cssVariablePrefix, defaultColor, property, colorsRendering) {
+    return themes.map((t, idx) => {
+      const value = applyColorReplacements(themeRegs[idx][property], themeColorReplacements[idx]) || "inherit";
+      const cssVar = `${cssVariablePrefix + t.color}${property === "bg" ? "-bg" : ""}:${value}`;
+      if (idx === 0 && defaultColor) {
+        if (defaultColor === "light-dark()" && themes.length > 1) {
+          const lightIndex = themes.findIndex((t2) => t2.color === "light");
+          const darkIndex = themes.findIndex((t2) => t2.color === "dark");
+          if (lightIndex === -1 || darkIndex === -1) throw new ShikiError('When using `defaultColor: "light-dark()"`, you must provide both `light` and `dark` themes');
+          return `light-dark(${applyColorReplacements(themeRegs[lightIndex][property], themeColorReplacements[lightIndex]) || "inherit"}, ${applyColorReplacements(themeRegs[darkIndex][property], themeColorReplacements[darkIndex]) || "inherit"});${cssVar}`;
+        }
+        return value;
+      }
+      if (colorsRendering === "css-vars") return cssVar;
+      return null;
+    }).filter((i2) => !!i2).join(";");
+  }
+  var RE_WHITESPACE_ONLY = /^\s+$/;
+  var RE_LEADING_TRAILING_WHITESPACE = /^(\s*)(.*?)(\s*)$/;
+  function codeToHast(primitive, code, options, transformerContext = {
+    meta: {},
+    options,
+    codeToHast: (_code, _options) => codeToHast(primitive, _code, _options),
+    codeToTokens: (_code, _options) => codeToTokens(primitive, _code, _options)
+  }) {
+    let input = code;
+    for (const transformer of getTransformers(options)) input = transformer.preprocess?.call(transformerContext, input, options) || input;
+    let { tokens, fg, bg, themeName, rootStyle, grammarState } = codeToTokens(primitive, input, options);
+    const { mergeWhitespaces = true, mergeSameStyleTokens = false } = options;
+    if (mergeWhitespaces === true) tokens = mergeWhitespaceTokens(tokens);
+    else if (mergeWhitespaces === "never") tokens = splitWhitespaceTokens(tokens);
+    if (mergeSameStyleTokens) tokens = mergeAdjacentStyledTokens(tokens);
+    const contextSource = {
+      ...transformerContext,
+      get source() {
+        return input;
+      }
+    };
+    for (const transformer of getTransformers(options)) tokens = transformer.tokens?.call(contextSource, tokens) || tokens;
+    return tokensToHast(tokens, {
+      ...options,
+      fg,
+      bg,
+      themeName,
+      rootStyle: options.rootStyle === false ? false : options.rootStyle ?? rootStyle
+    }, contextSource, grammarState);
+  }
+  function tokensToHast(tokens, options, transformerContext, grammarState = getLastGrammarStateFromMap(tokens)) {
+    const transformers = getTransformers(options);
+    const lines = [];
+    const root2 = {
+      type: "root",
+      children: []
+    };
+    const { structure = "classic", tabindex = "0" } = options;
+    const properties = { class: `shiki ${options.themeName || ""}` };
+    if (options.rootStyle !== false) {
+      if (options.rootStyle != null) properties.style = options.rootStyle;
+      else properties.style = `background-color:${options.bg};color:${options.fg}`;
+    }
+    if (tabindex !== false && tabindex != null) properties.tabindex = tabindex.toString();
+    for (const [key2, value] of Object.entries(options.meta || {})) if (!key2.startsWith("_")) properties[key2] = value;
+    let preNode = {
+      type: "element",
+      tagName: "pre",
+      properties,
+      children: [],
+      data: options.data
+    };
+    let codeNode = {
+      type: "element",
+      tagName: "code",
+      properties: {},
+      children: lines
+    };
+    const lineNodes = [];
+    const context = {
+      ...transformerContext,
+      structure,
+      addClassToHast,
+      get source() {
+        return transformerContext.source;
+      },
+      get tokens() {
+        return tokens;
+      },
+      get options() {
+        return options;
+      },
+      get root() {
+        return root2;
+      },
+      get pre() {
+        return preNode;
+      },
+      get code() {
+        return codeNode;
+      },
+      get lines() {
+        return lineNodes;
+      }
+    };
+    tokens.forEach((line, idx) => {
+      if (idx) {
+        if (structure === "inline") root2.children.push({
+          type: "element",
+          tagName: "br",
+          properties: {},
+          children: []
+        });
+        else if (structure === "classic") lines.push({
+          type: "text",
+          value: "\n"
+        });
+      }
+      let lineNode = {
+        type: "element",
+        tagName: "span",
+        properties: { class: "line" },
+        children: []
+      };
+      let col = 0;
+      for (const token2 of line) {
+        let tokenNode = {
+          type: "element",
+          tagName: "span",
+          properties: { ...token2.htmlAttrs },
+          children: [{
+            type: "text",
+            value: token2.content
+          }]
+        };
+        const style = stringifyTokenStyle(token2.htmlStyle || getTokenStyleObject(token2));
+        if (style) tokenNode.properties.style = style;
+        for (const transformer of transformers) tokenNode = transformer?.span?.call(context, tokenNode, idx + 1, col, lineNode, token2) || tokenNode;
+        if (structure === "inline") root2.children.push(tokenNode);
+        else if (structure === "classic") lineNode.children.push(tokenNode);
+        col += token2.content.length;
+      }
+      if (structure === "classic") {
+        for (const transformer of transformers) lineNode = transformer?.line?.call(context, lineNode, idx + 1) || lineNode;
+        lineNodes.push(lineNode);
+        lines.push(lineNode);
+      } else if (structure === "inline") lineNodes.push(lineNode);
+    });
+    if (structure === "classic") {
+      for (const transformer of transformers) codeNode = transformer?.code?.call(context, codeNode) || codeNode;
+      preNode.children.push(codeNode);
+      for (const transformer of transformers) preNode = transformer?.pre?.call(context, preNode) || preNode;
+      root2.children.push(preNode);
+    } else if (structure === "inline") {
+      const syntheticLines = [];
+      let currentLine = {
+        type: "element",
+        tagName: "span",
+        properties: { class: "line" },
+        children: []
+      };
+      for (const child of root2.children) if (child.type === "element" && child.tagName === "br") {
+        syntheticLines.push(currentLine);
+        currentLine = {
+          type: "element",
+          tagName: "span",
+          properties: { class: "line" },
+          children: []
+        };
+      } else if (child.type === "element" || child.type === "text") currentLine.children.push(child);
+      syntheticLines.push(currentLine);
+      let transformedCode = {
+        type: "element",
+        tagName: "code",
+        properties: {},
+        children: syntheticLines
+      };
+      for (const transformer of transformers) transformedCode = transformer?.code?.call(context, transformedCode) || transformedCode;
+      root2.children = [];
+      for (let i2 = 0; i2 < transformedCode.children.length; i2++) {
+        if (i2 > 0) root2.children.push({
+          type: "element",
+          tagName: "br",
+          properties: {},
+          children: []
+        });
+        const line = transformedCode.children[i2];
+        if (line.type === "element") root2.children.push(...line.children);
+      }
+    }
+    let result = root2;
+    for (const transformer of transformers) result = transformer?.root?.call(context, result) || result;
+    if (grammarState) setLastGrammarStateToMap(result, grammarState);
+    return result;
+  }
+  function mergeWhitespaceTokens(tokens) {
+    return tokens.map((line) => {
+      const newLine = [];
+      let carryOnContent = "";
+      let firstOffset;
+      line.forEach((token2, idx) => {
+        const couldMerge = !(token2.fontStyle && (token2.fontStyle & FontStyle.Underline || token2.fontStyle & FontStyle.Strikethrough));
+        if (couldMerge && RE_WHITESPACE_ONLY.test(token2.content) && line[idx + 1]) {
+          if (firstOffset === void 0) firstOffset = token2.offset;
+          carryOnContent += token2.content;
+        } else if (carryOnContent) {
+          if (couldMerge) newLine.push({
+            ...token2,
+            offset: firstOffset,
+            content: carryOnContent + token2.content
+          });
+          else newLine.push({
+            content: carryOnContent,
+            offset: firstOffset
+          }, token2);
+          firstOffset = void 0;
+          carryOnContent = "";
+        } else newLine.push(token2);
+      });
+      return newLine;
+    });
+  }
+  function splitWhitespaceTokens(tokens) {
+    return tokens.map((line) => {
+      return line.flatMap((token2) => {
+        if (RE_WHITESPACE_ONLY.test(token2.content)) return token2;
+        const match = token2.content.match(RE_LEADING_TRAILING_WHITESPACE);
+        if (!match) return token2;
+        const [, leading, content, trailing] = match;
+        if (!leading && !trailing) return token2;
+        const expanded = [{
+          ...token2,
+          offset: token2.offset + leading.length,
+          content
+        }];
+        if (leading) expanded.unshift({
+          content: leading,
+          offset: token2.offset
+        });
+        if (trailing) expanded.push({
+          content: trailing,
+          offset: token2.offset + leading.length + content.length
+        });
+        return expanded;
+      });
+    });
+  }
+  function mergeAdjacentStyledTokens(tokens) {
+    return tokens.map((line) => {
+      const newLine = [];
+      for (const token2 of line) {
+        if (newLine.length === 0) {
+          newLine.push({ ...token2 });
+          continue;
+        }
+        const prevToken = newLine.at(-1);
+        const prevStyle = stringifyTokenStyle(prevToken.htmlStyle || getTokenStyleObject(prevToken));
+        const currentStyle = stringifyTokenStyle(token2.htmlStyle || getTokenStyleObject(token2));
+        const isPrevDecorated = prevToken.fontStyle && (prevToken.fontStyle & FontStyle.Underline || prevToken.fontStyle & FontStyle.Strikethrough);
+        const isDecorated = token2.fontStyle && (token2.fontStyle & FontStyle.Underline || token2.fontStyle & FontStyle.Strikethrough);
+        if (!isPrevDecorated && !isDecorated && prevStyle === currentStyle) prevToken.content += token2.content;
+        else newLine.push({ ...token2 });
+      }
+      return newLine;
+    });
+  }
+  var hastToHtml = toHtml;
+  function codeToHtml(primitive, code, options) {
+    const context = {
+      meta: {},
+      options,
+      codeToHast: (_code, _options) => codeToHast(primitive, _code, _options),
+      codeToTokens: (_code, _options) => codeToTokens(primitive, _code, _options)
+    };
+    let result = hastToHtml(codeToHast(primitive, code, options, context));
+    for (const transformer of getTransformers(options)) result = transformer.postprocess?.call(context, result, options) || result;
+    return result;
+  }
+  async function createHighlighterCore(options) {
+    const primitive = await createShikiPrimitiveAsync(options);
+    return {
+      getLastGrammarState: (...args) => getLastGrammarState(primitive, ...args),
+      codeToTokensBase: (code, options2) => codeToTokensBase2(primitive, code, options2),
+      codeToTokensWithThemes: (code, options2) => codeToTokensWithThemes(primitive, code, options2),
+      codeToTokens: (code, options2) => codeToTokens(primitive, code, options2),
+      codeToHast: (code, options2) => codeToHast(primitive, code, options2),
+      codeToHtml: (code, options2) => codeToHtml(primitive, code, options2),
+      getBundledLanguages: () => ({}),
+      getBundledThemes: () => ({}),
+      ...primitive,
+      getInternalContext: () => primitive
+    };
+  }
+
+  // node_modules/@shikijs/engine-javascript/dist/string-TLTPtCPs.mjs
+  var MAX = 4294967295;
+  function isSearchCacheable(regexp) {
+    return !regexp.sticky && !regexp.rawOptions?.strategy;
+  }
+  function toResult(index, indices) {
+    return {
+      index,
+      captureIndices: indices.map((indice) => {
+        if (indice == null) return {
+          start: MAX,
+          end: MAX,
+          length: 0
+        };
+        return {
+          start: indice[0],
+          end: indice[1],
+          length: indice[1] - indice[0]
+        };
+      })
+    };
+  }
+  var JavaScriptScanner = class {
+    patterns;
+    options;
+    regexps;
+    /**
+    * Last search of each regexp on the current string, reused the way `vscode-oniguruma` does.
+    * `null` for regexps whose searches can't be reused.
+    */
+    lastSearches;
+    constructor(patterns, options = {}) {
+      this.patterns = patterns;
+      this.options = options;
+      const { forgiving = false, cache, regexConstructor } = options;
+      if (!regexConstructor) throw new Error("Option `regexConstructor` is not provided");
+      this.regexps = patterns.map((p2) => {
+        if (typeof p2 !== "string") return p2;
+        const cached = cache?.get(p2);
+        if (cached) {
+          if (cached instanceof RegExp) return cached;
+          if (forgiving) return null;
+          throw cached;
+        }
+        try {
+          const regex = regexConstructor(p2);
+          cache?.set(p2, regex);
+          return regex;
+        } catch (e) {
+          cache?.set(p2, e);
+          if (forgiving) return null;
+          throw e;
+        }
+      });
+      this.lastSearches = this.regexps.map((regexp) => regexp && isSearchCacheable(regexp) ? {
+        strId: 0,
+        searchedFrom: 0,
+        matchIndex: -1,
+        indices: null
+      } : null);
+    }
+    findNextMatchSync(string, startPosition, _options) {
+      const str = typeof string === "string" ? string : string.content;
+      const strId = typeof string === "string" ? 0 : string.id || 0;
+      let bestIndex = -1;
+      let bestMatchIndex = 0;
+      let bestIndices = null;
+      for (let i2 = 0; i2 < this.regexps.length; i2++) {
+        const regexp = this.regexps[i2];
+        if (!regexp) continue;
+        try {
+          const last = strId ? this.lastSearches[i2] : null;
+          let matchIndex;
+          let indices;
+          if (last && last.strId === strId && last.searchedFrom <= startPosition && (last.matchIndex === -1 || last.matchIndex >= startPosition)) {
+            matchIndex = last.matchIndex;
+            indices = last.indices;
+          } else {
+            regexp.lastIndex = startPosition;
+            const match = regexp.exec(str);
+            matchIndex = match ? match.index : -1;
+            indices = match ? match.indices : null;
+            if (last) {
+              last.strId = strId;
+              last.searchedFrom = startPosition;
+              last.matchIndex = matchIndex;
+              last.indices = indices;
+            }
+          }
+          if (matchIndex === -1) continue;
+          if (matchIndex === startPosition) return toResult(i2, indices);
+          if (bestIndex === -1 || matchIndex < bestMatchIndex) {
+            bestIndex = i2;
+            bestMatchIndex = matchIndex;
+            bestIndices = indices;
+          }
+        } catch (e) {
+          if (this.options.forgiving) continue;
+          throw e;
+        }
+      }
+      return bestIndex === -1 ? null : toResult(bestIndex, bestIndices);
+    }
+  };
+  var lastStringId = 0;
+  function createJavaScriptEngineString(content) {
+    return {
+      content,
+      id: ++lastStringId
+    };
+  }
+
+  // node_modules/oniguruma-parser/dist/utils.js
+  function r(e) {
+    if ([...e].length !== 1) throw new Error(`Expected "${e}" to be a single code point`);
+    return e.codePointAt(0);
+  }
+  function l(e, t, n) {
+    return e.has(t) || e.set(t, n), e.get(t);
+  }
+  var i = /* @__PURE__ */ new Set(["alnum", "alpha", "ascii", "blank", "cntrl", "digit", "graph", "lower", "print", "punct", "space", "upper", "word", "xdigit"]);
+  var o = String.raw;
+  function u3(e, t) {
+    if (e == null) throw new Error(t ?? "Value expected");
+    return e;
+  }
+
+  // node_modules/oniguruma-parser/dist/tokenizer/tokenize.js
+  var m2 = o`\[\^?`;
+  var b2 = `c.? | C(?:-.?)?|${o`[pP]\{(?:\^?[-\x20_]*[A-Za-z][-\x20\w]*\})?`}|${o`x[89A-Fa-f]\p{AHex}(?:\\x[89A-Fa-f]\p{AHex})*`}|${o`u(?:\p{AHex}{4})? | x\{[^\}]*\}? | x\p{AHex}{0,2}`}|${o`o\{[^\}]*\}?`}|${o`\d{1,3}`}`;
+  var y2 = /[?*+][?+]?|\{(?:\d+(?:,\d*)?|,\d+)\}\??/;
+  var C2 = new RegExp(o`
+  \\ (?:
+    ${b2}
+    | [gk]<[^>]*>?
+    | [gk]'[^']*'?
+    | .
+  )
+  | \( (?:
+    \? (?:
+      [:=!>({]
+      | <[=!]
+      | <[^>]*>
+      | '[^']*'
+      | ~\|?
+      | #(?:[^)\\]|\\.?)*
+      | [^:)]*[:)]
+    )?
+    | \*[^\)]*\)?
+  )?
+  | (?:${y2.source})+
+  | ${m2}
+  | .
+`.replace(/\s+/g, ""), "gsu");
+  var T3 = new RegExp(o`
+  \\ (?:
+    ${b2}
+    | .
+  )
+  | \[:(?:\^?\p{Alpha}+|\^):\]
+  | ${m2}
+  | &&
+  | .
+`.replace(/\s+/g, ""), "gsu");
+  function M2(e, n = {}) {
+    const t = { flags: "", ...n, rules: { captureGroup: false, singleline: false, ...n.rules } };
+    if (typeof e != "string") throw new Error("String expected as pattern");
+    const o3 = Y(t.flags), s2 = [o3.extended], a2 = { captureGroup: t.rules.captureGroup, getCurrentModX() {
+      return s2.at(-1);
+    }, numOpenGroups: 0, popModX() {
+      s2.pop();
+    }, pushModX(u4) {
+      s2.push(u4);
+    }, replaceCurrentModX(u4) {
+      s2[s2.length - 1] = u4;
+    }, singleline: t.rules.singleline };
+    let r4 = [], i2;
+    for (C2.lastIndex = 0; i2 = C2.exec(e); ) {
+      const u4 = F2(a2, e, i2[0], C2.lastIndex);
+      u4.tokens ? r4.push(...u4.tokens) : u4.token && r4.push(u4.token), u4.lastIndex !== void 0 && (C2.lastIndex = u4.lastIndex);
+    }
+    const l3 = [];
+    let c = 0;
+    r4.filter((u4) => u4.type === "GroupOpen").forEach((u4) => {
+      u4.kind === "capturing" ? u4.number = ++c : u4.raw === "(" && l3.push(u4);
+    }), c || l3.forEach((u4, S4) => {
+      u4.kind = "capturing", u4.number = S4 + 1;
+    });
+    const g = c || l3.length;
+    return { tokens: r4.map((u4) => u4.type === "EscapedNumber" ? ee(u4, g) : u4).flat(), flags: o3 };
+  }
+  function F2(e, n, t, o3) {
+    const [s2, a2] = t;
+    if (t === "[" || t === "[^") {
+      const r4 = K2(n, t, o3);
+      return { tokens: r4.tokens, lastIndex: r4.lastIndex };
+    }
+    if (s2 === "\\") {
+      if ("AbBGyYzZ".includes(a2)) return { token: w2(t, t) };
+      if (/^\\g[<']/.test(t)) {
+        if (!/^\\g(?:<[^>]+>|'[^']+')$/.test(t)) throw new Error(`Invalid group name "${t}"`);
+        return { token: R(t) };
+      }
+      if (/^\\k[<']/.test(t)) {
+        if (!/^\\k(?:<[^>]+>|'[^']+')$/.test(t)) throw new Error(`Invalid group name "${t}"`);
+        return { token: A(t) };
+      }
+      if (a2 === "K") return { token: I2("keep", t) };
+      if (a2 === "N" || a2 === "R") return { token: k2("newline", t, { negate: a2 === "N" }) };
+      if (a2 === "O") return { token: k2("any", t) };
+      if (a2 === "X") return { token: k2("text_segment", t) };
+      const r4 = x2(t, { inCharClass: false });
+      return Array.isArray(r4) ? { tokens: r4 } : { token: r4 };
+    }
+    if (s2 === "(") {
+      if (a2 === "*") return { token: j2(t) };
+      if (t === "(?{") throw new Error(`Unsupported callout "${t}"`);
+      if (t.startsWith("(?#")) {
+        if (n[o3] !== ")") throw new Error('Unclosed comment group "(?#"');
+        return { lastIndex: o3 + 1 };
+      }
+      if (/^\(\?[-imx]+[:)]$/.test(t)) return { token: L2(t, e) };
+      if (e.pushModX(e.getCurrentModX()), e.numOpenGroups++, t === "(" && !e.captureGroup || t === "(?:") return { token: f("group", t) };
+      if (t === "(?>") return { token: f("atomic", t) };
+      if (t === "(?=" || t === "(?!" || t === "(?<=" || t === "(?<!") return { token: f(t[2] === "<" ? "lookbehind" : "lookahead", t, { negate: t.endsWith("!") }) };
+      if (t === "(" && e.captureGroup || t.startsWith("(?<") && t.endsWith(">") || t.startsWith("(?'") && t.endsWith("'")) return { token: f("capturing", t, { ...t !== "(" && { name: t.slice(3, -1) } }) };
+      if (t.startsWith("(?~")) {
+        if (t === "(?~|") throw new Error(`Unsupported absence function kind "${t}"`);
+        return { token: f("absence_repeater", t) };
+      }
+      throw t === "(?(" ? new Error(`Unsupported conditional "${t}"`) : new Error(`Invalid or unsupported group option "${t}"`);
+    }
+    if (t === ")") {
+      if (e.popModX(), e.numOpenGroups--, e.numOpenGroups < 0) throw new Error('Unmatched ")"');
+      return { token: Q2(t) };
+    }
+    if (e.getCurrentModX()) {
+      if (t === "#") {
+        const r4 = n.indexOf(`
+`, o3);
+        return { lastIndex: r4 === -1 ? n.length : r4 };
+      }
+      if (/^\s$/.test(t)) {
+        const r4 = /\s+/y;
+        return r4.lastIndex = o3, { lastIndex: r4.exec(n) ? r4.lastIndex : o3 };
+      }
+    }
+    if (t === ".") return { token: k2("dot", t) };
+    if (t === "^" || t === "$") {
+      const r4 = e.singleline ? { "^": o`\A`, $: o`\Z` }[t] : t;
+      return { token: w2(r4, t) };
+    }
+    return t === "|" ? { token: P2(t) } : y2.test(t) ? { tokens: te2(t) } : { token: d2(r(t), t) };
+  }
+  function K2(e, n, t) {
+    const o3 = [E2(n[1] === "^", n)];
+    let s2 = 1, a2;
+    for (T3.lastIndex = t; a2 = T3.exec(e); ) {
+      const r4 = a2[0];
+      if (r4[0] === "[" && r4[1] !== ":") s2++, o3.push(E2(r4[1] === "^", r4));
+      else if (r4 === "]") {
+        if (o3.at(-1).type === "CharacterClassOpen") o3.push(d2(93, r4));
+        else if (s2--, o3.push(z2(r4)), !s2) break;
+      } else {
+        const i2 = X2(r4);
+        Array.isArray(i2) ? o3.push(...i2) : o3.push(i2);
+      }
+    }
+    return { tokens: o3, lastIndex: T3.lastIndex || e.length };
+  }
+  function X2(e) {
+    if (e[0] === "\\") return x2(e, { inCharClass: true });
+    if (e[0] === "[") {
+      const n = /\[:(?<negate>\^?)(?<name>[a-z]+):\]/.exec(e);
+      if (!n || !i.has(n.groups.name)) throw new Error(`Invalid POSIX class "${e}"`);
+      return k2("posix", e, { value: n.groups.name, negate: !!n.groups.negate });
+    }
+    return e === "-" ? U2(e) : e === "&&" ? H(e) : d2(r(e), e);
+  }
+  function x2(e, { inCharClass: n }) {
+    const t = e[1];
+    if (t === "c" || t === "C") return Z2(e);
+    if ("dDhHsSwW".includes(t)) return q2(e);
+    if (e.startsWith(o`\o{`)) throw new Error(`Incomplete, invalid, or unsupported octal code point "${e}"`);
+    if (/^\\[pP]\{/.test(e)) {
+      if (e.length === 3) throw new Error(`Incomplete or invalid Unicode property "${e}"`);
+      return V(e);
+    }
+    if (/^\\x[89A-Fa-f]\p{AHex}/u.test(e)) try {
+      const o3 = e.split(/\\x/).slice(1).map((i2) => parseInt(i2, 16)), s2 = new TextDecoder("utf-8", { ignoreBOM: true, fatal: true }).decode(new Uint8Array(o3)), a2 = new TextEncoder();
+      return [...s2].map((i2) => {
+        const l3 = [...a2.encode(i2)].map((c) => `\\x${c.toString(16)}`).join("");
+        return d2(r(i2), l3);
+      });
+    } catch {
+      throw new Error(`Multibyte code "${e}" incomplete or invalid in Oniguruma`);
+    }
+    if (t === "u" || t === "x") return d2(J2(e), e);
+    if ($2.has(t)) return d2($2.get(t), e);
+    if (/\d/.test(t)) return W2(n, e);
+    if (e === "\\") throw new Error(o`Incomplete escape "\"`);
+    if (t === "M") throw new Error(`Unsupported meta "${e}"`);
+    if ([...e].length === 2) return d2(e.codePointAt(1), e);
+    throw new Error(`Unexpected escape "${e}"`);
+  }
+  function P2(e) {
+    return { type: "Alternator", raw: e };
+  }
+  function w2(e, n) {
+    return { type: "Assertion", kind: e, raw: n };
+  }
+  function A(e) {
+    return { type: "Backreference", raw: e };
+  }
+  function d2(e, n) {
+    return { type: "Character", value: e, raw: n };
+  }
+  function z2(e) {
+    return { type: "CharacterClassClose", raw: e };
+  }
+  function U2(e) {
+    return { type: "CharacterClassHyphen", raw: e };
+  }
+  function H(e) {
+    return { type: "CharacterClassIntersector", raw: e };
+  }
+  function E2(e, n) {
+    return { type: "CharacterClassOpen", negate: e, raw: n };
+  }
+  function k2(e, n, t = {}) {
+    return { type: "CharacterSet", kind: e, ...t, raw: n };
+  }
+  function I2(e, n, t = {}) {
+    return e === "keep" ? { type: "Directive", kind: e, raw: n } : { type: "Directive", kind: e, flags: u3(t.flags), raw: n };
+  }
+  function W2(e, n) {
+    return { type: "EscapedNumber", inCharClass: e, raw: n };
+  }
+  function Q2(e) {
+    return { type: "GroupClose", raw: e };
+  }
+  function f(e, n, t = {}) {
+    return { type: "GroupOpen", kind: e, ...t, raw: n };
+  }
+  function D3(e, n, t, o3) {
+    return { type: "NamedCallout", kind: e, tag: n, arguments: t, raw: o3 };
+  }
+  function _2(e, n, t, o3) {
+    return { type: "Quantifier", kind: e, min: n, max: t, raw: o3 };
+  }
+  function R(e) {
+    return { type: "Subroutine", raw: e };
+  }
+  var B2 = /* @__PURE__ */ new Set(["COUNT", "CMP", "ERROR", "FAIL", "MAX", "MISMATCH", "SKIP", "TOTAL_COUNT"]);
+  var $2 = /* @__PURE__ */ new Map([["a", 7], ["b", 8], ["e", 27], ["f", 12], ["n", 10], ["r", 13], ["t", 9], ["v", 11]]);
+  function Z2(e) {
+    const n = e[1] === "c" ? e[2] : e[3];
+    if (!n || !/[A-Za-z]/.test(n)) throw new Error(`Unsupported control character "${e}"`);
+    return d2(r(n.toUpperCase()) - 64, e);
+  }
+  function L2(e, n) {
+    let { on: t, off: o3 } = /^\(\?(?<on>[imx]*)(?:-(?<off>[-imx]*))?/.exec(e).groups;
+    o3 ??= "";
+    const s2 = (n.getCurrentModX() || t.includes("x")) && !o3.includes("x"), a2 = v2(t), r4 = v2(o3), i2 = {};
+    if (a2 && (i2.enable = a2), r4 && (i2.disable = r4), e.endsWith(")")) return n.replaceCurrentModX(s2), I2("flags", e, { flags: i2 });
+    if (e.endsWith(":")) return n.pushModX(s2), n.numOpenGroups++, f("group", e, { ...(a2 || r4) && { flags: i2 } });
+    throw new Error(`Unexpected flag modifier "${e}"`);
+  }
+  function j2(e) {
+    const n = /\(\*(?<name>[A-Za-z_]\w*)?(?:\[(?<tag>(?:[A-Za-z_]\w*)?)\])?(?:\{(?<args>[^}]*)\})?\)/.exec(e);
+    if (!n) throw new Error(`Incomplete or invalid named callout "${e}"`);
+    const { name: t, tag: o3, args: s2 } = n.groups;
+    if (!t) throw new Error(`Invalid named callout "${e}"`);
+    if (o3 === "") throw new Error(`Named callout tag with empty value not allowed "${e}"`);
+    const a2 = s2 ? s2.split(",").filter((g) => g !== "").map((g) => /^[+-]?\d+$/.test(g) ? +g : g) : [], [r4, i2, l3] = a2, c = B2.has(t) ? t.toLowerCase() : "custom";
+    switch (c) {
+      case "fail":
+      case "mismatch":
+      case "skip":
+        if (a2.length > 0) throw new Error(`Named callout arguments not allowed "${a2}"`);
+        break;
+      case "error":
+        if (a2.length > 1) throw new Error(`Named callout allows only one argument "${a2}"`);
+        if (typeof r4 == "string") throw new Error(`Named callout argument must be a number "${r4}"`);
+        break;
+      case "max":
+        if (!a2.length || a2.length > 2) throw new Error(`Named callout must have one or two arguments "${a2}"`);
+        if (typeof r4 == "string" && !/^[A-Za-z_]\w*$/.test(r4)) throw new Error(`Named callout argument one must be a tag or number "${r4}"`);
+        if (a2.length === 2 && (typeof i2 == "number" || !/^[<>X]$/.test(i2))) throw new Error(`Named callout optional argument two must be '<', '>', or 'X' "${i2}"`);
+        break;
+      case "count":
+      case "total_count":
+        if (a2.length > 1) throw new Error(`Named callout allows only one argument "${a2}"`);
+        if (a2.length === 1 && (typeof r4 == "number" || !/^[<>X]$/.test(r4))) throw new Error(`Named callout optional argument must be '<', '>', or 'X' "${r4}"`);
+        break;
+      case "cmp":
+        if (a2.length !== 3) throw new Error(`Named callout must have three arguments "${a2}"`);
+        if (typeof r4 == "string" && !/^[A-Za-z_]\w*$/.test(r4)) throw new Error(`Named callout argument one must be a tag or number "${r4}"`);
+        if (typeof i2 == "number" || !/^(?:[<>!=]=|[<>])$/.test(i2)) throw new Error(`Named callout argument two must be '==', '!=', '>', '<', '>=', or '<=' "${i2}"`);
+        if (typeof l3 == "string" && !/^[A-Za-z_]\w*$/.test(l3)) throw new Error(`Named callout argument three must be a tag or number "${l3}"`);
+        break;
+      case "custom":
+        throw new Error(`Undefined callout name "${t}"`);
+      default:
+        throw new Error(`Unexpected named callout kind "${c}"`);
+    }
+    return D3(c, o3 ?? null, s2?.split(",") ?? null, e);
+  }
+  function O(e) {
+    let n = null, t, o3;
+    if (e[0] === "{") {
+      const { minStr: s2, maxStr: a2 } = /^\{(?<minStr>\d*)(?:,(?<maxStr>\d*))?/.exec(e).groups, r4 = 1e5;
+      if (+s2 > r4 || a2 && +a2 > r4) throw new Error("Quantifier value unsupported in Oniguruma");
+      if (t = +s2, o3 = a2 === void 0 ? +s2 : a2 === "" ? 1 / 0 : +a2, t > o3 && (n = "possessive", [t, o3] = [o3, t]), e.endsWith("?")) {
+        if (n === "possessive") throw new Error('Unsupported possessive interval quantifier chain with "?"');
+        n = "lazy";
+      } else n || (n = "greedy");
+    } else t = e[0] === "+" ? 1 : 0, o3 = e[0] === "?" ? 1 : 1 / 0, n = e[1] === "+" ? "possessive" : e[1] === "?" ? "lazy" : "greedy";
+    return _2(n, t, o3, e);
+  }
+  function q2(e) {
+    const n = e[1].toLowerCase();
+    return k2({ d: "digit", h: "hex", s: "space", w: "word" }[n], e, { negate: e[1] !== n });
+  }
+  function V(e) {
+    const { p: n, neg: t, value: o3 } = /^\\(?<p>[pP])\{(?<neg>\^?)(?<value>[^}]+)/.exec(e).groups;
+    return k2("property", e, { value: o3, negate: n === "P" && !t || n === "p" && !!t });
+  }
+  function v2(e) {
+    const n = {};
+    return e.includes("i") && (n.ignoreCase = true), e.includes("m") && (n.dotAll = true), e.includes("x") && (n.extended = true), Object.keys(n).length ? n : null;
+  }
+  function Y(e) {
+    const n = { ignoreCase: false, dotAll: false, extended: false, digitIsAscii: false, posixIsAscii: false, spaceIsAscii: false, wordIsAscii: false, textSegmentMode: null };
+    for (let t = 0; t < e.length; t++) {
+      const o3 = e[t];
+      if (!"imxDPSWy".includes(o3)) throw new Error(`Invalid flag "${o3}"`);
+      if (o3 === "y") {
+        if (!/^y{[gw]}/.test(e.slice(t))) throw new Error('Invalid or unspecified flag "y" mode');
+        n.textSegmentMode = e[t + 2] === "g" ? "grapheme" : "word", t += 3;
+        continue;
+      }
+      n[{ i: "ignoreCase", m: "dotAll", x: "extended", D: "digitIsAscii", P: "posixIsAscii", S: "spaceIsAscii", W: "wordIsAscii" }[o3]] = true;
+    }
+    return n;
+  }
+  function J2(e) {
+    if (/^(?:\\u(?!\p{AHex}{4})|\\x(?!\p{AHex}{1,2}|\{\p{AHex}{1,8}\}))/u.test(e)) throw new Error(`Incomplete or invalid escape "${e}"`);
+    const n = e[2] === "{" ? /^\\x\{\s*(?<hex>\p{AHex}+)/u.exec(e).groups.hex : e.slice(2);
+    return parseInt(n, 16);
+  }
+  function ee(e, n) {
+    const { raw: t, inCharClass: o3 } = e, s2 = t.slice(1);
+    if (!o3 && (s2 !== "0" && s2.length === 1 || s2[0] !== "0" && +s2 <= n)) return [A(t)];
+    const a2 = [], r4 = s2.match(/^[0-7]+|\d/g);
+    for (let i2 = 0; i2 < r4.length; i2++) {
+      const l3 = r4[i2];
+      let c;
+      if (i2 === 0 && l3 !== "8" && l3 !== "9") {
+        if (c = parseInt(l3, 8), c > 127) throw new Error(o`Octal encoded byte above 177 unsupported "${t}"`);
+      } else c = r(l3);
+      a2.push(d2(c, (i2 === 0 ? "\\" : "") + l3));
+    }
+    return a2;
+  }
+  function te2(e) {
+    const n = [], t = new RegExp(y2, "gy");
+    let o3;
+    for (; o3 = t.exec(e); ) {
+      const s2 = o3[0];
+      if (s2[0] === "{") {
+        const a2 = /^\{(?<min>\d+),(?<max>\d+)\}\??$/.exec(s2);
+        if (a2) {
+          const { min: r4, max: i2 } = a2.groups;
+          if (+r4 > +i2 && s2.endsWith("?")) {
+            t.lastIndex--, n.push(O(s2.slice(0, -1)));
+            continue;
+          }
+        }
+      }
+      n.push(O(s2));
+    }
+    return n;
+  }
+
+  // node_modules/oniguruma-parser/dist/parser/node-utils.js
+  function o2(e, t) {
+    if (!Array.isArray(e.body)) throw new Error("Expected node with body array");
+    if (e.body.length !== 1) return false;
+    const r4 = e.body[0];
+    return !t || Object.keys(t).every((n) => t[n] === r4[n]);
+  }
+  function s(e) {
+    return y3.has(e.type);
+  }
+  var y3 = /* @__PURE__ */ new Set(["AbsenceFunction", "Backreference", "CapturingGroup", "Character", "CharacterClass", "CharacterSet", "Group", "Quantifier", "Subroutine"]);
+
+  // node_modules/oniguruma-parser/dist/parser/parse.js
+  function J3(e, r4 = {}) {
+    const n = { flags: "", normalizeUnknownPropertyNames: false, skipBackrefValidation: false, skipLookbehindValidation: false, skipPropertyNameValidation: false, unicodePropertyMap: null, ...r4, rules: { captureGroup: false, singleline: false, ...r4.rules } }, o3 = M2(e, { flags: n.flags, rules: { captureGroup: n.rules.captureGroup, singleline: n.rules.singleline } }), i2 = (p2, N2) => {
+      const u4 = o3.tokens[t.nextIndex];
+      switch (t.parent = p2, t.nextIndex++, u4.type) {
+        case "Alternator":
+          return b3();
+        case "Assertion":
+          return W3(u4);
+        case "Backreference":
+          return X3(u4, t);
+        case "Character":
+          return m3(u4.value, { useLastValid: !!N2.isCheckingRangeEnd });
+        case "CharacterClassHyphen":
+          return ee2(u4, t, N2);
+        case "CharacterClassOpen":
+          return re3(u4, t, N2);
+        case "CharacterSet":
+          return ne2(u4, t);
+        case "Directive":
+          return I3(u4.kind, { flags: u4.flags });
+        case "GroupOpen":
+          return te3(u4, t, N2);
+        case "NamedCallout":
+          return U3(u4.kind, u4.tag, u4.arguments);
+        case "Quantifier":
+          return oe2(u4, t);
+        case "Subroutine":
+          return ae2(u4, t);
+        default:
+          throw new Error(`Unexpected token type "${u4.type}"`);
+      }
+    }, t = { capturingGroups: [], hasNumberedRef: false, namedGroupsByName: /* @__PURE__ */ new Map(), nextIndex: 0, normalizeUnknownPropertyNames: n.normalizeUnknownPropertyNames, parent: null, skipBackrefValidation: n.skipBackrefValidation, skipLookbehindValidation: n.skipLookbehindValidation, skipPropertyNameValidation: n.skipPropertyNameValidation, subroutines: [], tokens: o3.tokens, unicodePropertyMap: n.unicodePropertyMap, walk: i2 }, d3 = B3(T4(o3.flags));
+    let s2 = d3.body[0];
+    for (; t.nextIndex < o3.tokens.length; ) {
+      const p2 = i2(s2, {});
+      p2.type === "Alternative" ? (d3.body.push(p2), s2 = p2) : s2.body.push(p2);
+    }
+    const { capturingGroups: a2, hasNumberedRef: l3, namedGroupsByName: c, subroutines: f2 } = t;
+    if (l3 && c.size && !n.rules.captureGroup) throw new Error("Numbered backref/subroutine not allowed when using named capture");
+    for (const { ref: p2 } of f2) if (typeof p2 == "number") {
+      if (p2 > a2.length) throw new Error("Subroutine uses a group number that's not defined");
+      p2 && (a2[p2 - 1].isSubroutined = true);
+    } else if (c.has(p2)) {
+      if (c.get(p2).length > 1) throw new Error(o`Subroutine uses a duplicate group name "\g<${p2}>"`);
+      c.get(p2)[0].isSubroutined = true;
+    } else throw new Error(o`Subroutine uses a group name that's not defined "\g<${p2}>"`);
+    return d3;
+  }
+  function W3({ kind: e }) {
+    return F3(u3({ "^": "line_start", $: "line_end", "\\A": "string_start", "\\b": "word_boundary", "\\B": "word_boundary", "\\G": "search_start", "\\y": "text_segment_boundary", "\\Y": "text_segment_boundary", "\\z": "string_end", "\\Z": "string_end_newline" }[e], `Unexpected assertion kind "${e}"`), { negate: e === o`\B` || e === o`\Y` });
+  }
+  function X3({ raw: e }, r4) {
+    const n = /^\\k[<']/.test(e), o3 = n ? e.slice(3, -1) : e.slice(1), i2 = (t, d3 = false) => {
+      const s2 = r4.capturingGroups.length;
+      let a2 = false;
+      if (t > s2) if (r4.skipBackrefValidation) a2 = true;
+      else throw new Error(`Not enough capturing groups defined to the left "${e}"`);
+      return r4.hasNumberedRef = true, k3(d3 ? s2 + 1 - t : t, { orphan: a2 });
+    };
+    if (n) {
+      const t = /^(?<sign>-?)0*(?<num>[1-9]\d*)$/.exec(o3);
+      if (t) return i2(+t.groups.num, !!t.groups.sign);
+      if (/[-+]/.test(o3)) throw new Error(`Invalid backref name "${e}"`);
+      if (!r4.namedGroupsByName.has(o3)) throw new Error(`Group name not defined to the left "${e}"`);
+      return k3(o3);
+    }
+    return i2(+o3);
+  }
+  function ee2(e, r4, n) {
+    const { tokens: o3, walk: i2 } = r4, t = r4.parent, d3 = t.body.at(-1), s2 = o3[r4.nextIndex];
+    if (!n.isCheckingRangeEnd && d3 && d3.type !== "CharacterClass" && d3.type !== "CharacterClassRange" && s2 && s2.type !== "CharacterClassOpen" && s2.type !== "CharacterClassClose" && s2.type !== "CharacterClassIntersector") {
+      const a2 = i2(t, { ...n, isCheckingRangeEnd: true });
+      if (d3.type === "Character" && a2.type === "Character") return t.body.pop(), L3(d3, a2);
+      throw new Error("Invalid character class range");
+    }
+    return m3(r("-"));
+  }
+  function re3({ negate: e }, r4, n) {
+    const { tokens: o3, walk: i2 } = r4, t = [C3()], d3 = o3[r4.nextIndex];
+    let s2 = z3(d3);
+    for (; s2.type !== "CharacterClassClose"; ) {
+      if (s2.type === "CharacterClassIntersector") t.push(C3()), r4.nextIndex++;
+      else {
+        const l3 = t.at(-1);
+        l3.body.push(i2(l3, n));
+      }
+      s2 = z3(o3[r4.nextIndex], d3);
+    }
+    const a2 = C3({ negate: e });
+    return t.length === 1 ? a2.body = t[0].body : (a2.kind = "intersection", a2.body = t.map((l3) => l3.body.length === 1 ? l3.body[0] : l3)), r4.nextIndex++, a2;
+  }
+  function ne2({ kind: e, negate: r4, value: n }, o3) {
+    const { normalizeUnknownPropertyNames: i2, skipPropertyNameValidation: t, unicodePropertyMap: d3 } = o3;
+    if (e === "property") {
+      const s2 = w3(n);
+      if (i.has(s2) && !d3?.has(s2)) e = "posix", n = s2;
+      else return Q3(n, { negate: r4, normalizeUnknownPropertyNames: i2, skipPropertyNameValidation: t, unicodePropertyMap: d3 });
+    }
+    return e === "posix" ? R2(n, { negate: r4 }) : E3(e, { negate: r4 });
+  }
+  function te3(e, r4, n) {
+    const { tokens: o3, capturingGroups: i2, namedGroupsByName: t, skipLookbehindValidation: d3, walk: s2 } = r4, a2 = ie4(e), l3 = a2.type === "AbsenceFunction", c = $3(a2), f2 = c && a2.negate;
+    if (a2.type === "CapturingGroup" && (i2.push(a2), a2.name && l(t, a2.name, []).push(a2)), l3 && n.isInAbsenceFunction) throw new Error("Nested absence function not supported by Oniguruma");
+    let p2 = D4(o3[r4.nextIndex]);
+    for (; p2.type !== "GroupClose"; ) {
+      if (p2.type === "Alternator") a2.body.push(b3()), r4.nextIndex++;
+      else {
+        const N2 = a2.body.at(-1), u4 = s2(N2, { ...n, isInAbsenceFunction: n.isInAbsenceFunction || l3, isInLookbehind: n.isInLookbehind || c, isInNegLookbehind: n.isInNegLookbehind || f2 });
+        if (N2.body.push(u4), (c || n.isInLookbehind) && !d3) {
+          const v3 = "Lookbehind includes a pattern not allowed by Oniguruma";
+          if (f2 || n.isInNegLookbehind) {
+            if (M3(u4) || u4.type === "CapturingGroup") throw new Error(v3);
+          } else if (M3(u4) || $3(u4) && u4.negate) throw new Error(v3);
+        }
+      }
+      p2 = D4(o3[r4.nextIndex]);
+    }
+    return r4.nextIndex++, a2;
+  }
+  function oe2({ kind: e, min: r4, max: n }, o3) {
+    const i2 = o3.parent, t = i2.body.at(-1);
+    if (!t || !s(t)) throw new Error("Quantifier requires a repeatable token");
+    const d3 = _3(e, r4, n, t);
+    return i2.body.pop(), d3;
+  }
+  function ae2({ raw: e }, r4) {
+    const { capturingGroups: n, subroutines: o3 } = r4;
+    let i2 = e.slice(3, -1);
+    const t = /^(?<sign>[-+]?)0*(?<num>[1-9]\d*)$/.exec(i2);
+    if (t) {
+      const s2 = +t.groups.num, a2 = n.length;
+      if (r4.hasNumberedRef = true, i2 = { "": s2, "+": a2 + s2, "-": a2 + 1 - s2 }[t.groups.sign], i2 < 1) throw new Error("Invalid subroutine number");
+    } else i2 === "0" && (i2 = 0);
+    const d3 = O2(i2);
+    return o3.push(d3), d3;
+  }
+  function G2(e, r4) {
+    if (e !== "repeater") throw new Error(`Unexpected absence function kind "${e}"`);
+    return { type: "AbsenceFunction", kind: e, body: h(r4?.body) };
+  }
+  function b3(e) {
+    return { type: "Alternative", body: V2(e?.body) };
+  }
+  function F3(e, r4) {
+    const n = { type: "Assertion", kind: e };
+    return (e === "word_boundary" || e === "text_segment_boundary") && (n.negate = !!r4?.negate), n;
+  }
+  function k3(e, r4) {
+    const n = !!r4?.orphan;
+    return { type: "Backreference", ref: e, ...n && { orphan: n } };
+  }
+  function P3(e, r4) {
+    const n = { name: void 0, isSubroutined: false, ...r4 };
+    if (n.name !== void 0 && !se2(n.name)) throw new Error(`Group name "${n.name}" invalid in Oniguruma`);
+    return { type: "CapturingGroup", number: e, ...n.name && { name: n.name }, ...n.isSubroutined && { isSubroutined: n.isSubroutined }, body: h(r4?.body) };
+  }
+  function m3(e, r4) {
+    const n = { useLastValid: false, ...r4 };
+    if (e > 1114111) {
+      const o3 = e.toString(16);
+      if (n.useLastValid) e = 1114111;
+      else throw e > 1310719 ? new Error(`Invalid code point out of range "\\x{${o3}}"`) : new Error(`Invalid code point out of range in JS "\\x{${o3}}"`);
+    }
+    return { type: "Character", value: e };
+  }
+  function C3(e) {
+    const r4 = { kind: "union", negate: false, ...e };
+    return { type: "CharacterClass", kind: r4.kind, negate: r4.negate, body: V2(e?.body) };
+  }
+  function L3(e, r4) {
+    if (r4.value < e.value) throw new Error("Character class range out of order");
+    return { type: "CharacterClassRange", min: e, max: r4 };
+  }
+  function E3(e, r4) {
+    const n = !!r4?.negate, o3 = { type: "CharacterSet", kind: e };
+    return (e === "digit" || e === "hex" || e === "newline" || e === "space" || e === "word") && (o3.negate = n), (e === "text_segment" || e === "newline" && !n) && (o3.variableLength = true), o3;
+  }
+  function I3(e, r4 = {}) {
+    if (e === "keep") return { type: "Directive", kind: e };
+    if (e === "flags") return { type: "Directive", kind: e, flags: u3(r4.flags) };
+    throw new Error(`Unexpected directive kind "${e}"`);
+  }
+  function T4(e) {
+    return { type: "Flags", ...e };
+  }
+  function A2(e) {
+    const r4 = e?.atomic, n = e?.flags;
+    if (r4 && n) throw new Error("Atomic group cannot have flags");
+    return { type: "Group", ...r4 && { atomic: r4 }, ...n && { flags: n }, body: h(e?.body) };
+  }
+  function K3(e) {
+    const r4 = { behind: false, negate: false, ...e };
+    return { type: "LookaroundAssertion", kind: r4.behind ? "lookbehind" : "lookahead", negate: r4.negate, body: h(e?.body) };
+  }
+  function U3(e, r4, n) {
+    return { type: "NamedCallout", kind: e, tag: r4, arguments: n };
+  }
+  function R2(e, r4) {
+    const n = !!r4?.negate;
+    if (!i.has(e)) throw new Error(`Invalid POSIX class "${e}"`);
+    return { type: "CharacterSet", kind: "posix", value: e, negate: n };
+  }
+  function _3(e, r4, n, o3) {
+    if (r4 > n) throw new Error("Invalid reversed quantifier range");
+    return { type: "Quantifier", kind: e, min: r4, max: n, body: o3 };
+  }
+  function B3(e, r4) {
+    return { type: "Regex", body: h(r4?.body), flags: e };
+  }
+  function O2(e) {
+    return { type: "Subroutine", ref: e };
+  }
+  function Q3(e, r4) {
+    const n = { negate: false, normalizeUnknownPropertyNames: false, skipPropertyNameValidation: false, unicodePropertyMap: null, ...r4 };
+    let o3 = n.unicodePropertyMap?.get(w3(e));
+    if (!o3) {
+      if (n.normalizeUnknownPropertyNames) o3 = de2(e);
+      else if (n.unicodePropertyMap && !n.skipPropertyNameValidation) throw new Error(o`Invalid Unicode property "\p{${e}}"`);
+    }
+    return { type: "CharacterSet", kind: "property", value: o3 ?? e, negate: n.negate };
+  }
+  function ie4({ flags: e, kind: r4, name: n, negate: o3, number: i2 }) {
+    switch (r4) {
+      case "absence_repeater":
+        return G2("repeater");
+      case "atomic":
+        return A2({ atomic: true });
+      case "capturing":
+        return P3(i2, { name: n });
+      case "group":
+        return A2({ flags: e });
+      case "lookahead":
+      case "lookbehind":
+        return K3({ behind: r4 === "lookbehind", negate: o3 });
+      default:
+        throw new Error(`Unexpected group kind "${r4}"`);
+    }
+  }
+  function h(e) {
+    if (e === void 0) e = [b3()];
+    else if (!Array.isArray(e) || !e.length || !e.every((r4) => r4.type === "Alternative")) throw new Error("Invalid body; expected array of one or more Alternative nodes");
+    return e;
+  }
+  function V2(e) {
+    if (e === void 0) e = [];
+    else if (!Array.isArray(e) || !e.every((r4) => !!r4.type)) throw new Error("Invalid body; expected array of nodes");
+    return e;
+  }
+  function M3(e) {
+    return e.type === "LookaroundAssertion" && e.kind === "lookahead";
+  }
+  function $3(e) {
+    return e.type === "LookaroundAssertion" && e.kind === "lookbehind";
+  }
+  function se2(e) {
+    return /^[\p{Alpha}\p{Pc}][^)]*$/u.test(e);
+  }
+  function de2(e) {
+    return e.trim().replace(/[- _]+/g, "_").replace(/[A-Z][a-z]+(?=[A-Z])/g, "$&_").replace(/[A-Za-z]+/g, (r4) => r4[0].toUpperCase() + r4.slice(1).toLowerCase());
+  }
+  function w3(e) {
+    return e.replace(/[- _]+/g, "").toLowerCase();
+  }
+  function z3(e, r4) {
+    const n = r4;
+    return u3(e, `Unclosed character class${n?.type === "Character" && n.value === 93 && n.raw === "]" ? ' (started with "]")' : ""}`);
+  }
+  function D4(e) {
+    return u3(e, "Unclosed group");
+  }
+
+  // node_modules/oniguruma-parser/dist/traverser/traverse.js
+  function S3(a2, v3, N2 = null) {
+    function b4(e, s2) {
+      for (let t = 0; t < e.length; t++) {
+        const r4 = n(e[t], s2, t, e);
+        t = Math.max(-1, t + r4);
+      }
+    }
+    function n(e, s2 = null, t = null, r4 = null) {
+      let i2 = 0, c = false;
+      const d3 = { node: e, parent: s2, key: t, container: r4, root: a2, remove() {
+        x3(r4).splice(Math.max(0, l2(t) + i2), 1), i2--, c = true;
+      }, removeAllNextSiblings() {
+        return x3(r4).splice(l2(t) + 1);
+      }, removeAllPrevSiblings() {
+        const o3 = l2(t) + i2;
+        return i2 -= o3, x3(r4).splice(0, Math.max(0, o3));
+      }, replaceWith(o3, m4 = {}) {
+        const y4 = !!m4.traverse;
+        r4 ? r4[Math.max(0, l2(t) + i2)] = o3 : u3(s2, "Can't replace root node")[t] = o3, y4 && n(o3, s2, t, r4), c = true;
+      }, replaceWithMultiple(o3, m4 = {}) {
+        const y4 = !!m4.traverse;
+        if (x3(r4).splice(Math.max(0, l2(t) + i2), 1, ...o3), i2 += o3.length - 1, y4) {
+          let g = 0;
+          for (let p2 = 0; p2 < o3.length; p2++) g += n(o3[p2], s2, l2(t) + p2 + g, r4);
+        }
+        c = true;
+      }, skip() {
+        c = true;
+      } }, { type: f2 } = e, u4 = v3["*"], h2 = v3[f2], R3 = typeof u4 == "function" ? u4 : u4?.enter, P4 = typeof h2 == "function" ? h2 : h2?.enter;
+      if (R3?.(d3, N2), P4?.(d3, N2), !c) switch (f2) {
+        case "AbsenceFunction":
+        case "Alternative":
+        case "CapturingGroup":
+        case "CharacterClass":
+        case "Group":
+        case "LookaroundAssertion":
+          b4(e.body, e);
+          break;
+        case "Assertion":
+        case "Backreference":
+        case "Character":
+        case "CharacterSet":
+        case "Directive":
+        case "Flags":
+        case "NamedCallout":
+        case "Subroutine":
+          break;
+        case "CharacterClassRange":
+          n(e.min, e, "min"), n(e.max, e, "max");
+          break;
+        case "Quantifier":
+          n(e.body, e, "body");
+          break;
+        case "Regex":
+          b4(e.body, e), n(e.flags, e, "flags");
+          break;
+        default:
+          throw new Error(`Unexpected node type "${f2}"`);
+      }
+      return h2?.exit?.(d3, N2), u4?.exit?.(d3, N2), i2;
+    }
+    return n(a2), a2;
+  }
+  function x3(a2) {
+    if (!Array.isArray(a2)) throw new Error("Container expected");
+    return a2;
+  }
+  function l2(a2) {
+    if (typeof a2 != "number") throw new Error("Numeric key expected");
+    return a2;
+  }
+
+  // node_modules/regex/src/utils-internals.js
+  var noncapturingDelim = String.raw`\(\?(?:[:=!>A-Za-z\-]|<[=!]|\(DEFINE\))`;
+  function incrementIfAtLeast(arr, threshold) {
+    for (let i2 = 0; i2 < arr.length; i2++) {
+      if (arr[i2] >= threshold) {
+        arr[i2]++;
+      }
+    }
+  }
+  function spliceStr(str, pos, oldValue, newValue) {
+    return str.slice(0, pos) + newValue + str.slice(pos + oldValue.length);
+  }
+
+  // node_modules/regex-utilities/src/index.js
+  var Context = Object.freeze({
+    DEFAULT: "DEFAULT",
+    CHAR_CLASS: "CHAR_CLASS"
+  });
+  function replaceUnescaped(expression, needle, replacement, context) {
+    const re4 = new RegExp(String.raw`${needle}|(?<$skip>\[\^?|\\?.)`, "gsu");
+    const negated = [false];
+    let numCharClassesOpen = 0;
+    let result = "";
+    for (const match of expression.matchAll(re4)) {
+      const { 0: m4, groups: { $skip } } = match;
+      if (!$skip && (!context || context === Context.DEFAULT === !numCharClassesOpen)) {
+        if (replacement instanceof Function) {
+          result += replacement(match, {
+            context: numCharClassesOpen ? Context.CHAR_CLASS : Context.DEFAULT,
+            negated: negated[negated.length - 1]
+          });
+        } else {
+          result += replacement;
+        }
+        continue;
+      }
+      if (m4[0] === "[") {
+        numCharClassesOpen++;
+        negated.push(m4[1] === "^");
+      } else if (m4 === "]" && numCharClassesOpen) {
+        numCharClassesOpen--;
+        negated.pop();
+      }
+      result += m4;
+    }
+    return result;
+  }
+  function forEachUnescaped(expression, needle, callback, context) {
+    replaceUnescaped(expression, needle, callback, context);
+  }
+  function execUnescaped(expression, needle, pos = 0, context) {
+    if (!new RegExp(needle, "su").test(expression)) {
+      return null;
+    }
+    const re4 = new RegExp(`${needle}|(?<$skip>\\\\?.)`, "gsu");
+    re4.lastIndex = pos;
+    let numCharClassesOpen = 0;
+    let match;
+    while (match = re4.exec(expression)) {
+      const { 0: m4, groups: { $skip } } = match;
+      if (!$skip && (!context || context === Context.DEFAULT === !numCharClassesOpen)) {
+        return match;
+      }
+      if (m4 === "[") {
+        numCharClassesOpen++;
+      } else if (m4 === "]" && numCharClassesOpen) {
+        numCharClassesOpen--;
+      }
+      if (re4.lastIndex == match.index) {
+        re4.lastIndex++;
+      }
+    }
+    return null;
+  }
+  function hasUnescaped(expression, needle, context) {
+    return !!execUnescaped(expression, needle, 0, context);
+  }
+  function getGroupContents(expression, contentsStartPos) {
+    const token2 = /\\?./gsu;
+    token2.lastIndex = contentsStartPos;
+    let contentsEndPos = expression.length;
+    let numCharClassesOpen = 0;
+    let numGroupsOpen = 1;
+    let match;
+    while (match = token2.exec(expression)) {
+      const [m4] = match;
+      if (m4 === "[") {
+        numCharClassesOpen++;
+      } else if (!numCharClassesOpen) {
+        if (m4 === "(") {
+          numGroupsOpen++;
+        } else if (m4 === ")") {
+          numGroupsOpen--;
+          if (!numGroupsOpen) {
+            contentsEndPos = match.index;
+            break;
+          }
+        }
+      } else if (m4 === "]") {
+        numCharClassesOpen--;
+      }
+    }
+    return expression.slice(contentsStartPos, contentsEndPos);
+  }
+
+  // node_modules/regex/src/atomic.js
+  var atomicPluginToken = new RegExp(String.raw`(?<noncapturingStart>${noncapturingDelim})|(?<capturingStart>\((?:\?<[^>]+>)?)|\\?.`, "gsu");
+  function atomic(expression, data) {
+    const hiddenCaptures = data?.hiddenCaptures ?? [];
+    let captureTransfers = data?.captureTransfers ?? /* @__PURE__ */ new Map();
+    if (!/\(\?>/.test(expression)) {
+      return {
+        pattern: expression,
+        captureTransfers,
+        hiddenCaptures
+      };
+    }
+    const aGDelim = "(?>";
+    const emulatedAGDelim = "(?:(?=(";
+    const captureNumMap = [0];
+    const addedHiddenCaptures = [];
+    let numCapturesBeforeAG = 0;
+    let numAGs = 0;
+    let aGPos = NaN;
+    let hasProcessedAG;
+    do {
+      hasProcessedAG = false;
+      let numCharClassesOpen = 0;
+      let numGroupsOpenInAG = 0;
+      let inAG = false;
+      let match;
+      atomicPluginToken.lastIndex = Number.isNaN(aGPos) ? 0 : aGPos + emulatedAGDelim.length;
+      while (match = atomicPluginToken.exec(expression)) {
+        const { 0: m4, index, groups: { capturingStart, noncapturingStart } } = match;
+        if (m4 === "[") {
+          numCharClassesOpen++;
+        } else if (!numCharClassesOpen) {
+          if (m4 === aGDelim && !inAG) {
+            aGPos = index;
+            inAG = true;
+          } else if (inAG && noncapturingStart) {
+            numGroupsOpenInAG++;
+          } else if (capturingStart) {
+            if (inAG) {
+              numGroupsOpenInAG++;
+            } else {
+              numCapturesBeforeAG++;
+              captureNumMap.push(numCapturesBeforeAG + numAGs);
+            }
+          } else if (m4 === ")" && inAG) {
+            if (!numGroupsOpenInAG) {
+              numAGs++;
+              const addedCaptureNum = numCapturesBeforeAG + numAGs;
+              expression = `${expression.slice(0, aGPos)}${emulatedAGDelim}${expression.slice(aGPos + aGDelim.length, index)}))<$$${addedCaptureNum}>)${expression.slice(index + 1)}`;
+              hasProcessedAG = true;
+              addedHiddenCaptures.push(addedCaptureNum);
+              incrementIfAtLeast(hiddenCaptures, addedCaptureNum);
+              if (captureTransfers.size) {
+                const newCaptureTransfers = /* @__PURE__ */ new Map();
+                captureTransfers.forEach((from2, to) => {
+                  newCaptureTransfers.set(
+                    to >= addedCaptureNum ? to + 1 : to,
+                    from2.map((f2) => f2 >= addedCaptureNum ? f2 + 1 : f2)
+                  );
+                });
+                captureTransfers = newCaptureTransfers;
+              }
+              break;
+            }
+            numGroupsOpenInAG--;
+          }
+        } else if (m4 === "]") {
+          numCharClassesOpen--;
+        }
+      }
+    } while (hasProcessedAG);
+    hiddenCaptures.push(...addedHiddenCaptures);
+    expression = replaceUnescaped(
+      expression,
+      String.raw`\\(?<backrefNum>[1-9]\d*)|<\$\$(?<wrappedBackrefNum>\d+)>`,
+      ({ 0: m4, groups: { backrefNum, wrappedBackrefNum } }) => {
+        if (backrefNum) {
+          const bNum = +backrefNum;
+          if (bNum > captureNumMap.length - 1) {
+            throw new Error(`Backref "${m4}" greater than number of captures`);
+          }
+          return `\\${captureNumMap[bNum]}`;
+        }
+        return `\\${wrappedBackrefNum}`;
+      },
+      Context.DEFAULT
+    );
+    return {
+      pattern: expression,
+      captureTransfers,
+      hiddenCaptures
+    };
+  }
+  var baseQuantifier = String.raw`(?:[?*+]|\{\d+(?:,\d*)?\})`;
+  var possessivePluginToken = new RegExp(String.raw`
+\\(?: \d+
+  | c[A-Za-z]
+  | [gk]<[^>]+>
+  | [pPu]\{[^\}]+\}
+  | u[A-Fa-f\d]{4}
+  | x[A-Fa-f\d]{2}
+  )
+| \((?: \? (?: [:=!>]
+  | <(?:[=!]|[^>]+>)
+  | [A-Za-z\-]+:
+  | \(DEFINE\)
+  ))?
+| (?<qBase>${baseQuantifier})(?<qMod>[?+]?)(?<invalidQ>[?*+\{]?)
+| \\?.
+`.replace(/\s+/g, ""), "gsu");
+  function possessive(expression) {
+    if (!new RegExp(`${baseQuantifier}\\+`).test(expression)) {
+      return {
+        pattern: expression
+      };
+    }
+    const openGroupIndices = [];
+    let lastGroupIndex = null;
+    let lastCharClassIndex = null;
+    let lastToken = "";
+    let numCharClassesOpen = 0;
+    let match;
+    possessivePluginToken.lastIndex = 0;
+    while (match = possessivePluginToken.exec(expression)) {
+      const { 0: m4, index, groups: { qBase, qMod, invalidQ } } = match;
+      if (m4 === "[") {
+        if (!numCharClassesOpen) {
+          lastCharClassIndex = index;
+        }
+        numCharClassesOpen++;
+      } else if (m4 === "]") {
+        if (numCharClassesOpen) {
+          numCharClassesOpen--;
+        } else {
+          lastCharClassIndex = null;
+        }
+      } else if (!numCharClassesOpen) {
+        if (qMod === "+" && lastToken && !lastToken.startsWith("(")) {
+          if (invalidQ) {
+            throw new Error(`Invalid quantifier "${m4}"`);
+          }
+          let charsAdded = -1;
+          if (/^\{\d+\}$/.test(qBase)) {
+            expression = spliceStr(expression, index + qBase.length, qMod, "");
+          } else {
+            if (lastToken === ")" || lastToken === "]") {
+              const nodeIndex = lastToken === ")" ? lastGroupIndex : lastCharClassIndex;
+              if (nodeIndex === null) {
+                throw new Error(`Invalid unmatched "${lastToken}"`);
+              }
+              expression = `${expression.slice(0, nodeIndex)}(?>${expression.slice(nodeIndex, index)}${qBase})${expression.slice(index + m4.length)}`;
+            } else {
+              expression = `${expression.slice(0, index - lastToken.length)}(?>${lastToken}${qBase})${expression.slice(index + m4.length)}`;
+            }
+            charsAdded += 4;
+          }
+          possessivePluginToken.lastIndex += charsAdded;
+        } else if (m4[0] === "(") {
+          openGroupIndices.push(index);
+        } else if (m4 === ")") {
+          lastGroupIndex = openGroupIndices.length ? openGroupIndices.pop() : null;
+        }
+      }
+      lastToken = m4;
+    }
+    return {
+      pattern: expression
+    };
+  }
+
+  // node_modules/regex-recursion/src/index.js
+  var r2 = String.raw;
+  var gRToken = r2`\\g<(?<gRNameOrNum>[^>&]+)&R=(?<gRDepth>[^>]+)>`;
+  var recursiveToken = r2`\(\?R=(?<rDepth>[^\)]+)\)|${gRToken}`;
+  var namedCaptureDelim = r2`\(\?<(?![=!])(?<captureName>[^>]+)>`;
+  var captureDelim = r2`${namedCaptureDelim}|(?<unnamed>\()(?!\?)`;
+  var token = new RegExp(r2`${namedCaptureDelim}|${recursiveToken}|\(\?|\\?.`, "gsu");
+  var overlappingRecursionMsg = "Cannot use multiple overlapping recursions";
+  function recursion(pattern, data) {
+    const { hiddenCaptures, mode } = {
+      hiddenCaptures: [],
+      mode: "plugin",
+      ...data
+    };
+    let captureTransfers = data?.captureTransfers ?? /* @__PURE__ */ new Map();
+    if (!new RegExp(recursiveToken, "su").test(pattern)) {
+      return {
+        pattern,
+        captureTransfers,
+        hiddenCaptures
+      };
+    }
+    if (mode === "plugin" && hasUnescaped(pattern, r2`\(\?\(DEFINE\)`, Context.DEFAULT)) {
+      throw new Error("DEFINE groups cannot be used with recursion");
+    }
+    const addedHiddenCaptures = [];
+    const hasNumberedBackref = hasUnescaped(pattern, r2`\\[1-9]`, Context.DEFAULT);
+    const groupContentsStartPos = /* @__PURE__ */ new Map();
+    const openGroups = [];
+    let hasRecursed = false;
+    let numCharClassesOpen = 0;
+    let numCapturesPassed = 0;
+    let match;
+    token.lastIndex = 0;
+    while (match = token.exec(pattern)) {
+      const { 0: m4, groups: { captureName, rDepth, gRNameOrNum, gRDepth } } = match;
+      if (m4 === "[") {
+        numCharClassesOpen++;
+      } else if (!numCharClassesOpen) {
+        if (rDepth) {
+          assertMaxInBounds(rDepth);
+          if (hasRecursed) {
+            throw new Error(overlappingRecursionMsg);
+          }
+          if (hasNumberedBackref) {
+            throw new Error(
+              // When used in `external` mode by transpilers other than Regex+, backrefs might have
+              // gone through conversion from named to numbered, so avoid a misleading error
+              `${mode === "external" ? "Backrefs" : "Numbered backrefs"} cannot be used with global recursion`
+            );
+          }
+          const left = pattern.slice(0, match.index);
+          const right = pattern.slice(token.lastIndex);
+          if (hasUnescaped(right, recursiveToken, Context.DEFAULT)) {
+            throw new Error(overlappingRecursionMsg);
+          }
+          const reps = +rDepth - 1;
+          pattern = makeRecursive(
+            left,
+            right,
+            reps,
+            false,
+            hiddenCaptures,
+            addedHiddenCaptures,
+            numCapturesPassed
+          );
+          captureTransfers = mapCaptureTransfers(
+            captureTransfers,
+            left,
+            reps,
+            addedHiddenCaptures.length,
+            0,
+            numCapturesPassed
+          );
+          break;
+        } else if (gRNameOrNum) {
+          assertMaxInBounds(gRDepth);
+          let isWithinReffedGroup = false;
+          for (const g of openGroups) {
+            if (g.name === gRNameOrNum || g.num === +gRNameOrNum) {
+              isWithinReffedGroup = true;
+              if (g.hasRecursedWithin) {
+                throw new Error(overlappingRecursionMsg);
+              }
+              break;
+            }
+          }
+          if (!isWithinReffedGroup) {
+            throw new Error(r2`Recursive \g cannot be used outside the referenced group "${mode === "external" ? gRNameOrNum : r2`\g<${gRNameOrNum}&R=${gRDepth}>`}"`);
+          }
+          const startPos = groupContentsStartPos.get(gRNameOrNum);
+          const groupContents = getGroupContents(pattern, startPos);
+          if (hasNumberedBackref && hasUnescaped(groupContents, r2`${namedCaptureDelim}|\((?!\?)`, Context.DEFAULT)) {
+            throw new Error(
+              // When used in `external` mode by transpilers other than Regex+, backrefs might have
+              // gone through conversion from named to numbered, so avoid a misleading error
+              `${mode === "external" ? "Backrefs" : "Numbered backrefs"} cannot be used with recursion of capturing groups`
+            );
+          }
+          const groupContentsLeft = pattern.slice(startPos, match.index);
+          const groupContentsRight = groupContents.slice(groupContentsLeft.length + m4.length);
+          const numAddedHiddenCapturesPreExpansion = addedHiddenCaptures.length;
+          const reps = +gRDepth - 1;
+          const expansion = makeRecursive(
+            groupContentsLeft,
+            groupContentsRight,
+            reps,
+            true,
+            hiddenCaptures,
+            addedHiddenCaptures,
+            numCapturesPassed
+          );
+          captureTransfers = mapCaptureTransfers(
+            captureTransfers,
+            groupContentsLeft,
+            reps,
+            addedHiddenCaptures.length - numAddedHiddenCapturesPreExpansion,
+            numAddedHiddenCapturesPreExpansion,
+            numCapturesPassed
+          );
+          const pre = pattern.slice(0, startPos);
+          const post = pattern.slice(startPos + groupContents.length);
+          pattern = `${pre}${expansion}${post}`;
+          token.lastIndex += expansion.length - m4.length - groupContentsLeft.length - groupContentsRight.length;
+          openGroups.forEach((g) => g.hasRecursedWithin = true);
+          hasRecursed = true;
+        } else if (captureName) {
+          numCapturesPassed++;
+          groupContentsStartPos.set(String(numCapturesPassed), token.lastIndex);
+          groupContentsStartPos.set(captureName, token.lastIndex);
+          openGroups.push({
+            num: numCapturesPassed,
+            name: captureName
+          });
+        } else if (m4[0] === "(") {
+          const isUnnamedCapture = m4 === "(";
+          if (isUnnamedCapture) {
+            numCapturesPassed++;
+            groupContentsStartPos.set(String(numCapturesPassed), token.lastIndex);
+          }
+          openGroups.push(isUnnamedCapture ? { num: numCapturesPassed } : {});
+        } else if (m4 === ")") {
+          openGroups.pop();
+        }
+      } else if (m4 === "]") {
+        numCharClassesOpen--;
+      }
+    }
+    hiddenCaptures.push(...addedHiddenCaptures);
+    return {
+      pattern,
+      captureTransfers,
+      hiddenCaptures
+    };
+  }
+  function assertMaxInBounds(max) {
+    const errMsg = `Max depth must be integer between 2 and 100; used ${max}`;
+    if (!/^[1-9]\d*$/.test(max)) {
+      throw new Error(errMsg);
+    }
+    max = +max;
+    if (max < 2 || max > 100) {
+      throw new Error(errMsg);
+    }
+  }
+  function makeRecursive(left, right, reps, isSubpattern, hiddenCaptures, addedHiddenCaptures, numCapturesPassed) {
+    const namesInRecursed = /* @__PURE__ */ new Set();
+    if (isSubpattern) {
+      forEachUnescaped(left + right, namedCaptureDelim, ({ groups: { captureName } }) => {
+        namesInRecursed.add(captureName);
+      }, Context.DEFAULT);
+    }
+    const rest = [
+      reps,
+      isSubpattern ? namesInRecursed : null,
+      hiddenCaptures,
+      addedHiddenCaptures,
+      numCapturesPassed
+    ];
+    return `${left}${repeatWithDepth(`(?:${left}`, "forward", ...rest)}(?:)${repeatWithDepth(`${right})`, "backward", ...rest)}${right}`;
+  }
+  function repeatWithDepth(pattern, direction, reps, namesInRecursed, hiddenCaptures, addedHiddenCaptures, numCapturesPassed) {
+    const startNum = 2;
+    const getDepthNum = (i2) => direction === "forward" ? i2 + startNum : reps - i2 + startNum - 1;
+    let result = "";
+    for (let i2 = 0; i2 < reps; i2++) {
+      const depthNum = getDepthNum(i2);
+      result += replaceUnescaped(
+        pattern,
+        r2`${captureDelim}|\\k<(?<backref>[^>]+)>`,
+        ({ 0: m4, groups: { captureName, unnamed, backref } }) => {
+          if (backref && namesInRecursed && !namesInRecursed.has(backref)) {
+            return m4;
+          }
+          const suffix = `_$${depthNum}`;
+          if (unnamed || captureName) {
+            const addedCaptureNum = numCapturesPassed + addedHiddenCaptures.length + 1;
+            addedHiddenCaptures.push(addedCaptureNum);
+            incrementIfAtLeast2(hiddenCaptures, addedCaptureNum);
+            return unnamed ? m4 : `(?<${captureName}${suffix}>`;
+          }
+          return r2`\k<${backref}${suffix}>`;
+        },
+        Context.DEFAULT
+      );
+    }
+    return result;
+  }
+  function incrementIfAtLeast2(arr, threshold) {
+    for (let i2 = 0; i2 < arr.length; i2++) {
+      if (arr[i2] >= threshold) {
+        arr[i2]++;
+      }
+    }
+  }
+  function mapCaptureTransfers(captureTransfers, left, reps, numCapturesAddedInExpansion, numAddedHiddenCapturesPreExpansion, numCapturesPassed) {
+    if (captureTransfers.size && numCapturesAddedInExpansion) {
+      let numCapturesInLeft = 0;
+      forEachUnescaped(left, captureDelim, () => numCapturesInLeft++, Context.DEFAULT);
+      const recursionDelimCaptureNum = numCapturesPassed - numCapturesInLeft + numAddedHiddenCapturesPreExpansion;
+      const newCaptureTransfers = /* @__PURE__ */ new Map();
+      captureTransfers.forEach((from2, to) => {
+        const numCapturesInRight = (numCapturesAddedInExpansion - numCapturesInLeft * reps) / reps;
+        const numCapturesAddedInLeft = numCapturesInLeft * reps;
+        const newTo = to > recursionDelimCaptureNum + numCapturesInLeft ? to + numCapturesAddedInExpansion : to;
+        const newFrom = [];
+        for (const f2 of from2) {
+          if (f2 <= recursionDelimCaptureNum) {
+            newFrom.push(f2);
+          } else if (f2 > recursionDelimCaptureNum + numCapturesInLeft + numCapturesInRight) {
+            newFrom.push(f2 + numCapturesAddedInExpansion);
+          } else if (f2 <= recursionDelimCaptureNum + numCapturesInLeft) {
+            for (let i2 = 0; i2 <= reps; i2++) {
+              newFrom.push(f2 + numCapturesInLeft * i2);
+            }
+          } else {
+            for (let i2 = 0; i2 <= reps; i2++) {
+              newFrom.push(f2 + numCapturesAddedInLeft + numCapturesInRight * i2);
+            }
+          }
+        }
+        newCaptureTransfers.set(newTo, newFrom);
+      });
+      return newCaptureTransfers;
+    }
+    return captureTransfers;
+  }
+
+  // node_modules/oniguruma-to-es/dist/esm/index.js
+  var cp = String.fromCodePoint;
+  var r3 = String.raw;
+  var envFlags = {};
+  var globalRegExp = globalThis.RegExp;
+  envFlags.flagGroups = (() => {
+    try {
+      new globalRegExp("(?i:)");
+    } catch {
+      return false;
+    }
+    return true;
+  })();
+  envFlags.unicodeSets = (() => {
+    try {
+      new globalRegExp("[[]]", "v");
+    } catch {
+      return false;
+    }
+    return true;
+  })();
+  envFlags.bugFlagVLiteralHyphenIsRange = envFlags.unicodeSets ? (() => {
+    try {
+      new globalRegExp(r3`[\d\-a]`, "v");
+    } catch {
+      return true;
+    }
+    return false;
+  })() : false;
+  envFlags.bugNestedClassIgnoresNegation = envFlags.unicodeSets && new globalRegExp("[[^a]]", "v").test("a");
+  function getNewCurrentFlags(current, { enable, disable }) {
+    return {
+      dotAll: !disable?.dotAll && !!(enable?.dotAll || current.dotAll),
+      ignoreCase: !disable?.ignoreCase && !!(enable?.ignoreCase || current.ignoreCase)
+    };
+  }
+  function getOrInsert(map2, key2, defaultValue) {
+    if (!map2.has(key2)) {
+      map2.set(key2, defaultValue);
+    }
+    return map2.get(key2);
+  }
+  function isMinTarget(target, min) {
+    return EsVersion[target] >= EsVersion[min];
+  }
+  function throwIfNullish(value, msg) {
+    if (value == null) {
+      throw new Error(msg ?? "Value expected");
+    }
+    return value;
+  }
+  var EsVersion = {
+    ES2025: 2025,
+    ES2024: 2024,
+    ES2018: 2018
+  };
+  var Target = (
+    /** @type {const} */
+    {
+      auto: "auto",
+      ES2025: "ES2025",
+      ES2024: "ES2024",
+      ES2018: "ES2018"
+    }
+  );
+  function getOptions(options = {}) {
+    if ({}.toString.call(options) !== "[object Object]") {
+      throw new Error("Unexpected options");
+    }
+    if (options.target !== void 0 && !Target[options.target]) {
+      throw new Error(`Unexpected target "${options.target}"`);
+    }
+    const opts = {
+      // Sets the level of emulation rigor/strictness.
+      accuracy: "default",
+      // Disables advanced emulation that relies on returning a `RegExp` subclass, resulting in
+      // certain patterns not being emulatable.
+      avoidSubclass: false,
+      // Oniguruma flags; a string with `i`, `m`, `x`, `D`, `S`, `W`, `y{g}` in any order (all
+      // optional). Oniguruma's `m` is equivalent to JavaScript's `s` (`dotAll`).
+      flags: "",
+      // Include JavaScript flag `g` (`global`) in the result.
+      global: false,
+      // Include JavaScript flag `d` (`hasIndices`) in the result.
+      hasIndices: false,
+      // Delay regex construction until first use if the transpiled pattern is at least this length.
+      lazyCompileLength: Infinity,
+      // JavaScript version used for generated regexes. Using `auto` detects the best value based on
+      // your environment. Later targets allow faster processing, simpler generated source, and
+      // support for additional features.
+      target: "auto",
+      // Disables minifications that simplify the pattern without changing the meaning.
+      verbose: false,
+      ...options,
+      // Advanced options that override standard behavior, error checking, and flags when enabled.
+      rules: {
+        // Useful with TextMate grammars that merge backreferences across patterns.
+        allowOrphanBackrefs: false,
+        // Use ASCII `\b` and `\B`, which increases search performance of generated regexes.
+        asciiWordBoundaries: false,
+        // Allow unnamed captures and numbered calls (backreferences and subroutines) when using
+        // named capture. This is Oniguruma option `ONIG_OPTION_CAPTURE_GROUP`; on by default in
+        // `vscode-oniguruma`.
+        captureGroup: false,
+        // Change the recursion depth limit from Oniguruma's `20` to an integer `2`–`20`.
+        recursionLimit: 20,
+        // `^` as `\A`; `$` as`\Z`. Improves search performance of generated regexes without changing
+        // the meaning if searching line by line. This is Oniguruma option `ONIG_OPTION_SINGLELINE`.
+        singleline: false,
+        ...options.rules
+      }
+    };
+    if (opts.target === "auto") {
+      opts.target = envFlags.flagGroups ? "ES2025" : envFlags.unicodeSets ? "ES2024" : "ES2018";
+    }
+    return opts;
+  }
+  var asciiSpaceChar = "[	-\r ]";
+  var CharsWithoutIgnoreCaseExpansion = /* @__PURE__ */ new Set([
+    cp(304),
+    // İ
+    cp(305)
+    // ı
+  ]);
+  var defaultWordChar = r3`[\p{L}\p{M}\p{N}\p{Pc}]`;
+  function getIgnoreCaseMatchChars(char) {
+    if (CharsWithoutIgnoreCaseExpansion.has(char)) {
+      return [char];
+    }
+    const set = /* @__PURE__ */ new Set();
+    const lower = char.toLowerCase();
+    const upper = lower.toUpperCase();
+    const title = LowerToTitleCaseMap.get(lower);
+    const altLower = LowerToAlternativeLowerCaseMap.get(lower);
+    const altUpper = LowerToAlternativeUpperCaseMap.get(lower);
+    if ([...upper].length === 1) {
+      set.add(upper);
+    }
+    altUpper && set.add(altUpper);
+    title && set.add(title);
+    set.add(lower);
+    altLower && set.add(altLower);
+    return [...set];
+  }
+  var JsUnicodePropertyMap = /* @__PURE__ */ new Map(
+    `C Other
+Cc Control cntrl
+Cf Format
+Cn Unassigned
+Co Private_Use
+Cs Surrogate
+L Letter
+LC Cased_Letter
+Ll Lowercase_Letter
+Lm Modifier_Letter
+Lo Other_Letter
+Lt Titlecase_Letter
+Lu Uppercase_Letter
+M Mark Combining_Mark
+Mc Spacing_Mark
+Me Enclosing_Mark
+Mn Nonspacing_Mark
+N Number
+Nd Decimal_Number digit
+Nl Letter_Number
+No Other_Number
+P Punctuation punct
+Pc Connector_Punctuation
+Pd Dash_Punctuation
+Pe Close_Punctuation
+Pf Final_Punctuation
+Pi Initial_Punctuation
+Po Other_Punctuation
+Ps Open_Punctuation
+S Symbol
+Sc Currency_Symbol
+Sk Modifier_Symbol
+Sm Math_Symbol
+So Other_Symbol
+Z Separator
+Zl Line_Separator
+Zp Paragraph_Separator
+Zs Space_Separator
+ASCII
+ASCII_Hex_Digit AHex
+Alphabetic Alpha
+Any
+Assigned
+Bidi_Control Bidi_C
+Bidi_Mirrored Bidi_M
+Case_Ignorable CI
+Cased
+Changes_When_Casefolded CWCF
+Changes_When_Casemapped CWCM
+Changes_When_Lowercased CWL
+Changes_When_NFKC_Casefolded CWKCF
+Changes_When_Titlecased CWT
+Changes_When_Uppercased CWU
+Dash
+Default_Ignorable_Code_Point DI
+Deprecated Dep
+Diacritic Dia
+Emoji
+Emoji_Component EComp
+Emoji_Modifier EMod
+Emoji_Modifier_Base EBase
+Emoji_Presentation EPres
+Extended_Pictographic ExtPict
+Extender Ext
+Grapheme_Base Gr_Base
+Grapheme_Extend Gr_Ext
+Hex_Digit Hex
+IDS_Binary_Operator IDSB
+IDS_Trinary_Operator IDST
+ID_Continue IDC
+ID_Start IDS
+Ideographic Ideo
+Join_Control Join_C
+Logical_Order_Exception LOE
+Lowercase Lower
+Math
+Noncharacter_Code_Point NChar
+Pattern_Syntax Pat_Syn
+Pattern_White_Space Pat_WS
+Quotation_Mark QMark
+Radical
+Regional_Indicator RI
+Sentence_Terminal STerm
+Soft_Dotted SD
+Terminal_Punctuation Term
+Unified_Ideograph UIdeo
+Uppercase Upper
+Variation_Selector VS
+White_Space space
+XID_Continue XIDC
+XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
+  );
+  var LowerToAlternativeLowerCaseMap = /* @__PURE__ */ new Map([
+    ["s", cp(383)],
+    // s, ſ
+    [cp(383), "s"]
+    // ſ, s
+  ]);
+  var LowerToAlternativeUpperCaseMap = /* @__PURE__ */ new Map([
+    [cp(223), cp(7838)],
+    // ß, ẞ
+    [cp(107), cp(8490)],
+    // k, K (Kelvin)
+    [cp(229), cp(8491)],
+    // å, Å (Angstrom)
+    [cp(969), cp(8486)]
+    // ω, Ω (Ohm)
+  ]);
+  var LowerToTitleCaseMap = new Map([
+    titleEntry(453),
+    titleEntry(456),
+    titleEntry(459),
+    titleEntry(498),
+    ...titleRange(8072, 8079),
+    ...titleRange(8088, 8095),
+    ...titleRange(8104, 8111),
+    titleEntry(8124),
+    titleEntry(8140),
+    titleEntry(8188)
+  ]);
+  var PosixClassMap = /* @__PURE__ */ new Map([
+    ["alnum", r3`[\p{Alpha}\p{Nd}]`],
+    ["alpha", r3`\p{Alpha}`],
+    ["ascii", r3`\p{ASCII}`],
+    ["blank", r3`[\p{Zs}\t]`],
+    ["cntrl", r3`\p{Cc}`],
+    ["digit", r3`\p{Nd}`],
+    ["graph", r3`[\P{space}&&\P{Cc}&&\P{Cn}&&\P{Cs}]`],
+    ["lower", r3`\p{Lower}`],
+    ["print", r3`[[\P{space}&&\P{Cc}&&\P{Cn}&&\P{Cs}]\p{Zs}]`],
+    ["punct", r3`[\p{P}\p{S}]`],
+    // Updated value from Onig 6.9.9; changed from Unicode `\p{punct}`
+    ["space", r3`\p{space}`],
+    ["upper", r3`\p{Upper}`],
+    ["word", r3`[\p{Alpha}\p{M}\p{Nd}\p{Pc}]`],
+    ["xdigit", r3`\p{AHex}`]
+  ]);
+  function range(start, end) {
+    const range2 = [];
+    for (let i2 = start; i2 <= end; i2++) {
+      range2.push(i2);
+    }
+    return range2;
+  }
+  function titleEntry(codePoint) {
+    const char = cp(codePoint);
+    return [char.toLowerCase(), char];
+  }
+  function titleRange(start, end) {
+    return range(start, end).map((codePoint) => titleEntry(codePoint));
+  }
+  var UnicodePropertiesWithSpecificCase = /* @__PURE__ */ new Set([
+    "Lower",
+    "Lowercase",
+    "Upper",
+    "Uppercase",
+    "Ll",
+    "Lowercase_Letter",
+    "Lt",
+    "Titlecase_Letter",
+    "Lu",
+    "Uppercase_Letter"
+    // The `Changes_When_*` properties (and their aliases) could be included, but they're very rare.
+    // Some other properties include a handful of chars with specific cases only, but these chars are
+    // generally extreme edge cases and using such properties case insensitively generally produces
+    // undesired behavior anyway
+  ]);
+  function transform(ast, options) {
+    const opts = {
+      // A couple edge cases exist where options `accuracy` and `bestEffortTarget` are used:
+      // - `CharacterSet` kind `text_segment` (`\X`): An exact representation would require heavy
+      //   Unicode data; a best-effort approximation requires knowing the target.
+      // - `CharacterSet` kind `posix` with values `graph` and `print`: Their complex Unicode
+      //   representations would be hard to change to ASCII versions after the fact in the generator
+      //   based on `target`/`accuracy`, so produce the appropriate structure here.
+      accuracy: "default",
+      asciiWordBoundaries: false,
+      avoidSubclass: false,
+      bestEffortTarget: "ES2025",
+      ...options
+    };
+    addParentProperties(ast);
+    const firstPassState = {
+      accuracy: opts.accuracy,
+      asciiWordBoundaries: opts.asciiWordBoundaries,
+      avoidSubclass: opts.avoidSubclass,
+      flagDirectivesByAlt: /* @__PURE__ */ new Map(),
+      jsGroupNameMap: /* @__PURE__ */ new Map(),
+      minTargetEs2024: isMinTarget(opts.bestEffortTarget, "ES2024"),
+      passedLookbehind: false,
+      strategy: null,
+      // Subroutines can appear before the groups they ref, so collect reffed nodes for a second pass 
+      subroutineRefMap: /* @__PURE__ */ new Map(),
+      supportedGNodes: /* @__PURE__ */ new Set(),
+      digitIsAscii: ast.flags.digitIsAscii,
+      spaceIsAscii: ast.flags.spaceIsAscii,
+      wordIsAscii: ast.flags.wordIsAscii
+    };
+    S3(ast, FirstPassVisitor, firstPassState);
+    const globalFlags = {
+      dotAll: ast.flags.dotAll,
+      ignoreCase: ast.flags.ignoreCase
+    };
+    const secondPassState = {
+      currentFlags: globalFlags,
+      prevFlags: null,
+      globalFlags,
+      groupOriginByCopy: /* @__PURE__ */ new Map(),
+      groupsByName: /* @__PURE__ */ new Map(),
+      multiplexCapturesToLeftByRef: /* @__PURE__ */ new Map(),
+      openRefs: /* @__PURE__ */ new Map(),
+      reffedNodesByReferencer: /* @__PURE__ */ new Map(),
+      subroutineRefMap: firstPassState.subroutineRefMap
+    };
+    S3(ast, SecondPassVisitor, secondPassState);
+    const thirdPassState = {
+      groupsByName: secondPassState.groupsByName,
+      highestOrphanBackref: 0,
+      numCapturesToLeft: 0,
+      reffedNodesByReferencer: secondPassState.reffedNodesByReferencer
+    };
+    S3(ast, ThirdPassVisitor, thirdPassState);
+    ast._originMap = secondPassState.groupOriginByCopy;
+    ast._strategy = firstPassState.strategy;
+    return ast;
+  }
+  var FirstPassVisitor = {
+    AbsenceFunction({ node, parent, replaceWith }) {
+      const { body: body3, kind } = node;
+      if (kind === "repeater") {
+        const innerGroup = A2();
+        innerGroup.body[0].body.push(
+          // Insert own alts as `body`
+          K3({ negate: true, body: body3 }),
+          Q3("Any")
+        );
+        const outerGroup = A2();
+        outerGroup.body[0].body.push(
+          _3("greedy", 0, Infinity, innerGroup)
+        );
+        replaceWith(setParentDeep(outerGroup, parent), { traverse: true });
+      } else {
+        throw new Error(`Unsupported absence function "(?~|"`);
+      }
+    },
+    Alternative: {
+      enter({ node, parent, key: key2 }, { flagDirectivesByAlt }) {
+        const flagDirectives = node.body.filter((el) => el.kind === "flags");
+        for (let i2 = key2 + 1; i2 < parent.body.length; i2++) {
+          const forwardSiblingAlt = parent.body[i2];
+          getOrInsert(flagDirectivesByAlt, forwardSiblingAlt, []).push(...flagDirectives);
+        }
+      },
+      exit({ node }, { flagDirectivesByAlt }) {
+        if (flagDirectivesByAlt.get(node)?.length) {
+          const flags = getCombinedFlagModsFromFlagNodes(flagDirectivesByAlt.get(node));
+          if (flags) {
+            const flagGroup = A2({ flags });
+            flagGroup.body[0].body = node.body;
+            node.body = [setParentDeep(flagGroup, node)];
+          }
+        }
+      }
+    },
+    Assertion({ node, parent, key: key2, container, root: root2, remove, replaceWith }, state) {
+      const { kind, negate } = node;
+      const { asciiWordBoundaries, avoidSubclass, supportedGNodes, wordIsAscii } = state;
+      if (kind === "text_segment_boundary") {
+        throw new Error(`Unsupported text segment boundary "\\${negate ? "Y" : "y"}"`);
+      } else if (kind === "line_end") {
+        replaceWith(setParentDeep(K3({ body: [
+          b3({ body: [F3("string_end")] }),
+          b3({ body: [m3(10)] })
+          // `\n`
+        ] }), parent));
+      } else if (kind === "line_start") {
+        replaceWith(setParentDeep(parseFragment(r3`(?<=\A|\n(?!\z))`, { skipLookbehindValidation: true }), parent));
+      } else if (kind === "search_start") {
+        if (supportedGNodes.has(node)) {
+          root2.flags.sticky = true;
+          remove();
+        } else {
+          const prev = container[key2 - 1];
+          if (prev && isAlwaysNonZeroLength(prev)) {
+            replaceWith(setParentDeep(K3({ negate: true }), parent));
+          } else if (avoidSubclass) {
+            throw new Error(r3`Uses "\G" in a way that requires a subclass`);
+          } else {
+            replaceWith(setParent(F3("string_start"), parent));
+            state.strategy = "clip_search";
+          }
+        }
+      } else if (kind === "string_end" || kind === "string_start") {
+      } else if (kind === "string_end_newline") {
+        replaceWith(setParentDeep(parseFragment(r3`(?=\n?\z)`), parent));
+      } else if (kind === "word_boundary") {
+        if (!wordIsAscii && !asciiWordBoundaries) {
+          const b4 = `(?:(?<=${defaultWordChar})(?!${defaultWordChar})|(?<!${defaultWordChar})(?=${defaultWordChar}))`;
+          const B4 = `(?:(?<=${defaultWordChar})(?=${defaultWordChar})|(?<!${defaultWordChar})(?!${defaultWordChar}))`;
+          replaceWith(setParentDeep(parseFragment(negate ? B4 : b4), parent));
+        }
+      } else {
+        throw new Error(`Unexpected assertion kind "${kind}"`);
+      }
+    },
+    Backreference({ node }, { jsGroupNameMap }) {
+      let { ref } = node;
+      if (typeof ref === "string" && !isValidJsGroupName(ref)) {
+        ref = getAndStoreJsGroupName(ref, jsGroupNameMap);
+        node.ref = ref;
+      }
+    },
+    CapturingGroup({ node }, { jsGroupNameMap, subroutineRefMap }) {
+      let { name } = node;
+      if (name && !isValidJsGroupName(name)) {
+        name = getAndStoreJsGroupName(name, jsGroupNameMap);
+        node.name = name;
+      }
+      subroutineRefMap.set(node.number, node);
+      if (name) {
+        subroutineRefMap.set(name, node);
+      }
+    },
+    CharacterClassRange({ node, parent, replaceWith }) {
+      if (parent.kind === "intersection") {
+        const cc = C3({ body: [node] });
+        replaceWith(setParentDeep(cc, parent), { traverse: true });
+      }
+    },
+    CharacterSet({ node, parent, replaceWith }, { accuracy, minTargetEs2024, digitIsAscii, spaceIsAscii, wordIsAscii }) {
+      const { kind, negate, value } = node;
+      if (digitIsAscii && (kind === "digit" || value === "digit")) {
+        replaceWith(setParent(E3("digit", { negate }), parent));
+        return;
+      }
+      if (spaceIsAscii && (kind === "space" || value === "space")) {
+        replaceWith(setParentDeep(setNegate(parseFragment(asciiSpaceChar), negate), parent));
+        return;
+      }
+      if (wordIsAscii && (kind === "word" || value === "word")) {
+        replaceWith(setParent(E3("word", { negate }), parent));
+        return;
+      }
+      if (kind === "any") {
+        replaceWith(setParent(Q3("Any"), parent));
+      } else if (kind === "digit") {
+        replaceWith(setParent(Q3("Nd", { negate }), parent));
+      } else if (kind === "dot") {
+      } else if (kind === "text_segment") {
+        if (accuracy === "strict") {
+          throw new Error(r3`Use of "\X" requires non-strict accuracy`);
+        }
+        const eBase = "\\p{Emoji}(?:\\p{EMod}|\\uFE0F\\u20E3?|[\\x{E0020}-\\x{E007E}]+\\x{E007F})?";
+        const emoji = r3`\p{RI}{2}|${eBase}(?:\u200D${eBase})*`;
+        replaceWith(setParentDeep(parseFragment(
+          // Close approximation of an extended grapheme cluster; see <unicode.org/reports/tr29/>
+          r3`(?>\r\n|${minTargetEs2024 ? r3`\p{RGI_Emoji}` : emoji}|\P{M}\p{M}*)`,
+          // Allow JS property `RGI_Emoji` through
+          { skipPropertyNameValidation: true }
+        ), parent));
+      } else if (kind === "hex") {
+        replaceWith(setParent(Q3("AHex", { negate }), parent));
+      } else if (kind === "newline") {
+        replaceWith(setParentDeep(parseFragment(negate ? "[^\n]" : "(?>\r\n?|[\n\v\f\x85\u2028\u2029])"), parent));
+      } else if (kind === "posix") {
+        if (!minTargetEs2024 && (value === "graph" || value === "print")) {
+          if (accuracy === "strict") {
+            throw new Error(`POSIX class "${value}" requires min target ES2024 or non-strict accuracy`);
+          }
+          let ascii = {
+            graph: "!-~",
+            print: " -~"
+          }[value];
+          if (negate) {
+            ascii = `\0-${cp(ascii.codePointAt(0) - 1)}${cp(ascii.codePointAt(2) + 1)}-\u{10FFFF}`;
+          }
+          replaceWith(setParentDeep(parseFragment(`[${ascii}]`), parent));
+        } else {
+          replaceWith(setParentDeep(setNegate(parseFragment(PosixClassMap.get(value)), negate), parent));
+        }
+      } else if (kind === "property") {
+        if (!JsUnicodePropertyMap.has(w3(value))) {
+          node.key = "sc";
+        }
+      } else if (kind === "space") {
+        replaceWith(setParent(Q3("space", { negate }), parent));
+      } else if (kind === "word") {
+        replaceWith(setParentDeep(setNegate(parseFragment(defaultWordChar), negate), parent));
+      } else {
+        throw new Error(`Unexpected character set kind "${kind}"`);
+      }
+    },
+    Directive({ node, parent, root: root2, remove, replaceWith, removeAllPrevSiblings, removeAllNextSiblings }) {
+      const { kind, flags } = node;
+      if (kind === "flags") {
+        if (!flags.enable && !flags.disable) {
+          remove();
+        } else {
+          const flagGroup = A2({ flags });
+          flagGroup.body[0].body = removeAllNextSiblings();
+          replaceWith(setParentDeep(flagGroup, parent), { traverse: true });
+        }
+      } else if (kind === "keep") {
+        const firstAlt = root2.body[0];
+        const hasWrapperGroup = root2.body.length === 1 && // Not emulatable if within a `CapturingGroup`
+        o2(firstAlt, { type: "Group" }) && firstAlt.body[0].body.length === 1;
+        const topLevel = hasWrapperGroup ? firstAlt.body[0] : root2;
+        if (parent.parent !== topLevel || topLevel.body.length > 1) {
+          throw new Error(r3`Uses "\K" in a way that's unsupported`);
+        }
+        const lookbehind = K3({ behind: true });
+        lookbehind.body[0].body = removeAllPrevSiblings();
+        replaceWith(setParentDeep(lookbehind, parent));
+      } else {
+        throw new Error(`Unexpected directive kind "${kind}"`);
+      }
+    },
+    Flags({ node, parent }) {
+      if (node.posixIsAscii) {
+        throw new Error('Unsupported flag "P"');
+      }
+      if (node.textSegmentMode === "word") {
+        throw new Error('Unsupported flag "y{w}"');
+      }
+      [
+        "digitIsAscii",
+        // Flag D
+        "extended",
+        // Flag x
+        "posixIsAscii",
+        // Flag P
+        "spaceIsAscii",
+        // Flag S
+        "wordIsAscii",
+        // Flag W
+        "textSegmentMode"
+        // Flag y{g} or y{w}
+      ].forEach((f2) => delete node[f2]);
+      Object.assign(node, {
+        // JS flag g; no Onig equiv
+        global: false,
+        // JS flag d; no Onig equiv
+        hasIndices: false,
+        // JS flag m; no Onig equiv but its behavior is always on in Onig. Onig's only line break
+        // char is line feed, unlike JS, so this flag isn't used since it would produce inaccurate
+        // results (also allows `^` and `$` to be used in the generator for string start and end)
+        multiline: false,
+        // JS flag y; no Onig equiv, but used for `\G` emulation
+        sticky: node.sticky ?? false
+        // Note: Regex+ doesn't allow explicitly adding flags it handles implicitly, so leave out
+        // properties `unicode` (JS flag u) and `unicodeSets` (JS flag v). Keep the existing values
+        // for `ignoreCase` (flag i) and `dotAll` (JS flag s, but Onig flag m)
+      });
+      parent.options = {
+        disable: {
+          // Onig uses different rules for flag x than Regex+, so disable the implicit flag
+          x: true,
+          // Onig has no flag to control "named capture only" mode but contextually applies its
+          // behavior when named capturing is used, so disable Regex+'s implicit flag for it
+          n: true
+        },
+        force: {
+          // Always add flag v because we're generating an AST that relies on it (it enables JS
+          // support for Onig features nested classes, intersection, Unicode properties, etc.).
+          // However, the generator might disable flag v based on its `target` option
+          v: true
+        }
+      };
+    },
+    Group({ node }) {
+      if (!node.flags) {
+        return;
+      }
+      const { enable, disable } = node.flags;
+      enable?.extended && delete enable.extended;
+      disable?.extended && delete disable.extended;
+      enable?.dotAll && disable?.dotAll && delete enable.dotAll;
+      enable?.ignoreCase && disable?.ignoreCase && delete enable.ignoreCase;
+      enable && !Object.keys(enable).length && delete node.flags.enable;
+      disable && !Object.keys(disable).length && delete node.flags.disable;
+      !node.flags.enable && !node.flags.disable && delete node.flags;
+    },
+    LookaroundAssertion({ node }, state) {
+      const { kind } = node;
+      if (kind === "lookbehind") {
+        state.passedLookbehind = true;
+      }
+    },
+    NamedCallout({ node, parent, replaceWith }) {
+      const { kind } = node;
+      if (kind === "fail") {
+        replaceWith(setParentDeep(K3({ negate: true }), parent));
+      } else {
+        throw new Error(`Unsupported named callout "(*${kind.toUpperCase()}"`);
+      }
+    },
+    Quantifier({ node }) {
+      if (node.body.type === "Quantifier") {
+        const group = A2();
+        group.body[0].body.push(node.body);
+        node.body = setParentDeep(group, node);
+      }
+    },
+    Regex: {
+      enter({ node }, { supportedGNodes }) {
+        const leadingGs = [];
+        let hasAltWithLeadG = false;
+        let hasAltWithoutLeadG = false;
+        for (const alt of node.body) {
+          if (alt.body.length === 1 && alt.body[0].kind === "search_start") {
+            alt.body.pop();
+          } else {
+            const leadingG = getLeadingG(alt.body);
+            if (leadingG) {
+              hasAltWithLeadG = true;
+              Array.isArray(leadingG) ? leadingGs.push(...leadingG) : leadingGs.push(leadingG);
+            } else {
+              hasAltWithoutLeadG = true;
+            }
+          }
+        }
+        if (hasAltWithLeadG && !hasAltWithoutLeadG) {
+          leadingGs.forEach((g) => supportedGNodes.add(g));
+        }
+      },
+      exit(_4, { accuracy, passedLookbehind, strategy }) {
+        if (accuracy === "strict" && passedLookbehind && strategy) {
+          throw new Error(r3`Uses "\G" in a way that requires non-strict accuracy`);
+        }
+      }
+    },
+    Subroutine({ node }, { jsGroupNameMap }) {
+      let { ref } = node;
+      if (typeof ref === "string" && !isValidJsGroupName(ref)) {
+        ref = getAndStoreJsGroupName(ref, jsGroupNameMap);
+        node.ref = ref;
+      }
+    }
+  };
+  var SecondPassVisitor = {
+    Backreference({ node }, { multiplexCapturesToLeftByRef, reffedNodesByReferencer }) {
+      const { orphan, ref } = node;
+      if (!orphan) {
+        reffedNodesByReferencer.set(node, [...multiplexCapturesToLeftByRef.get(ref).map(({ node: node2 }) => node2)]);
+      }
+    },
+    CapturingGroup: {
+      enter({
+        node,
+        parent,
+        replaceWith,
+        skip
+      }, {
+        groupOriginByCopy,
+        groupsByName,
+        multiplexCapturesToLeftByRef,
+        openRefs,
+        reffedNodesByReferencer
+      }) {
+        const origin = groupOriginByCopy.get(node);
+        if (origin && openRefs.has(node.number)) {
+          const recursion2 = setParent(createRecursion(node.number), parent);
+          reffedNodesByReferencer.set(recursion2, openRefs.get(node.number));
+          replaceWith(recursion2);
+          return;
+        }
+        openRefs.set(node.number, node);
+        multiplexCapturesToLeftByRef.set(node.number, []);
+        if (node.name) {
+          getOrInsert(multiplexCapturesToLeftByRef, node.name, []);
+        }
+        const multiplexNodes = multiplexCapturesToLeftByRef.get(node.name ?? node.number);
+        for (let i2 = 0; i2 < multiplexNodes.length; i2++) {
+          const multiplex = multiplexNodes[i2];
+          if (
+            // This group is from subroutine expansion, and there's a multiplex value from either the
+            // origin node or a prior subroutine expansion group with the same origin
+            origin === multiplex.node || origin && origin === multiplex.origin || // This group is not from subroutine expansion, and it comes after a subroutine expansion
+            // group that refers to this group
+            node === multiplex.origin
+          ) {
+            multiplexNodes.splice(i2, 1);
+            break;
+          }
+        }
+        multiplexCapturesToLeftByRef.get(node.number).push({ node, origin });
+        if (node.name) {
+          multiplexCapturesToLeftByRef.get(node.name).push({ node, origin });
+        }
+        if (node.name) {
+          const groupsWithSameName = getOrInsert(groupsByName, node.name, /* @__PURE__ */ new Map());
+          let hasDuplicateNameToRemove = false;
+          if (origin) {
+            hasDuplicateNameToRemove = true;
+          } else {
+            for (const groupInfo of groupsWithSameName.values()) {
+              if (!groupInfo.hasDuplicateNameToRemove) {
+                hasDuplicateNameToRemove = true;
+                break;
+              }
+            }
+          }
+          groupsByName.get(node.name).set(node, { node, hasDuplicateNameToRemove });
+        }
+      },
+      exit({ node }, { openRefs }) {
+        if (openRefs.get(node.number) === node) {
+          openRefs.delete(node.number);
+        }
+      }
+    },
+    Group: {
+      enter({ node }, state) {
+        state.prevFlags = state.currentFlags;
+        if (node.flags) {
+          state.currentFlags = getNewCurrentFlags(state.currentFlags, node.flags);
+        }
+      },
+      exit(_4, state) {
+        state.currentFlags = state.prevFlags;
+      }
+    },
+    Subroutine({ node, parent, replaceWith }, state) {
+      const { isRecursive, ref } = node;
+      if (isRecursive) {
+        let reffed = parent;
+        while (reffed = reffed.parent) {
+          if (reffed.type === "CapturingGroup" && (reffed.name === ref || reffed.number === ref)) {
+            break;
+          }
+        }
+        state.reffedNodesByReferencer.set(node, reffed);
+        return;
+      }
+      const reffedGroupNode = state.subroutineRefMap.get(ref);
+      const isGlobalRecursion = ref === 0;
+      const expandedSubroutine = isGlobalRecursion ? createRecursion(0) : (
+        // The reffed group might itself contain subroutines, which are expanded during sub-traversal
+        cloneCapturingGroup(reffedGroupNode, state.groupOriginByCopy, null)
+      );
+      let replacement = expandedSubroutine;
+      if (!isGlobalRecursion) {
+        const reffedGroupFlagMods = getCombinedFlagModsFromFlagNodes(getAllParents(
+          reffedGroupNode,
+          (p2) => p2.type === "Group" && !!p2.flags
+        ));
+        const reffedGroupFlags = reffedGroupFlagMods ? getNewCurrentFlags(state.globalFlags, reffedGroupFlagMods) : state.globalFlags;
+        if (!areFlagsEqual(reffedGroupFlags, state.currentFlags)) {
+          replacement = A2({
+            flags: getFlagModsFromFlags(reffedGroupFlags)
+          });
+          replacement.body[0].body.push(expandedSubroutine);
+        }
+      }
+      replaceWith(setParentDeep(replacement, parent), { traverse: !isGlobalRecursion });
+    }
+  };
+  var ThirdPassVisitor = {
+    Backreference({ node, parent, replaceWith }, state) {
+      if (node.orphan) {
+        state.highestOrphanBackref = Math.max(state.highestOrphanBackref, node.ref);
+        return;
+      }
+      const reffedNodes = state.reffedNodesByReferencer.get(node);
+      const participants = reffedNodes.filter((reffed) => canParticipateWithNode(reffed, node));
+      if (!participants.length) {
+        replaceWith(setParentDeep(K3({ negate: true }), parent));
+      } else if (participants.length > 1) {
+        const group = A2({
+          atomic: true,
+          body: participants.reverse().map((reffed) => b3({
+            body: [k3(reffed.number)]
+          }))
+        });
+        replaceWith(setParentDeep(group, parent));
+      } else {
+        node.ref = participants[0].number;
+      }
+    },
+    CapturingGroup({ node }, state) {
+      node.number = ++state.numCapturesToLeft;
+      if (node.name) {
+        if (state.groupsByName.get(node.name).get(node).hasDuplicateNameToRemove) {
+          delete node.name;
+        }
+      }
+    },
+    Regex: {
+      exit({ node }, state) {
+        const numCapsNeeded = Math.max(state.highestOrphanBackref - state.numCapturesToLeft, 0);
+        for (let i2 = 0; i2 < numCapsNeeded; i2++) {
+          const emptyCapture = P3();
+          node.body.at(-1).body.push(emptyCapture);
+        }
+      }
+    },
+    Subroutine({ node }, state) {
+      if (!node.isRecursive || node.ref === 0) {
+        return;
+      }
+      node.ref = state.reffedNodesByReferencer.get(node).number;
+    }
+  };
+  function addParentProperties(root2) {
+    S3(root2, {
+      "*"({ node, parent }) {
+        node.parent = parent;
+      }
+    });
+  }
+  function areFlagsEqual(a2, b4) {
+    return a2.dotAll === b4.dotAll && a2.ignoreCase === b4.ignoreCase;
+  }
+  function canParticipateWithNode(capture, node) {
+    let rightmostPoint = node;
+    do {
+      if (rightmostPoint.type === "Regex") {
+        return false;
+      }
+      if (rightmostPoint.type === "Alternative") {
+        continue;
+      }
+      if (rightmostPoint === capture) {
+        return false;
+      }
+      const kidsOfParent = getKids(rightmostPoint.parent);
+      for (const kid of kidsOfParent) {
+        if (kid === rightmostPoint) {
+          break;
+        }
+        if (kid === capture || isAncestorOf(kid, capture)) {
+          return true;
+        }
+      }
+    } while (rightmostPoint = rightmostPoint.parent);
+    throw new Error("Unexpected path");
+  }
+  function cloneCapturingGroup(obj, originMap, up, up2) {
+    const store = Array.isArray(obj) ? [] : {};
+    for (const [key2, value] of Object.entries(obj)) {
+      if (key2 === "parent") {
+        store.parent = Array.isArray(up) ? up2 : up;
+      } else if (value && typeof value === "object") {
+        store[key2] = cloneCapturingGroup(value, originMap, store, up);
+      } else {
+        if (key2 === "type" && value === "CapturingGroup") {
+          originMap.set(store, originMap.get(obj) ?? obj);
+        }
+        store[key2] = value;
+      }
+    }
+    return store;
+  }
+  function createRecursion(ref) {
+    const node = O2(ref);
+    node.isRecursive = true;
+    return node;
+  }
+  function getAllParents(node, filterFn) {
+    const results = [];
+    while (node = node.parent) {
+      if (!filterFn || filterFn(node)) {
+        results.push(node);
+      }
+    }
+    return results;
+  }
+  function getAndStoreJsGroupName(name, map2) {
+    if (map2.has(name)) {
+      return map2.get(name);
+    }
+    const jsName = `$${map2.size}_${name.replace(/^[^$_\p{IDS}]|[^$\u200C\u200D\p{IDC}]/ug, "_")}`;
+    map2.set(name, jsName);
+    return jsName;
+  }
+  function getCombinedFlagModsFromFlagNodes(flagNodes) {
+    const flagProps = ["dotAll", "ignoreCase"];
+    const combinedFlags = { enable: {}, disable: {} };
+    flagNodes.forEach(({ flags }) => {
+      flagProps.forEach((prop) => {
+        if (flags.enable?.[prop]) {
+          delete combinedFlags.disable[prop];
+          combinedFlags.enable[prop] = true;
+        }
+        if (flags.disable?.[prop]) {
+          combinedFlags.disable[prop] = true;
+        }
+      });
+    });
+    if (!Object.keys(combinedFlags.enable).length) {
+      delete combinedFlags.enable;
+    }
+    if (!Object.keys(combinedFlags.disable).length) {
+      delete combinedFlags.disable;
+    }
+    if (combinedFlags.enable || combinedFlags.disable) {
+      return combinedFlags;
+    }
+    return null;
+  }
+  function getFlagModsFromFlags({ dotAll, ignoreCase }) {
+    const mods = {};
+    if (dotAll || ignoreCase) {
+      mods.enable = {};
+      dotAll && (mods.enable.dotAll = true);
+      ignoreCase && (mods.enable.ignoreCase = true);
+    }
+    if (!dotAll || !ignoreCase) {
+      mods.disable = {};
+      !dotAll && (mods.disable.dotAll = true);
+      !ignoreCase && (mods.disable.ignoreCase = true);
+    }
+    return mods;
+  }
+  function getKids(node) {
+    if (!node) {
+      throw new Error("Node expected");
+    }
+    const { body: body3 } = node;
+    return Array.isArray(body3) ? body3 : body3 ? [body3] : null;
+  }
+  function getLeadingG(els) {
+    const firstToConsider = els.find((el) => el.kind === "search_start" || isLoneGLookaround(el, { negate: false }) || !isAlwaysZeroLength(el));
+    if (!firstToConsider) {
+      return null;
+    }
+    if (firstToConsider.kind === "search_start") {
+      return firstToConsider;
+    }
+    if (firstToConsider.type === "LookaroundAssertion") {
+      return firstToConsider.body[0].body[0];
+    }
+    if (firstToConsider.type === "CapturingGroup" || firstToConsider.type === "Group") {
+      const gNodesForGroup = [];
+      for (const alt of firstToConsider.body) {
+        const leadingG = getLeadingG(alt.body);
+        if (!leadingG) {
+          return null;
+        }
+        Array.isArray(leadingG) ? gNodesForGroup.push(...leadingG) : gNodesForGroup.push(leadingG);
+      }
+      return gNodesForGroup;
+    }
+    return null;
+  }
+  function isAncestorOf(node, descendant) {
+    const kids = getKids(node) ?? [];
+    for (const kid of kids) {
+      if (kid === descendant || isAncestorOf(kid, descendant)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  function isAlwaysZeroLength({ type }) {
+    return type === "Assertion" || type === "Directive" || type === "LookaroundAssertion";
+  }
+  function isAlwaysNonZeroLength(node) {
+    const types = [
+      "Character",
+      "CharacterClass",
+      "CharacterSet"
+    ];
+    return types.includes(node.type) || node.type === "Quantifier" && node.min && types.includes(node.body.type);
+  }
+  function isLoneGLookaround(node, options) {
+    const opts = {
+      negate: null,
+      ...options
+    };
+    return node.type === "LookaroundAssertion" && (opts.negate === null || node.negate === opts.negate) && node.body.length === 1 && o2(node.body[0], {
+      type: "Assertion",
+      kind: "search_start"
+    });
+  }
+  function isValidJsGroupName(name) {
+    return /^[$_\p{IDS}][$\u200C\u200D\p{IDC}]*$/u.test(name);
+  }
+  function parseFragment(pattern, options) {
+    const ast = J3(pattern, {
+      ...options,
+      // Providing a custom set of Unicode property names avoids converting some JS Unicode
+      // properties (ex: `\p{Alpha}`) to Onig POSIX classes
+      unicodePropertyMap: JsUnicodePropertyMap
+    });
+    const alts = ast.body;
+    if (alts.length > 1 || alts[0].body.length > 1) {
+      return A2({ body: alts });
+    }
+    return alts[0].body[0];
+  }
+  function setNegate(node, negate) {
+    node.negate = negate;
+    return node;
+  }
+  function setParent(node, parent) {
+    node.parent = parent;
+    return node;
+  }
+  function setParentDeep(node, parent) {
+    addParentProperties(node);
+    node.parent = parent;
+    return node;
+  }
+  function generate(ast, options) {
+    const opts = getOptions(options);
+    const minTargetEs2024 = isMinTarget(opts.target, "ES2024");
+    const minTargetEs2025 = isMinTarget(opts.target, "ES2025");
+    const recursionLimit = opts.rules.recursionLimit;
+    if (!Number.isInteger(recursionLimit) || recursionLimit < 2 || recursionLimit > 20) {
+      throw new Error("Invalid recursionLimit; use 2-20");
+    }
+    let hasCaseInsensitiveNode = null;
+    let hasCaseSensitiveNode = null;
+    if (!minTargetEs2025) {
+      const iStack = [ast.flags.ignoreCase];
+      S3(ast, FlagModifierVisitor, {
+        getCurrentModI: () => iStack.at(-1),
+        popModI() {
+          iStack.pop();
+        },
+        pushModI(isIOn) {
+          iStack.push(isIOn);
+        },
+        setHasCasedChar() {
+          if (iStack.at(-1)) {
+            hasCaseInsensitiveNode = true;
+          } else {
+            hasCaseSensitiveNode = true;
+          }
+        }
+      });
+    }
+    const appliedGlobalFlags = {
+      dotAll: ast.flags.dotAll,
+      // - Turn global flag i on if a case insensitive node was used and no case sensitive nodes were
+      //   used (to avoid unnecessary node expansion).
+      // - Turn global flag i off if a case sensitive node was used (since case sensitivity can't be
+      //   forced without the use of ES2025 flag groups)
+      ignoreCase: !!((ast.flags.ignoreCase || hasCaseInsensitiveNode) && !hasCaseSensitiveNode)
+    };
+    let lastNode = ast;
+    const state = {
+      accuracy: opts.accuracy,
+      appliedGlobalFlags,
+      captureMap: /* @__PURE__ */ new Map(),
+      currentFlags: {
+        dotAll: ast.flags.dotAll,
+        ignoreCase: ast.flags.ignoreCase
+      },
+      inCharClass: false,
+      lastNode,
+      originMap: ast._originMap,
+      recursionLimit,
+      useAppliedIgnoreCase: !!(!minTargetEs2025 && hasCaseInsensitiveNode && hasCaseSensitiveNode),
+      useFlagMods: minTargetEs2025,
+      useFlagV: minTargetEs2024,
+      verbose: opts.verbose
+    };
+    function gen(node) {
+      state.lastNode = lastNode;
+      lastNode = node;
+      const fn = throwIfNullish(generator[node.type], `Unexpected node type "${node.type}"`);
+      return fn(node, state, gen);
+    }
+    const result = {
+      pattern: ast.body.map(gen).join("|"),
+      // Could reset `lastNode` at this point via `lastNode = ast`, but it isn't needed by flags
+      flags: gen(ast.flags),
+      options: { ...ast.options }
+    };
+    if (!minTargetEs2024) {
+      delete result.options.force.v;
+      result.options.disable.v = true;
+      result.options.unicodeSetsPlugin = null;
+    }
+    result._captureTransfers = /* @__PURE__ */ new Map();
+    result._hiddenCaptures = [];
+    state.captureMap.forEach((value, key2) => {
+      if (value.hidden) {
+        result._hiddenCaptures.push(key2);
+      }
+      if (value.transferTo) {
+        getOrInsert(result._captureTransfers, value.transferTo, []).push(key2);
+      }
+    });
+    return result;
+  }
+  var FlagModifierVisitor = {
+    "*": {
+      enter({ node }, state) {
+        if (isAnyGroup(node)) {
+          const currentModI = state.getCurrentModI();
+          state.pushModI(
+            node.flags ? getNewCurrentFlags({ ignoreCase: currentModI }, node.flags).ignoreCase : currentModI
+          );
+        }
+      },
+      exit({ node }, state) {
+        if (isAnyGroup(node)) {
+          state.popModI();
+        }
+      }
+    },
+    Backreference(_4, state) {
+      state.setHasCasedChar();
+    },
+    Character({ node }, state) {
+      if (charHasCase(cp(node.value))) {
+        state.setHasCasedChar();
+      }
+    },
+    CharacterClassRange({ node, skip }, state) {
+      skip();
+      if (getCasesOutsideCharClassRange(node, { firstOnly: true }).length) {
+        state.setHasCasedChar();
+      }
+    },
+    CharacterSet({ node }, state) {
+      if (node.kind === "property" && UnicodePropertiesWithSpecificCase.has(node.value)) {
+        state.setHasCasedChar();
+      }
+    }
+  };
+  var generator = {
+    /**
+    @param {AlternativeNode} node
+    */
+    Alternative({ body: body3 }, _4, gen) {
+      return body3.map(gen).join("");
+    },
+    /**
+    @param {AssertionNode} node
+    */
+    Assertion({ kind, negate }) {
+      if (kind === "string_end") {
+        return "$";
+      }
+      if (kind === "string_start") {
+        return "^";
+      }
+      if (kind === "word_boundary") {
+        return negate ? r3`\B` : r3`\b`;
+      }
+      throw new Error(`Unexpected assertion kind "${kind}"`);
+    },
+    /**
+    @param {BackreferenceNode} node
+    */
+    Backreference({ ref }, state) {
+      if (typeof ref !== "number") {
+        throw new Error("Unexpected named backref in transformed AST");
+      }
+      if (!state.useFlagMods && state.accuracy === "strict" && state.currentFlags.ignoreCase && !state.captureMap.get(ref).ignoreCase) {
+        throw new Error("Use of case-insensitive backref to case-sensitive group requires target ES2025 or non-strict accuracy");
+      }
+      return "\\" + ref;
+    },
+    /**
+    @param {CapturingGroupNode} node
+    */
+    CapturingGroup(node, state, gen) {
+      const { body: body3, name, number: number2 } = node;
+      const data = { ignoreCase: state.currentFlags.ignoreCase };
+      const origin = state.originMap.get(node);
+      if (origin) {
+        data.hidden = true;
+        if (number2 > origin.number) {
+          data.transferTo = origin.number;
+        }
+      }
+      state.captureMap.set(number2, data);
+      return `(${name ? `?<${name}>` : ""}${body3.map(gen).join("|")})`;
+    },
+    /**
+    @param {CharacterNode} node
+    */
+    Character({ value }, state) {
+      const char = cp(value);
+      const escaped = getCharEscape(value, {
+        escDigit: state.lastNode.type === "Backreference",
+        inCharClass: state.inCharClass,
+        useFlagV: state.useFlagV
+      });
+      if (escaped !== char) {
+        return escaped;
+      }
+      if (state.useAppliedIgnoreCase && state.currentFlags.ignoreCase && charHasCase(char)) {
+        const cases = getIgnoreCaseMatchChars(char);
+        return state.inCharClass ? cases.join("") : cases.length > 1 ? `[${cases.join("")}]` : cases[0];
+      }
+      return char;
+    },
+    /**
+    @param {CharacterClassNode} node
+    */
+    CharacterClass(node, state, gen) {
+      const { kind, negate, parent } = node;
+      let { body: body3 } = node;
+      if (kind === "intersection" && !state.useFlagV) {
+        throw new Error("Use of character class intersection requires min target ES2024");
+      }
+      if (envFlags.bugFlagVLiteralHyphenIsRange && state.useFlagV && body3.some(isLiteralHyphen)) {
+        body3 = [m3(45), ...body3.filter((kid) => !isLiteralHyphen(kid))];
+      }
+      const genClass = () => `[${negate ? "^" : ""}${body3.map(gen).join(kind === "intersection" ? "&&" : "")}]`;
+      if (!state.inCharClass) {
+        if (
+          // Already established `kind !== 'intersection'` if `!state.useFlagV`; don't check again
+          (!state.useFlagV || envFlags.bugNestedClassIgnoresNegation) && !negate
+        ) {
+          const negatedChildClasses = body3.filter(
+            (kid) => kid.type === "CharacterClass" && kid.kind === "union" && kid.negate
+          );
+          if (negatedChildClasses.length) {
+            const group = A2();
+            const groupFirstAlt = group.body[0];
+            group.parent = parent;
+            groupFirstAlt.parent = group;
+            body3 = body3.filter((kid) => !negatedChildClasses.includes(kid));
+            node.body = body3;
+            if (body3.length) {
+              node.parent = groupFirstAlt;
+              groupFirstAlt.body.push(node);
+            } else {
+              group.body.pop();
+            }
+            negatedChildClasses.forEach((cc) => {
+              const newAlt = b3({ body: [cc] });
+              cc.parent = newAlt;
+              newAlt.parent = group;
+              group.body.push(newAlt);
+            });
+            return gen(group);
+          }
+        }
+        state.inCharClass = true;
+        const result = genClass();
+        state.inCharClass = false;
+        return result;
+      }
+      const firstEl = body3[0];
+      if (
+        // Already established that the parent is a char class via `inCharClass`; don't check again
+        kind === "union" && !negate && firstEl && // Allows many nested classes to work with `target` ES2018 which doesn't support nesting
+        ((!state.useFlagV || !state.verbose) && parent.kind === "union" && !(envFlags.bugFlagVLiteralHyphenIsRange && state.useFlagV) || !state.verbose && parent.kind === "intersection" && // JS doesn't allow intersection with union or ranges
+        body3.length === 1 && firstEl.type !== "CharacterClassRange")
+      ) {
+        return body3.map(gen).join("");
+      }
+      if (!state.useFlagV && parent.type === "CharacterClass") {
+        throw new Error("Uses nested character class in a way that requires min target ES2024");
+      }
+      return genClass();
+    },
+    /**
+    @param {CharacterClassRangeNode} node
+    */
+    CharacterClassRange(node, state) {
+      const min = node.min.value;
+      const max = node.max.value;
+      const escOpts = {
+        escDigit: false,
+        inCharClass: true,
+        useFlagV: state.useFlagV
+      };
+      const minStr = getCharEscape(min, escOpts);
+      const maxStr = getCharEscape(max, escOpts);
+      const extraChars = /* @__PURE__ */ new Set();
+      if (state.useAppliedIgnoreCase && state.currentFlags.ignoreCase) {
+        const charsOutsideRange = getCasesOutsideCharClassRange(node);
+        const ranges = getCodePointRangesFromChars(charsOutsideRange);
+        ranges.forEach((value) => {
+          extraChars.add(
+            Array.isArray(value) ? `${getCharEscape(value[0], escOpts)}-${getCharEscape(value[1], escOpts)}` : getCharEscape(value, escOpts)
+          );
+        });
+      }
+      return `${minStr}-${maxStr}${[...extraChars].join("")}`;
+    },
+    /**
+    @param {CharacterSetNode} node
+    */
+    CharacterSet({ kind, negate, value, key: key2 }, state) {
+      if (kind === "dot") {
+        return state.currentFlags.dotAll ? state.appliedGlobalFlags.dotAll || state.useFlagMods ? "." : "[^]" : (
+          // Onig's only line break char is line feed, unlike JS
+          r3`[^\n]`
+        );
+      }
+      if (kind === "digit") {
+        return negate ? r3`\D` : r3`\d`;
+      }
+      if (kind === "property") {
+        if (state.useAppliedIgnoreCase && state.currentFlags.ignoreCase && UnicodePropertiesWithSpecificCase.has(value)) {
+          throw new Error(`Unicode property "${value}" can't be case-insensitive when other chars have specific case`);
+        }
+        return `${negate ? r3`\P` : r3`\p`}{${key2 ? `${key2}=` : ""}${value}}`;
+      }
+      if (kind === "word") {
+        return negate ? r3`\W` : r3`\w`;
+      }
+      throw new Error(`Unexpected character set kind "${kind}"`);
+    },
+    /**
+    @param {FlagsNode} node
+    */
+    Flags(node, state) {
+      return (
+        // The transformer should never turn on the properties for flags d, g, m since Onig doesn't
+        // have equivs. Flag m is never used since Onig uses different line break chars than JS
+        // (node.hasIndices ? 'd' : '') +
+        // (node.global ? 'g' : '') +
+        // (node.multiline ? 'm' : '') +
+        (state.appliedGlobalFlags.ignoreCase ? "i" : "") + (node.dotAll ? "s" : "") + (node.sticky ? "y" : "")
+      );
+    },
+    /**
+    @param {GroupNode} node
+    */
+    Group({ atomic: atomic2, body: body3, flags, parent }, state, gen) {
+      const currentFlags = state.currentFlags;
+      if (flags) {
+        state.currentFlags = getNewCurrentFlags(currentFlags, flags);
+      }
+      const contents = body3.map(gen).join("|");
+      const result = !state.verbose && body3.length === 1 && // Single alt
+      parent.type !== "Quantifier" && !atomic2 && (!state.useFlagMods || !flags) ? contents : `(?${getGroupPrefix(atomic2, flags, state.useFlagMods)}${contents})`;
+      state.currentFlags = currentFlags;
+      return result;
+    },
+    /**
+    @param {LookaroundAssertionNode} node
+    */
+    LookaroundAssertion({ body: body3, kind, negate }, _4, gen) {
+      const prefix = `${kind === "lookahead" ? "" : "<"}${negate ? "!" : "="}`;
+      return `(?${prefix}${body3.map(gen).join("|")})`;
+    },
+    /**
+    @param {QuantifierNode} node
+    */
+    Quantifier(node, _4, gen) {
+      return gen(node.body) + getQuantifierStr(node);
+    },
+    /**
+    @param {SubroutineNode & {isRecursive: true}} node
+    */
+    Subroutine({ isRecursive, ref }, state) {
+      if (!isRecursive) {
+        throw new Error("Unexpected non-recursive subroutine in transformed AST");
+      }
+      const limit = state.recursionLimit;
+      return ref === 0 ? `(?R=${limit})` : r3`\g<${ref}&R=${limit}>`;
+    }
+  };
+  var BaseEscapeChars = /* @__PURE__ */ new Set([
+    "$",
+    "(",
+    ")",
+    "*",
+    "+",
+    ".",
+    "?",
+    "[",
+    "\\",
+    "]",
+    "^",
+    "{",
+    "|",
+    "}"
+  ]);
+  var CharClassEscapeChars = /* @__PURE__ */ new Set([
+    "-",
+    "\\",
+    "]",
+    "^",
+    // Literal `[` doesn't require escaping with flag u, but this can help work around regex source
+    // linters and regex syntax processors that expect unescaped `[` to create a nested class
+    "["
+  ]);
+  var CharClassEscapeCharsFlagV = /* @__PURE__ */ new Set([
+    "(",
+    ")",
+    "-",
+    "/",
+    "[",
+    "\\",
+    "]",
+    "^",
+    "{",
+    "|",
+    "}",
+    // Double punctuators; also includes already-listed `-` and `^`
+    "!",
+    "#",
+    "$",
+    "%",
+    "&",
+    "*",
+    "+",
+    ",",
+    ".",
+    ":",
+    ";",
+    "<",
+    "=",
+    ">",
+    "?",
+    "@",
+    "`",
+    "~"
+  ]);
+  var CharCodeEscapeMap = /* @__PURE__ */ new Map([
+    [9, r3`\t`],
+    // horizontal tab
+    [10, r3`\n`],
+    // line feed
+    [11, r3`\v`],
+    // vertical tab
+    [12, r3`\f`],
+    // form feed
+    [13, r3`\r`],
+    // carriage return
+    [8232, r3`\u2028`],
+    // line separator
+    [8233, r3`\u2029`],
+    // paragraph separator
+    [65279, r3`\uFEFF`]
+    // ZWNBSP/BOM
+  ]);
+  var casedRe = /^\p{Cased}$/u;
+  function charHasCase(char) {
+    return casedRe.test(char);
+  }
+  function getCasesOutsideCharClassRange(node, options) {
+    const firstOnly = !!options?.firstOnly;
+    const min = node.min.value;
+    const max = node.max.value;
+    const found2 = [];
+    if (min < 65 && (max === 65535 || max >= 131071) || min === 65536 && max >= 131071) {
+      return found2;
+    }
+    for (let i2 = min; i2 <= max; i2++) {
+      const char = cp(i2);
+      if (!charHasCase(char)) {
+        continue;
+      }
+      const charsOutsideRange = getIgnoreCaseMatchChars(char).filter((caseOfChar) => {
+        const num = caseOfChar.codePointAt(0);
+        return num < min || num > max;
+      });
+      if (charsOutsideRange.length) {
+        found2.push(...charsOutsideRange);
+        if (firstOnly) {
+          break;
+        }
+      }
+    }
+    return found2;
+  }
+  function getCharEscape(codePoint, { escDigit, inCharClass, useFlagV }) {
+    if (CharCodeEscapeMap.has(codePoint)) {
+      return CharCodeEscapeMap.get(codePoint);
+    }
+    if (
+      // Control chars, etc.; condition modeled on the Chrome developer console's display for strings
+      codePoint < 32 || codePoint > 126 && codePoint < 160 || // Unicode planes 4-16; unassigned, special purpose, and private use area
+      codePoint > 262143 || // Avoid corrupting a preceding backref by immediately following it with a literal digit
+      escDigit && isDigitCharCode(codePoint)
+    ) {
+      return codePoint > 255 ? `\\u{${codePoint.toString(16).toUpperCase()}}` : `\\x${codePoint.toString(16).toUpperCase().padStart(2, "0")}`;
+    }
+    const escapeChars = inCharClass ? useFlagV ? CharClassEscapeCharsFlagV : CharClassEscapeChars : BaseEscapeChars;
+    const char = cp(codePoint);
+    return (escapeChars.has(char) ? "\\" : "") + char;
+  }
+  function getCodePointRangesFromChars(chars) {
+    const codePoints = chars.map((char) => char.codePointAt(0)).sort((a2, b4) => a2 - b4);
+    const values = [];
+    let start = null;
+    for (let i2 = 0; i2 < codePoints.length; i2++) {
+      if (codePoints[i2 + 1] === codePoints[i2] + 1) {
+        start ??= codePoints[i2];
+      } else if (start === null) {
+        values.push(codePoints[i2]);
+      } else {
+        values.push([start, codePoints[i2]]);
+        start = null;
+      }
+    }
+    return values;
+  }
+  function getGroupPrefix(atomic2, flagMods, useFlagMods) {
+    if (atomic2) {
+      return ">";
+    }
+    let mods = "";
+    if (flagMods && useFlagMods) {
+      const { enable, disable } = flagMods;
+      mods = (enable?.ignoreCase ? "i" : "") + (enable?.dotAll ? "s" : "") + (disable ? "-" : "") + (disable?.ignoreCase ? "i" : "") + (disable?.dotAll ? "s" : "");
+    }
+    return `${mods}:`;
+  }
+  function getQuantifierStr({ kind, max, min }) {
+    let base2;
+    if (!min && max === 1) {
+      base2 = "?";
+    } else if (!min && max === Infinity) {
+      base2 = "*";
+    } else if (min === 1 && max === Infinity) {
+      base2 = "+";
+    } else if (min === max) {
+      base2 = `{${min}}`;
+    } else {
+      base2 = `{${min},${max === Infinity ? "" : max}}`;
+    }
+    return base2 + {
+      greedy: "",
+      lazy: "?",
+      possessive: "+"
+    }[kind];
+  }
+  function isAnyGroup({ type }) {
+    return type === "CapturingGroup" || type === "Group" || type === "LookaroundAssertion";
+  }
+  function isDigitCharCode(value) {
+    return value > 47 && value < 58;
+  }
+  function isLiteralHyphen({ type, value }) {
+    return type === "Character" && value === 45;
+  }
+  var EmulatedRegExp = class _EmulatedRegExp extends RegExp {
+    /**
+    @type {Map<number, {
+      hidden?: true;
+      transferTo?: number;
+    }>}
+    */
+    #captureMap = /* @__PURE__ */ new Map();
+    /**
+    @type {RegExp | EmulatedRegExp | null}
+    */
+    #compiled = null;
+    /**
+    @type {string}
+    */
+    #pattern;
+    /**
+    @type {Map<number, string>?}
+    */
+    #nameMap = null;
+    /**
+    @type {string?}
+    */
+    #strategy = null;
+    /**
+    Can be used to serialize the instance.
+    @type {EmulatedRegExpOptions}
+    */
+    rawOptions = {};
+    // Override the getter with one that works with lazy-compiled regexes
+    get source() {
+      return this.#pattern || "(?:)";
+    }
+    /**
+    @overload
+    @param {string} pattern
+    @param {string} [flags]
+    @param {EmulatedRegExpOptions} [options]
+    */
+    /**
+    @overload
+    @param {EmulatedRegExp} pattern
+    @param {string} [flags]
+    */
+    constructor(pattern, flags, options) {
+      const lazyCompile = !!options?.lazyCompile;
+      if (pattern instanceof RegExp) {
+        if (options) {
+          throw new Error("Cannot provide options when copying a regexp");
+        }
+        const re4 = pattern;
+        super(re4, flags);
+        this.#pattern = re4.source;
+        if (re4 instanceof _EmulatedRegExp) {
+          this.#captureMap = re4.#captureMap;
+          this.#nameMap = re4.#nameMap;
+          this.#strategy = re4.#strategy;
+          this.rawOptions = re4.rawOptions;
+        }
+      } else {
+        const opts = {
+          hiddenCaptures: [],
+          strategy: null,
+          transfers: [],
+          ...options
+        };
+        super(lazyCompile ? "" : pattern, flags);
+        this.#pattern = pattern;
+        this.#captureMap = createCaptureMap(opts.hiddenCaptures, opts.transfers);
+        this.#strategy = opts.strategy;
+        this.rawOptions = options ?? {};
+      }
+      if (!lazyCompile) {
+        this.#compiled = this;
+      }
+    }
+    /**
+    Called internally by all String/RegExp methods that use regexes.
+    @override
+    @param {string} str
+    @returns {RegExpExecArray?}
+    */
+    exec(str) {
+      if (!this.#compiled) {
+        const { lazyCompile, ...rest } = this.rawOptions;
+        this.#compiled = new _EmulatedRegExp(this.#pattern, this.flags, rest);
+      }
+      const useLastIndex = this.global || this.sticky;
+      const pos = this.lastIndex;
+      if (this.#strategy === "clip_search" && useLastIndex && pos) {
+        this.lastIndex = 0;
+        const match = this.#execCore(str.slice(pos));
+        if (match) {
+          adjustMatchDetailsForOffset(match, pos, str, this.hasIndices);
+          this.lastIndex += pos;
+        }
+        return match;
+      }
+      return this.#execCore(str);
+    }
+    /**
+    Adds support for hidden and transfer captures.
+    @param {string} str
+    @returns
+    */
+    #execCore(str) {
+      this.#compiled.lastIndex = this.lastIndex;
+      const match = super.exec.call(this.#compiled, str);
+      this.lastIndex = this.#compiled.lastIndex;
+      if (!match || !this.#captureMap.size) {
+        return match;
+      }
+      const matchCopy = [...match];
+      match.length = 1;
+      let indicesCopy;
+      if (this.hasIndices) {
+        indicesCopy = [...match.indices];
+        match.indices.length = 1;
+      }
+      const mappedNums = [0];
+      for (let i2 = 1; i2 < matchCopy.length; i2++) {
+        const { hidden, transferTo } = this.#captureMap.get(i2) ?? {};
+        if (hidden) {
+          mappedNums.push(null);
+        } else {
+          mappedNums.push(match.length);
+          match.push(matchCopy[i2]);
+          if (this.hasIndices) {
+            match.indices.push(indicesCopy[i2]);
+          }
+        }
+        if (transferTo && matchCopy[i2] !== void 0) {
+          const to = mappedNums[transferTo];
+          if (!to) {
+            throw new Error(`Invalid capture transfer to "${to}"`);
+          }
+          match[to] = matchCopy[i2];
+          if (this.hasIndices) {
+            match.indices[to] = indicesCopy[i2];
+          }
+          if (match.groups) {
+            if (!this.#nameMap) {
+              this.#nameMap = createNameMap(this.source);
+            }
+            const name = this.#nameMap.get(transferTo);
+            if (name) {
+              match.groups[name] = matchCopy[i2];
+              if (this.hasIndices) {
+                match.indices.groups[name] = indicesCopy[i2];
+              }
+            }
+          }
+        }
+      }
+      return match;
+    }
+  };
+  function adjustMatchDetailsForOffset(match, offset, input, hasIndices) {
+    match.index += offset;
+    match.input = input;
+    if (hasIndices) {
+      const indices = match.indices;
+      for (let i2 = 0; i2 < indices.length; i2++) {
+        const arr = indices[i2];
+        if (arr) {
+          indices[i2] = [arr[0] + offset, arr[1] + offset];
+        }
+      }
+      const groupIndices = indices.groups;
+      if (groupIndices) {
+        Object.keys(groupIndices).forEach((key2) => {
+          const arr = groupIndices[key2];
+          if (arr) {
+            groupIndices[key2] = [arr[0] + offset, arr[1] + offset];
+          }
+        });
+      }
+    }
+  }
+  function createCaptureMap(hiddenCaptures, transfers) {
+    const captureMap = /* @__PURE__ */ new Map();
+    for (const num of hiddenCaptures) {
+      captureMap.set(num, {
+        hidden: true
+      });
+    }
+    for (const [to, from2] of transfers) {
+      for (const num of from2) {
+        getOrInsert(captureMap, num, {}).transferTo = to;
+      }
+    }
+    return captureMap;
+  }
+  function createNameMap(pattern) {
+    const re4 = /(?<capture>\((?:\?<(?![=!])(?<name>[^>]+)>|(?!\?)))|\\?./gsu;
+    const map2 = /* @__PURE__ */ new Map();
+    let numCharClassesOpen = 0;
+    let numCaptures = 0;
+    let match;
+    while (match = re4.exec(pattern)) {
+      const { 0: m4, groups: { capture, name } } = match;
+      if (m4 === "[") {
+        numCharClassesOpen++;
+      } else if (!numCharClassesOpen) {
+        if (capture) {
+          numCaptures++;
+          if (name) {
+            map2.set(numCaptures, name);
+          }
+        }
+      } else if (m4 === "]") {
+        numCharClassesOpen--;
+      }
+    }
+    return map2;
+  }
+  function toRegExp(pattern, options) {
+    const d3 = toRegExpDetails(pattern, options);
+    if (d3.options) {
+      return new EmulatedRegExp(d3.pattern, d3.flags, d3.options);
+    }
+    return new RegExp(d3.pattern, d3.flags);
+  }
+  function toRegExpDetails(pattern, options) {
+    const opts = getOptions(options);
+    const onigurumaAst = J3(pattern, {
+      flags: opts.flags,
+      normalizeUnknownPropertyNames: true,
+      rules: {
+        captureGroup: opts.rules.captureGroup,
+        singleline: opts.rules.singleline
+      },
+      skipBackrefValidation: opts.rules.allowOrphanBackrefs,
+      unicodePropertyMap: JsUnicodePropertyMap
+    });
+    const regexPlusAst = transform(onigurumaAst, {
+      accuracy: opts.accuracy,
+      asciiWordBoundaries: opts.rules.asciiWordBoundaries,
+      avoidSubclass: opts.avoidSubclass,
+      bestEffortTarget: opts.target
+    });
+    const generated = generate(regexPlusAst, opts);
+    const recursionResult = recursion(generated.pattern, {
+      captureTransfers: generated._captureTransfers,
+      hiddenCaptures: generated._hiddenCaptures,
+      mode: "external"
+    });
+    const possessiveResult = possessive(recursionResult.pattern);
+    const atomicResult = atomic(possessiveResult.pattern, {
+      captureTransfers: recursionResult.captureTransfers,
+      hiddenCaptures: recursionResult.hiddenCaptures
+    });
+    const details = {
+      pattern: atomicResult.pattern,
+      flags: `${opts.hasIndices ? "d" : ""}${opts.global ? "g" : ""}${generated.flags}${generated.options.disable.v ? "u" : "v"}`
+    };
+    if (opts.avoidSubclass) {
+      if (opts.lazyCompileLength !== Infinity) {
+        throw new Error("Lazy compilation requires subclass");
+      }
+    } else {
+      const hiddenCaptures = atomicResult.hiddenCaptures.sort((a2, b4) => a2 - b4);
+      const transfers = Array.from(atomicResult.captureTransfers);
+      const strategy = regexPlusAst._strategy;
+      const lazyCompile = details.pattern.length >= opts.lazyCompileLength;
+      if (hiddenCaptures.length || transfers.length || strategy || lazyCompile) {
+        details.options = {
+          ...hiddenCaptures.length && { hiddenCaptures },
+          ...transfers.length && { transfers },
+          ...strategy && { strategy },
+          ...lazyCompile && { lazyCompile }
+        };
+      }
+    }
+    return details;
+  }
+
+  // node_modules/@shikijs/engine-javascript/dist/engine-compile.mjs
+  function defaultJavaScriptRegexConstructor(pattern, options) {
+    return toRegExp(pattern, {
+      global: true,
+      hasIndices: true,
+      lazyCompileLength: 3e3,
+      rules: {
+        allowOrphanBackrefs: true,
+        asciiWordBoundaries: true,
+        captureGroup: true,
+        recursionLimit: 5,
+        singleline: true
+      },
+      ...options
+    });
+  }
+  function createJavaScriptRegexEngine(options = {}) {
+    const _options = {
+      target: "auto",
+      cache: /* @__PURE__ */ new Map(),
+      ...options
+    };
+    _options.regexConstructor ||= (pattern) => defaultJavaScriptRegexConstructor(pattern, { target: _options.target });
+    return {
+      createScanner(patterns) {
+        return new JavaScriptScanner(patterns, _options);
+      },
+      createString: createJavaScriptEngineString
+    };
+  }
+
+  // node_modules/@shikijs/themes/dist/dark-plus.mjs
+  var dark_plus_default = Object.freeze(JSON.parse('{"colors":{"actionBar.toggledBackground":"#383a49","activityBarBadge.background":"#007ACC","checkbox.border":"#6B6B6B","editor.background":"#1E1E1E","editor.foreground":"#D4D4D4","editor.inactiveSelectionBackground":"#3A3D41","editor.selectionHighlightBackground":"#ADD6FF26","editorIndentGuide.activeBackground1":"#707070","editorIndentGuide.background1":"#404040","input.placeholderForeground":"#A6A6A6","list.activeSelectionIconForeground":"#FFF","list.dropBackground":"#383B3D","menu.background":"#252526","menu.border":"#454545","menu.foreground":"#CCCCCC","menu.selectionBackground":"#0078d4","menu.separatorBackground":"#454545","ports.iconRunningProcessForeground":"#369432","sideBarSectionHeader.background":"#0000","sideBarSectionHeader.border":"#ccc3","sideBarTitle.foreground":"#BBBBBB","statusBarItem.remoteBackground":"#16825D","statusBarItem.remoteForeground":"#FFF","tab.lastPinnedBorder":"#ccc3","tab.selectedBackground":"#222222","tab.selectedForeground":"#ffffffa0","terminal.inactiveSelectionBackground":"#3A3D41","widget.border":"#303031"},"displayName":"Dark Plus","name":"dark-plus","semanticHighlighting":true,"semanticTokenColors":{"customLiteral":"#DCDCAA","newOperator":"#C586C0","numberLiteral":"#b5cea8","stringLiteral":"#ce9178"},"tokenColors":[{"scope":["meta.embedded","source.groovy.embedded","string meta.image.inline.markdown","variable.legacy.builtin.python"],"settings":{"foreground":"#D4D4D4"}},{"scope":"emphasis","settings":{"fontStyle":"italic"}},{"scope":"strong","settings":{"fontStyle":"bold"}},{"scope":"header","settings":{"foreground":"#000080"}},{"scope":"comment","settings":{"foreground":"#6A9955"}},{"scope":"constant.language","settings":{"foreground":"#569cd6"}},{"scope":["constant.numeric","variable.other.enummember","keyword.operator.plus.exponent","keyword.operator.minus.exponent"],"settings":{"foreground":"#b5cea8"}},{"scope":"constant.regexp","settings":{"foreground":"#646695"}},{"scope":"entity.name.tag","settings":{"foreground":"#569cd6"}},{"scope":["entity.name.tag.css","entity.name.tag.less"],"settings":{"foreground":"#d7ba7d"}},{"scope":"entity.other.attribute-name","settings":{"foreground":"#9cdcfe"}},{"scope":["entity.other.attribute-name.class.css","source.css entity.other.attribute-name.class","entity.other.attribute-name.id.css","entity.other.attribute-name.parent-selector.css","entity.other.attribute-name.parent.less","source.css entity.other.attribute-name.pseudo-class","entity.other.attribute-name.pseudo-element.css","source.css.less entity.other.attribute-name.id","entity.other.attribute-name.scss"],"settings":{"foreground":"#d7ba7d"}},{"scope":"invalid","settings":{"foreground":"#f44747"}},{"scope":"markup.underline","settings":{"fontStyle":"underline"}},{"scope":"markup.bold","settings":{"fontStyle":"bold","foreground":"#569cd6"}},{"scope":"markup.heading","settings":{"fontStyle":"bold","foreground":"#569cd6"}},{"scope":"markup.italic","settings":{"fontStyle":"italic"}},{"scope":"markup.strikethrough","settings":{"fontStyle":"strikethrough"}},{"scope":"markup.inserted","settings":{"foreground":"#b5cea8"}},{"scope":"markup.deleted","settings":{"foreground":"#ce9178"}},{"scope":"markup.changed","settings":{"foreground":"#569cd6"}},{"scope":"punctuation.definition.quote.begin.markdown","settings":{"foreground":"#6A9955"}},{"scope":"punctuation.definition.list.begin.markdown","settings":{"foreground":"#6796e6"}},{"scope":"markup.inline.raw","settings":{"foreground":"#ce9178"}},{"scope":"punctuation.definition.tag","settings":{"foreground":"#808080"}},{"scope":["meta.preprocessor","entity.name.function.preprocessor"],"settings":{"foreground":"#569cd6"}},{"scope":"meta.preprocessor.string","settings":{"foreground":"#ce9178"}},{"scope":"meta.preprocessor.numeric","settings":{"foreground":"#b5cea8"}},{"scope":"meta.structure.dictionary.key.python","settings":{"foreground":"#9cdcfe"}},{"scope":"meta.diff.header","settings":{"foreground":"#569cd6"}},{"scope":"storage","settings":{"foreground":"#569cd6"}},{"scope":"storage.type","settings":{"foreground":"#569cd6"}},{"scope":["storage.modifier","keyword.operator.noexcept"],"settings":{"foreground":"#569cd6"}},{"scope":["string","meta.embedded.assembly"],"settings":{"foreground":"#ce9178"}},{"scope":"string.tag","settings":{"foreground":"#ce9178"}},{"scope":"string.value","settings":{"foreground":"#ce9178"}},{"scope":"string.regexp","settings":{"foreground":"#d16969"}},{"scope":["punctuation.definition.template-expression.begin","punctuation.definition.template-expression.end","punctuation.section.embedded"],"settings":{"foreground":"#569cd6"}},{"scope":["meta.template.expression"],"settings":{"foreground":"#d4d4d4"}},{"scope":["support.type.vendored.property-name","support.type.property-name","source.css variable","source.coffee.embedded"],"settings":{"foreground":"#9cdcfe"}},{"scope":"keyword","settings":{"foreground":"#569cd6"}},{"scope":"keyword.control","settings":{"foreground":"#569cd6"}},{"scope":"keyword.operator","settings":{"foreground":"#d4d4d4"}},{"scope":["keyword.operator.new","keyword.operator.expression","keyword.operator.cast","keyword.operator.sizeof","keyword.operator.alignof","keyword.operator.typeid","keyword.operator.alignas","keyword.operator.instanceof","keyword.operator.logical.python","keyword.operator.wordlike"],"settings":{"foreground":"#569cd6"}},{"scope":"keyword.other.unit","settings":{"foreground":"#b5cea8"}},{"scope":["punctuation.section.embedded.begin.php","punctuation.section.embedded.end.php"],"settings":{"foreground":"#569cd6"}},{"scope":"support.function.git-rebase","settings":{"foreground":"#9cdcfe"}},{"scope":"constant.sha.git-rebase","settings":{"foreground":"#b5cea8"}},{"scope":["storage.modifier.import.java","variable.language.wildcard.java","storage.modifier.package.java"],"settings":{"foreground":"#d4d4d4"}},{"scope":"variable.language","settings":{"foreground":"#569cd6"}},{"scope":["entity.name.function","support.function","support.constant.handlebars","source.powershell variable.other.member","entity.name.operator.custom-literal"],"settings":{"foreground":"#DCDCAA"}},{"scope":["support.class","support.type","entity.name.type","entity.name.namespace","entity.other.attribute","entity.name.scope-resolution","entity.name.class","storage.type.numeric.go","storage.type.byte.go","storage.type.boolean.go","storage.type.string.go","storage.type.uintptr.go","storage.type.error.go","storage.type.rune.go","storage.type.cs","storage.type.generic.cs","storage.type.modifier.cs","storage.type.variable.cs","storage.type.annotation.java","storage.type.generic.java","storage.type.java","storage.type.object.array.java","storage.type.primitive.array.java","storage.type.primitive.java","storage.type.token.java","storage.type.groovy","storage.type.annotation.groovy","storage.type.parameters.groovy","storage.type.generic.groovy","storage.type.object.array.groovy","storage.type.primitive.array.groovy","storage.type.primitive.groovy"],"settings":{"foreground":"#4EC9B0"}},{"scope":["meta.type.cast.expr","meta.type.new.expr","support.constant.math","support.constant.dom","support.constant.json","entity.other.inherited-class","punctuation.separator.namespace.ruby"],"settings":{"foreground":"#4EC9B0"}},{"scope":["keyword.control","source.cpp keyword.operator.new","keyword.operator.delete","keyword.other.using","keyword.other.directive.using","keyword.other.operator","entity.name.operator"],"settings":{"foreground":"#C586C0"}},{"scope":["variable","meta.definition.variable.name","support.variable","entity.name.variable","constant.other.placeholder"],"settings":{"foreground":"#9CDCFE"}},{"scope":["variable.other.constant","variable.other.enummember"],"settings":{"foreground":"#4FC1FF"}},{"scope":["meta.object-literal.key"],"settings":{"foreground":"#9CDCFE"}},{"scope":["support.constant.property-value","support.constant.font-name","support.constant.media-type","support.constant.media","constant.other.color.rgb-value","constant.other.rgb-value","support.constant.color"],"settings":{"foreground":"#CE9178"}},{"scope":["punctuation.definition.group.regexp","punctuation.definition.group.assertion.regexp","punctuation.definition.character-class.regexp","punctuation.character.set.begin.regexp","punctuation.character.set.end.regexp","keyword.operator.negation.regexp","support.other.parenthesis.regexp"],"settings":{"foreground":"#CE9178"}},{"scope":["constant.character.character-class.regexp","constant.other.character-class.set.regexp","constant.other.character-class.regexp","constant.character.set.regexp"],"settings":{"foreground":"#d16969"}},{"scope":["keyword.operator.or.regexp","keyword.control.anchor.regexp"],"settings":{"foreground":"#DCDCAA"}},{"scope":"keyword.operator.quantifier.regexp","settings":{"foreground":"#d7ba7d"}},{"scope":["constant.character","constant.other.option"],"settings":{"foreground":"#569cd6"}},{"scope":"constant.character.escape","settings":{"foreground":"#d7ba7d"}},{"scope":"entity.name.label","settings":{"foreground":"#C8C8C8"}}],"type":"dark"}'));
+
+  // node_modules/@shikijs/themes/dist/light-plus.mjs
+  var light_plus_default = Object.freeze(JSON.parse('{"colors":{"actionBar.toggledBackground":"#dddddd","activityBarBadge.background":"#007ACC","checkbox.border":"#919191","diffEditor.unchangedRegionBackground":"#f8f8f8","editor.background":"#FFFFFF","editor.foreground":"#000000","editor.inactiveSelectionBackground":"#E5EBF1","editor.selectionHighlightBackground":"#ADD6FF80","editorIndentGuide.activeBackground1":"#939393","editorIndentGuide.background1":"#D3D3D3","editorSuggestWidget.background":"#F3F3F3","input.placeholderForeground":"#767676","list.activeSelectionIconForeground":"#FFF","list.focusAndSelectionOutline":"#90C2F9","list.hoverBackground":"#E8E8E8","menu.border":"#D4D4D4","notebook.cellBorderColor":"#E8E8E8","notebook.selectedCellBackground":"#c8ddf150","ports.iconRunningProcessForeground":"#369432","searchEditor.textInputBorder":"#CECECE","settings.numberInputBorder":"#CECECE","settings.textInputBorder":"#CECECE","sideBarSectionHeader.background":"#0000","sideBarSectionHeader.border":"#61616130","sideBarTitle.foreground":"#6F6F6F","statusBarItem.errorBackground":"#c72e0f","statusBarItem.remoteBackground":"#16825D","statusBarItem.remoteForeground":"#FFF","tab.lastPinnedBorder":"#61616130","tab.selectedBackground":"#ffffffa5","tab.selectedForeground":"#333333b3","terminal.inactiveSelectionBackground":"#E5EBF1","widget.border":"#d4d4d4"},"displayName":"Light Plus","name":"light-plus","semanticHighlighting":true,"semanticTokenColors":{"customLiteral":"#795E26","newOperator":"#AF00DB","numberLiteral":"#098658","stringLiteral":"#a31515"},"tokenColors":[{"scope":["meta.embedded","source.groovy.embedded","string meta.image.inline.markdown","variable.legacy.builtin.python"],"settings":{"foreground":"#000000ff"}},{"scope":"emphasis","settings":{"fontStyle":"italic"}},{"scope":"strong","settings":{"fontStyle":"bold"}},{"scope":"meta.diff.header","settings":{"foreground":"#000080"}},{"scope":"comment","settings":{"foreground":"#008000"}},{"scope":"constant.language","settings":{"foreground":"#0000ff"}},{"scope":["constant.numeric","variable.other.enummember","keyword.operator.plus.exponent","keyword.operator.minus.exponent"],"settings":{"foreground":"#098658"}},{"scope":"constant.regexp","settings":{"foreground":"#811f3f"}},{"scope":"entity.name.tag","settings":{"foreground":"#800000"}},{"scope":"entity.name.selector","settings":{"foreground":"#800000"}},{"scope":"entity.other.attribute-name","settings":{"foreground":"#e50000"}},{"scope":["entity.other.attribute-name.class.css","source.css entity.other.attribute-name.class","entity.other.attribute-name.id.css","entity.other.attribute-name.parent-selector.css","entity.other.attribute-name.parent.less","source.css entity.other.attribute-name.pseudo-class","entity.other.attribute-name.pseudo-element.css","source.css.less entity.other.attribute-name.id","entity.other.attribute-name.scss"],"settings":{"foreground":"#800000"}},{"scope":"invalid","settings":{"foreground":"#cd3131"}},{"scope":"markup.underline","settings":{"fontStyle":"underline"}},{"scope":"markup.bold","settings":{"fontStyle":"bold","foreground":"#000080"}},{"scope":"markup.heading","settings":{"fontStyle":"bold","foreground":"#800000"}},{"scope":"markup.italic","settings":{"fontStyle":"italic"}},{"scope":"markup.strikethrough","settings":{"fontStyle":"strikethrough"}},{"scope":"markup.inserted","settings":{"foreground":"#098658"}},{"scope":"markup.deleted","settings":{"foreground":"#a31515"}},{"scope":"markup.changed","settings":{"foreground":"#0451a5"}},{"scope":["punctuation.definition.quote.begin.markdown","punctuation.definition.list.begin.markdown"],"settings":{"foreground":"#0451a5"}},{"scope":"markup.inline.raw","settings":{"foreground":"#800000"}},{"scope":"punctuation.definition.tag","settings":{"foreground":"#800000"}},{"scope":["meta.preprocessor","entity.name.function.preprocessor"],"settings":{"foreground":"#0000ff"}},{"scope":"meta.preprocessor.string","settings":{"foreground":"#a31515"}},{"scope":"meta.preprocessor.numeric","settings":{"foreground":"#098658"}},{"scope":"meta.structure.dictionary.key.python","settings":{"foreground":"#0451a5"}},{"scope":"storage","settings":{"foreground":"#0000ff"}},{"scope":"storage.type","settings":{"foreground":"#0000ff"}},{"scope":["storage.modifier","keyword.operator.noexcept"],"settings":{"foreground":"#0000ff"}},{"scope":["string","meta.embedded.assembly"],"settings":{"foreground":"#a31515"}},{"scope":["string.comment.buffered.block.pug","string.quoted.pug","string.interpolated.pug","string.unquoted.plain.in.yaml","string.unquoted.plain.out.yaml","string.unquoted.block.yaml","string.quoted.single.yaml","string.quoted.double.xml","string.quoted.single.xml","string.unquoted.cdata.xml","string.quoted.double.html","string.quoted.single.html","string.unquoted.html","string.quoted.single.handlebars","string.quoted.double.handlebars"],"settings":{"foreground":"#0000ff"}},{"scope":"string.regexp","settings":{"foreground":"#811f3f"}},{"scope":["punctuation.definition.template-expression.begin","punctuation.definition.template-expression.end","punctuation.section.embedded"],"settings":{"foreground":"#0000ff"}},{"scope":["meta.template.expression"],"settings":{"foreground":"#000000"}},{"scope":["support.constant.property-value","support.constant.font-name","support.constant.media-type","support.constant.media","constant.other.color.rgb-value","constant.other.rgb-value","support.constant.color"],"settings":{"foreground":"#0451a5"}},{"scope":["support.type.vendored.property-name","support.type.property-name","source.css variable","source.coffee.embedded"],"settings":{"foreground":"#e50000"}},{"scope":["support.type.property-name.json"],"settings":{"foreground":"#0451a5"}},{"scope":"keyword","settings":{"foreground":"#0000ff"}},{"scope":"keyword.control","settings":{"foreground":"#0000ff"}},{"scope":"keyword.operator","settings":{"foreground":"#000000"}},{"scope":["keyword.operator.new","keyword.operator.expression","keyword.operator.cast","keyword.operator.sizeof","keyword.operator.alignof","keyword.operator.typeid","keyword.operator.alignas","keyword.operator.instanceof","keyword.operator.logical.python","keyword.operator.wordlike"],"settings":{"foreground":"#0000ff"}},{"scope":"keyword.other.unit","settings":{"foreground":"#098658"}},{"scope":["punctuation.section.embedded.begin.php","punctuation.section.embedded.end.php"],"settings":{"foreground":"#800000"}},{"scope":"support.function.git-rebase","settings":{"foreground":"#0451a5"}},{"scope":"constant.sha.git-rebase","settings":{"foreground":"#098658"}},{"scope":["storage.modifier.import.java","variable.language.wildcard.java","storage.modifier.package.java"],"settings":{"foreground":"#000000"}},{"scope":"variable.language","settings":{"foreground":"#0000ff"}},{"scope":["entity.name.function","support.function","support.constant.handlebars","source.powershell variable.other.member","entity.name.operator.custom-literal"],"settings":{"foreground":"#795E26"}},{"scope":["support.class","support.type","entity.name.type","entity.name.namespace","entity.other.attribute","entity.name.scope-resolution","entity.name.class","storage.type.numeric.go","storage.type.byte.go","storage.type.boolean.go","storage.type.string.go","storage.type.uintptr.go","storage.type.error.go","storage.type.rune.go","storage.type.cs","storage.type.generic.cs","storage.type.modifier.cs","storage.type.variable.cs","storage.type.annotation.java","storage.type.generic.java","storage.type.java","storage.type.object.array.java","storage.type.primitive.array.java","storage.type.primitive.java","storage.type.token.java","storage.type.groovy","storage.type.annotation.groovy","storage.type.parameters.groovy","storage.type.generic.groovy","storage.type.object.array.groovy","storage.type.primitive.array.groovy","storage.type.primitive.groovy"],"settings":{"foreground":"#267f99"}},{"scope":["meta.type.cast.expr","meta.type.new.expr","support.constant.math","support.constant.dom","support.constant.json","entity.other.inherited-class","punctuation.separator.namespace.ruby"],"settings":{"foreground":"#267f99"}},{"scope":["keyword.control","source.cpp keyword.operator.new","source.cpp keyword.operator.delete","keyword.other.using","keyword.other.directive.using","keyword.other.operator","entity.name.operator"],"settings":{"foreground":"#AF00DB"}},{"scope":["variable","meta.definition.variable.name","support.variable","entity.name.variable","constant.other.placeholder"],"settings":{"foreground":"#001080"}},{"scope":["variable.other.constant","variable.other.enummember"],"settings":{"foreground":"#0070C1"}},{"scope":["meta.object-literal.key"],"settings":{"foreground":"#001080"}},{"scope":["support.constant.property-value","support.constant.font-name","support.constant.media-type","support.constant.media","constant.other.color.rgb-value","constant.other.rgb-value","support.constant.color"],"settings":{"foreground":"#0451a5"}},{"scope":["punctuation.definition.group.regexp","punctuation.definition.group.assertion.regexp","punctuation.definition.character-class.regexp","punctuation.character.set.begin.regexp","punctuation.character.set.end.regexp","keyword.operator.negation.regexp","support.other.parenthesis.regexp"],"settings":{"foreground":"#d16969"}},{"scope":["constant.character.character-class.regexp","constant.other.character-class.set.regexp","constant.other.character-class.regexp","constant.character.set.regexp"],"settings":{"foreground":"#811f3f"}},{"scope":"keyword.operator.quantifier.regexp","settings":{"foreground":"#000000"}},{"scope":["keyword.operator.or.regexp","keyword.control.anchor.regexp"],"settings":{"foreground":"#EE0000"}},{"scope":["constant.character","constant.other.option"],"settings":{"foreground":"#0000ff"}},{"scope":"constant.character.escape","settings":{"foreground":"#EE0000"}},{"scope":"entity.name.label","settings":{"foreground":"#000000"}}],"type":"light"}'));
+
+  // src/webview/syntaxes/rocq.tmLanguage.json
+  var rocq_tmLanguage_default = {
+    fileTypes: [
+      "v"
+    ],
+    name: "Rocq",
+    patterns: [
+      {
+        match: "\\b(From|Require|Import|Export|Local|Global|Include)\\b",
+        comment: "Vernacular import keywords",
+        name: "keyword.control.import.rocq"
+      },
+      {
+        match: "\\b((Open|Close|Delimit|Undelimit|Bind|Declare)\\s+Scope)\\b",
+        comment: "Vernacular scope keywords",
+        name: "keyword.control.import.rocq"
+      },
+      {
+        match: "\\b(Theorem|Lemma|Remark|Fact|Corollary|Property|Proposition)\\s+((\\p{L}|[_\\u00A0])(\\p{L}|[0-9_\\u00A0'])*)",
+        comment: "Theorem declarations",
+        captures: {
+          "1": {
+            name: "keyword.source.rocq"
+          },
+          "2": {
+            name: "entity.name.function.theorem.rocq"
+          }
+        }
+      },
+      {
+        match: "\\bGoal\\b",
+        name: "keyword.source.rocq"
+      },
+      {
+        match: "\\b(Parameters?|Axioms?|Conjectures?|Variables?|Hypothesis|Hypotheses)(\\s+Inline)?\\b\\s*\\(?\\s*((\\p{L}|[_\\u00A0])(\\p{L}|[0-9_\\u00A0'])*)",
+        comment: "Assumptions",
+        captures: {
+          "1": {
+            name: "keyword.source.rocq"
+          },
+          "2": {
+            name: "keyword.source.rocq"
+          },
+          "3": {
+            name: "entity.name.assumption.rocq"
+          }
+        }
+      },
+      {
+        match: "\\b(Context)\\b\\s*`?\\s*(\\(|\\{)?\\s*((\\p{L}|[_\\u00A0])(\\p{L}|[0-9_\\u00A0'])*)",
+        comment: "Context",
+        captures: {
+          "1": {
+            name: "keyword.source.rocq"
+          },
+          "3": {
+            name: "entity.name.assumption.rocq"
+          }
+        }
+      },
+      {
+        match: "(\\b(?:Program|Local)\\s+)?\\b(Definition|Fixpoint|CoFixpoint|Function|Example|Let(?:\\s+Fixpoint|\\s+CoFixpoint)?|Instance|Equations|Equations?)\\s+((\\p{L}|[_\\u00A0])(\\p{L}|[0-9_\\u00A0'])*)",
+        comment: "Definitions",
+        captures: {
+          "1": {
+            name: "keyword.source.rocq"
+          },
+          "2": {
+            name: "keyword.source.rocq"
+          },
+          "3": {
+            name: "entity.name.function.rocq"
+          }
+        }
+      },
+      {
+        match: "\\b((Show\\s+)?Obligation\\s+Tactic|Obligations\\s+of|Obligation|Next\\s+Obligation(\\s+of)?|Solve\\s+Obligations(\\s+of)?|Solve\\s+All\\s+Obligations|Admit\\s+Obligations(\\s+of)?|Instance)\\b",
+        comment: "Obligations",
+        captures: {
+          "1": {
+            name: "keyword.source.rocq"
+          }
+        }
+      },
+      {
+        match: "\\b(CoInductive|Inductive|Variant|Record|Structure|Class)\\s+(>\\s*)?((\\p{L}|[_\\u00A0])(\\p{L}|[0-9_\\u00A0'])*)",
+        comment: "Type declarations",
+        captures: {
+          "1": {
+            name: "keyword.source.rocq"
+          },
+          "3": {
+            name: "entity.name.type.rocq"
+          }
+        }
+      },
+      {
+        match: "\\b(Ltac)\\s+((\\p{L}|[_\\u00A0])(\\p{L}|[0-9_\\u00A0'])*)",
+        comment: "Ltac declarations",
+        captures: {
+          "1": {
+            name: "keyword.source.rocq"
+          },
+          "2": {
+            name: "entity.name.function.ltac"
+          }
+        }
+      },
+      {
+        match: "\\b(Ltac2)\\s+(mutable\\s+)?(rec\\s+)?((\\p{L}|[_\\u00A0])(\\p{L}|[0-9_\\u00A0'])*)",
+        comment: "Ltac2 declarations",
+        captures: {
+          "1": {
+            name: "keyword.source.rocq"
+          },
+          "2": {
+            name: "keyword.source.rocq"
+          },
+          "3": {
+            name: "entity.name.function.ltac"
+          }
+        }
+      },
+      {
+        match: "\\b(Hint(\\s+Mode)?|Create\\s+HintDb|Constructors|Resolve|Rewrite|Ltac|Ltac2|Implicit(\\s+Types?)?|Set|Unset|Remove\\s+Printing|Arguments|((Tactic|Reserved)\\s+)?Notation|Infix|Section|Module(\\s+Type)?|End|Check|Print(\\s+All)?|Eval|Compute|Search|Universe|Coercions|Generalizable(\\s+(All|Variable))?|Existing(\\s+(Class|Instance))?|Canonical|About|Locate|Collection|Typeclasses\\s+(Opaque|Transparent))\\b",
+        comment: "Vernacular keywords",
+        name: "keyword.source.rocq"
+      },
+      {
+        match: "\\b(Proof|Qed|Defined|Save|Abort(\\s+All)?|Undo(\\s+To)?|Restart|Focus|Unfocus|Unfocused|Show\\s+Proof|Show\\s+Existentials|Show|Unshelve)\\b",
+        comment: "Proof keywords",
+        name: "keyword.source.rocq"
+      },
+      {
+        match: "\\b(Quit|Drop|Time|Redirect|Timeout|Fail)\\b",
+        comment: "Vernacular Debug keywords",
+        name: "keyword.debug.rocq"
+      },
+      {
+        match: "\\b(admit|Admitted)\\b",
+        comment: "Admits are bad",
+        name: "invalid.illegal.admit.rocq"
+      },
+      {
+        match: ":|\\||=|<|>|\\*|\\+|-|\\{|\\}|\u2260|\u2228|\u2227|\u2194|\xAC|\u2192|\u2264|\u2265",
+        comment: "Operators",
+        name: "keyword.operator.rocq"
+      },
+      {
+        match: "\\b(forall|exists|Type|Set|Prop|nat|bool|option|list|unit|sum|prod|comparison|Empty_set)\\b|\u2200|\u2203",
+        comment: "Type keywords",
+        name: "support.type.rocq"
+      },
+      {
+        match: "\\b(try|repeat|rew|progress|fresh|solve|now|first|tryif|at|once|do|only)\\b",
+        comment: "Ltac keywords",
+        name: "keyword.control.ltac"
+      },
+      {
+        match: "\\b(into|with|eqn|by|move|as|using)\\b",
+        comment: "Common Ltac connectors",
+        name: "keyword.control.ltac"
+      },
+      {
+        match: "\\b(match|lazymatch|multimatch|match!|lazy_match!|multi_match!|fun|with|return|end|let|in|if|then|else|fix|for|where|and)\\b|\u03BB",
+        comment: "Gallina keywords",
+        name: "keyword.control.gallina"
+      },
+      {
+        match: "\\b(intro|intros|revert|induction|destruct|auto|eauto|tauto|eassumption|apply|eapply|assumption|constructor|econstructor|reflexivity|inversion|injection|assert|split|esplit|omega|fold|unfold|specialize|rewrite|erewrite|change|symmetry|refine|simpl|intuition|firstorder|generalize|idtac|exist|exists|eexists|elim|eelim|rename|subst|congruence|trivial|left|right|set|pose|discriminate|clear|clearbody|contradict|contradiction|exact|dependent|remember|case|easy|unshelve|pattern|transitivity|etransitivity|f_equal|exfalso|replace|abstract|cycle|swap|revgoals|shelve|unshelve)\\b",
+        comment: "Ltac builtins",
+        name: "support.function.builtin.ltac"
+      },
+      {
+        applyEndPatternLast: 1,
+        begin: "\\(\\*\\*(?!\\*)",
+        end: "\\*\\)",
+        name: "comment.doc.rocq",
+        patterns: [
+          {
+            include: "#doc_comment"
+          },
+          {
+            include: "#block_comment"
+          },
+          {
+            include: "#block_double_quoted_string"
+          }
+        ]
+      },
+      {
+        applyEndPatternLast: 1,
+        begin: "\\(\\*(?!#)",
+        end: "\\*\\)",
+        name: "comment.block.rocq",
+        patterns: [
+          {
+            include: "#block_comment"
+          },
+          {
+            include: "#block_double_quoted_string"
+          }
+        ]
+      },
+      {
+        match: "\\b((0(x|X)[0-9a-fA-F]+)|([0-9]+(\\.[0-9]+)?))\\b",
+        name: "constant.numeric.gallina"
+      },
+      {
+        match: "\\b(True|False|tt|false|true|Some|None|nil|cons|pair|inl|inr|O|S|Eq|Lt|Gt|id|ex|all|unique)\\b",
+        comment: "Gallina builtin constructors",
+        name: "constant.language.constructor.gallina"
+      },
+      {
+        match: "\\b_\\b",
+        name: "constant.language.wildcard.rocq"
+      },
+      {
+        begin: '"',
+        beginCaptures: {
+          "0": {
+            name: "punctuation.definition.string.begin.rocq"
+          }
+        },
+        end: '"',
+        endCaptures: {
+          "0": {
+            name: "punctuation.definition.string.end.rocq"
+          }
+        },
+        name: "string.quoted.double.rocq"
+      }
+    ],
+    repository: {
+      doc_comment: {
+        applyEndPatternLast: 1,
+        begin: "\\(\\*\\*(?!\\*)",
+        end: "\\*\\)",
+        name: "comment.doc.rocq",
+        patterns: [
+          {
+            include: "#doc_comment"
+          },
+          {
+            include: "#block_comment"
+          },
+          {
+            include: "#block_double_quoted_string"
+          }
+        ]
+      },
+      block_comment: {
+        applyEndPatternLast: 1,
+        begin: "\\(\\*(?!#)",
+        end: "\\*\\)",
+        name: "comment.block.rocq",
+        patterns: [
+          {
+            include: "#block_comment"
+          },
+          {
+            include: "#block_double_quoted_string"
+          }
+        ]
+      },
+      block_double_quoted_string: {
+        applyEndPatternLast: 1,
+        begin: '"',
+        beginCaptures: {
+          "0": {
+            name: "punctuation.definition.string.begin.rocq"
+          }
+        },
+        end: '"',
+        endCaptures: {
+          "0": {
+            name: "punctuation.definition.string.end.rocq"
+          }
+        },
+        name: "string.quoted.double.rocq"
+      }
+    },
+    scopeName: "source.rocq",
+    uuid: "CDE1AD3A-C094-457D-B321-93009C6BCFDA"
+  };
+
+  // src/webview/syntaxes/lean4.json
+  var lean4_default = {
+    name: "Lean 4",
+    scopeName: "source.lean4",
+    fileTypes: [],
+    patterns: [
+      { include: "#comments" },
+      { match: "\\b(Prop|Type|Sort)\\b", name: "storage.type.lean4" },
+      {
+        match: "\\b(attribute\\b\\s*)(?:(\\[[^\\]\\s]*\\])|\\[([^\\]\\s]*))",
+        captures: {
+          "1": { name: "storage.modifier.lean4" },
+          "2": { name: "storage.modifier.lean4" },
+          "3": { name: "storage.modifier.lean4" }
+        }
+      },
+      {
+        match: "(@)(?:(\\[[^\\]\\s]*\\])|\\[([^\\]\\s]*))",
+        captures: {
+          "1": { name: "storage.modifier.lean4" },
+          "2": { name: "storage.modifier.lean4" },
+          "3": { name: "storage.modifier.lean4" }
+        }
+      },
+      {
+        match: "\\b(?<!\\.)(local|scoped|partial|unsafe|nonrec|public|private|protected|noncomputable|meta)(?!\\.)\\b",
+        name: "storage.modifier.lean4"
+      },
+      { match: "\\b(sorry|admit|#exit)\\b", name: "invalid.illegal.lean4" },
+      {
+        match: "#(print|eval|eval!|reduce|synth|widget|where|version|with_exporting|check|check_tactic|check_tactic_failure|check_failure|check_simp|discr_tree_key|discr_tree_simp_key|guard|guard_expr|guard_msgs)\\b",
+        name: "keyword.other.lean4"
+      },
+      {
+        match: "\\bderiving\\s+instance\\b",
+        name: "keyword.other.command.lean4"
+      },
+      {
+        begin: "\\b(?<!\\.)(inductive|coinductive|structure|theorem|axiom|abbrev|lemma|def|instance|class)\\b\\s+(\\{[^}]*\\})?",
+        beginCaptures: {
+          "1": { name: "keyword.other.definitioncommand.lean4" }
+        },
+        patterns: [{ include: "#comments" }, { include: "#definitionName" }, { match: "," }],
+        end: "(?=\\bwith\\b|\\bextends\\b|\\bwhere\\b|[:\\|\\(\\[\\{\u2983<>])",
+        name: "meta.definitioncommand.lean4"
+      },
+      {
+        match: "\\b(?<!\\.)(theorem|show|have|using|haveI|from|suffices|nomatch|nofun|no_index|def|class|structure|instance|elab|set_option|initialize|builtin_initialize|example|inductive_fixpoint|inductive|coinductive_fixpoint|coinductive|termination_by\\?|termination_by|decreasing_by|partial_fixpoint|axiom|universe|variable|module|import all|import|open|export|prelude|renaming|hiding|do|by\\?|by|let|letI|let_expr|extends|mutual|mut|where|rec|declare_syntax_cat|syntax|macro_rules|macro|binop_lazy%|binop%|unop%|binrel_no_prop%|binrel%|leftact%|rightact%|max_prec|leading_parser|elab_rules|deriving|fun|section|namespace|end|prefix|postfix|infixl|infixr|infix|notation|abbrev|if|bif|then|else|calc|matches|match_expr|match|with|forall|for|while|repeat|unless|until|panic!|unreachable!|assert!|try|catch|finally|return|continue|break|exists|mod_cast|exact\\?%|include_str|include|in|trailing_parser|tactic_tag|tactic_alt|tactic_extension|register_tactic_tag|type_of%|binder_predicate|grind_propagator|builtin_grind_propagator|grind_pattern|simproc|builtin_simproc|simproc_pattern%|builtin_simproc_pattern%|simproc_decl|builtin_simproc_decl|dsimproc|builtin_dsimproc|dsimproc_decl|builtin_dsimproc_decl|show_panel_widgets|show_term|seal|unseal|nat_lit|norm_cast_add_elim|println!|private_decl%|declare_config_elab|decl_name%|register_error_explanation|register_builtin_option|register_option|register_parser_alias|register_simp_attr|register_linter_set|register_label_attr|recommended_spelling|reportIssue!|reprove|run_elab|run_cmd|run_meta|value_of%|add_decl_doc|omit|opaque|json%|dbg_trace|trace_goal\\[[^\\]\\s]*\\]|trace\\[[^\\]\\s]*\\]|throwErrorAt|throwError|throwNamedErrorAt|throwNamedError|logNamedWarningAt|logNamedWarning|logNamedErrorAt|logNamedError)(?!\\.)\\b",
+        name: "keyword.other.lean4"
+      },
+      { begin: "\xAB", end: "\xBB", contentName: "entity.name.lean4" },
+      {
+        begin: '(s!|m!|throwError|dbg_trace|panic!|reportIssue!|(?:trace_goal|trace)\\[[^\\]\\s]*\\])\\s*"',
+        end: '"',
+        name: "string.interpolated.lean4",
+        beginCaptures: {
+          "1": { name: "keyword.other.lean4" }
+        },
+        patterns: [
+          {
+            begin: "(\\{)",
+            end: "(\\})",
+            beginCaptures: { "1": { name: "keyword.other.lean4" } },
+            endCaptures: { "1": { name: "keyword.other.lean4" } },
+            patterns: [{ include: "$self" }]
+          },
+          { match: `\\\\[\\\\"ntr']`, name: "constant.character.escape.lean4" },
+          { match: "\\\\x[0-9A-Fa-f][0-9A-Fa-f]", name: "constant.character.escape.lean4" },
+          {
+            match: "\\\\u[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]",
+            name: "constant.character.escape.lean4"
+          }
+        ]
+      },
+      {
+        begin: '"',
+        end: '"',
+        name: "string.quoted.double.lean4",
+        patterns: [
+          { match: `\\\\[\\\\"ntr']`, name: "constant.character.escape.lean4" },
+          { match: "\\\\x[0-9A-Fa-f][0-9A-Fa-f]", name: "constant.character.escape.lean4" },
+          {
+            match: "\\\\u[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]",
+            name: "constant.character.escape.lean4"
+          }
+        ]
+      },
+      { name: "constant.language.lean4", match: "\\b(true|false)\\b" },
+      { name: "string.quoted.single.lean4", match: "(?<!\\]|\\w)'[^\\\\']'" },
+      {
+        name: "string.quoted.single.lean4",
+        match: "(?<!\\]|\\w)'(\\\\(x[0-9A-Fa-f][0-9A-Fa-f]|u[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]|.))'",
+        captures: { "1": { name: "constant.character.escape.lean4" } }
+      },
+      {
+        match: "\\b([0-9]+|0([xX][0-9a-fA-F]+)|[-]?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+-]?[0-9]+)?)\\b",
+        name: "constant.numeric.lean4"
+      }
+    ],
+    repository: {
+      definitionName: {
+        patterns: [
+          {
+            match: "\\b[^:\xAB\xBB\\(\\)\\{\\}[:space:]=\u2192\u03BB\u2200?][^:\xAB\xBB\\(\\)\\{\\}[:space:]]*",
+            name: "entity.name.function.lean4"
+          },
+          { begin: "\xAB", end: "\xBB", contentName: "entity.name.function.lean4" }
+        ]
+      },
+      dashComment: {
+        begin: "--",
+        end: "$",
+        name: "comment.line.double-dash.lean4",
+        patterns: [{ include: "source.lean4.markdown" }]
+      },
+      docComment: {
+        begin: "/--",
+        end: "-/",
+        name: "comment.block.documentation.lean4",
+        patterns: [{ include: "source.lean4.markdown" }, { include: "#blockComment" }]
+      },
+      modDocComment: {
+        begin: "/-!",
+        end: "-/",
+        name: "comment.block.documentation.lean4",
+        patterns: [{ include: "source.lean4.markdown" }, { include: "#blockComment" }]
+      },
+      blockComment: {
+        begin: "/-",
+        end: "-/",
+        name: "comment.block.lean4",
+        patterns: [{ include: "source.lean4.markdown" }, { include: "#blockComment" }]
+      },
+      comments: {
+        patterns: [
+          { include: "#dashComment" },
+          { include: "#docComment" },
+          { include: "#modDocComment" },
+          { include: "#blockComment" }
+        ]
+      }
+    }
+  };
+
+  // src/webview/syntaxHighlighter.js
+  var enhancedRocq = {
+    ...rocq_tmLanguage_default,
+    name: "rocq",
+    aliases: ["coq"],
+    patterns: [
+      {
+        match: "^([a-zA-Z_][\\w\\u00A0']*(?:\\s*,\\s*[a-zA-Z_][\\w\\u00A0']*)*)\\s*(?=:)",
+        name: "variable.other.hypothesis.rocq"
+      },
+      ...rocq_tmLanguage_default.patterns
+    ]
+  };
+  var enhancedLean = {
+    ...lean4_default,
+    name: "lean4",
+    aliases: ["lean"],
+    patterns: [
+      {
+        match: "^([a-zA-Z_][\\w']*(?:\\s*,\\s*[a-zA-Z_][\\w']*)*)\\s*(?=:)",
+        name: "variable.other.hypothesis.lean4"
+      },
+      {
+        match: "\\b(Nat|Int|String|Bool|Char|Float|Option|List|Array|Vector|Fin|UInt8|UInt16|UInt32|UInt64|USize)\\b",
+        name: "support.type.lean4"
+      },
+      {
+        match: "\u22A2|\\|-",
+        name: "keyword.operator.turnstile.lean4"
+      },
+      ...lean4_default.patterns
+    ]
+  };
+  var highlighterPromise = null;
+  var highlighterInstance = null;
+  async function getHighlighter() {
+    if (highlighterInstance) {
+      return highlighterInstance;
+    }
+    if (!highlighterPromise) {
+      highlighterPromise = createHighlighterCore({
+        engine: createJavaScriptRegexEngine(),
+        langs: [enhancedRocq, enhancedLean],
+        themes: [dark_plus_default, light_plus_default]
+      }).then((h2) => {
+        highlighterInstance = h2;
+        return h2;
+      }).catch((err) => {
+        console.error("Failed to initialize Shiki highlighter:", err);
+        highlighterPromise = null;
+        throw err;
+      });
+    }
+    return highlighterPromise;
+  }
+  function isThemeLight() {
+    return typeof document !== "undefined" && document.body.classList.contains("vscode-light");
+  }
+  function tokenizeCode(text3, lang = "rocq") {
+    if (!highlighterInstance || !text3) {
+      return null;
+    }
+    const theme = isThemeLight() ? "light-plus" : "dark-plus";
+    const targetLang = lang === "lean" || lang === "lean4" ? "lean4" : "rocq";
+    try {
+      const result = highlighterInstance.codeToTokens(text3, { lang: targetLang, theme });
+      const tokens = [];
+      let lineOffset = 0;
+      for (let i2 = 0; i2 < result.tokens.length; i2++) {
+        const line = result.tokens[i2];
+        let charOffset = 0;
+        for (const token2 of line) {
+          const start = lineOffset + charOffset;
+          const end = start + token2.content.length;
+          if (token2.color) {
+            tokens.push({
+              content: token2.content,
+              start,
+              end,
+              color: token2.color,
+              fontStyle: token2.fontStyle
+            });
+          }
+          charOffset += token2.content.length;
+        }
+        lineOffset += charOffset + 1;
+      }
+      return tokens;
+    } catch (e) {
+      console.error("Shiki tokenizeCode error:", e);
+      return null;
+    }
+  }
+  function escapeHtml(str) {
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+  }
+  function highlightCodeHtml(code, lang = "rocq") {
+    if (!highlighterInstance || !code) {
+      return escapeHtml(code);
+    }
+    const theme = isThemeLight() ? "light-plus" : "dark-plus";
+    const targetLang = lang === "lean" || lang === "lean4" ? "lean4" : "rocq";
+    try {
+      return highlighterInstance.codeToHtml(code, {
+        lang: targetLang,
+        theme,
+        structure: "inline"
+      });
+    } catch {
+      return escapeHtml(code);
+    }
+  }
+
   // src/webview/chatStreamUi.js
+  getHighlighter().catch(() => {
+  });
+  d.use({
+    renderer: {
+      code({ text: text3, lang }) {
+        const cleanLang = (lang || "").trim().toLowerCase();
+        const highlighted = highlightCodeHtml(text3, cleanLang);
+        return `<pre><code class="language-${cleanLang || "text"}">${highlighted}</code></pre>`;
+      }
+    }
+  });
   var chatLog = null;
   var chatTypingIndicator = null;
   var currentTurnElem = null;
   var mainResponseElem = null;
+  var postResponseElem = null;
   var toolDetailsElem = null;
   var toolSummaryElem = null;
   var toolLogElem = null;
+  var preStreamBuffer = "";
+  var postStreamBuffer = "";
   var streamBuffer = "";
   var toolCallCount = 0;
+  var hasExecutedToolsInTurn = false;
   function initChatStreamUi(options = {}) {
     chatLog = options.chatLog ?? document.getElementById("chatLog");
     chatTypingIndicator = options.chatTypingIndicator ?? document.getElementById("chatTypingIndicator");
@@ -29761,44 +39133,44 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       chatTypingIndicator.setAttribute("aria-hidden", !visible);
     }
   }
-  function renderMarkdownWithMath(text2) {
-    if (!text2) {
+  function renderMarkdownWithMath(text3) {
+    if (!text3) {
       return "";
     }
     const blockPlaceholders = [];
     const inlinePlaceholders = [];
-    const s = String(text2).replace(/\$\$([\s\S]*?)\$\$/g, (_2, math2) => {
-      const i = blockPlaceholders.length;
+    const s2 = String(text3).replace(/\$\$([\s\S]*?)\$\$/g, (_4, math2) => {
+      const i2 = blockPlaceholders.length;
       blockPlaceholders.push(math2.trim());
-      return `{{MATHB_${i}}}`;
-    }).replace(/\$([^$\n]+)\$/g, (_2, math2) => {
-      const i = inlinePlaceholders.length;
+      return `{{MATHB_${i2}}}`;
+    }).replace(/\$([^$\n]+)\$/g, (_4, math2) => {
+      const i2 = inlinePlaceholders.length;
       inlinePlaceholders.push(math2.trim());
-      return `{{MATHI_${i}}}`;
+      return `{{MATHI_${i2}}}`;
     });
-    let html = d.parse(s);
+    let html5 = d.parse(s2);
     const katexOpts = { throwOnError: false, output: "html" };
-    blockPlaceholders.forEach((math2, i) => {
+    blockPlaceholders.forEach((math2, i2) => {
       try {
-        html = html.replace(
-          `{{MATHB_${i}}}`,
+        html5 = html5.replace(
+          `{{MATHB_${i2}}}`,
           katex.renderToString(math2, { ...katexOpts, displayMode: true })
         );
-      } catch (_2) {
-        html = html.replace(`{{MATHB_${i}}}`, `<span class="katex-error">$$${math2}$$</span>`);
+      } catch (_4) {
+        html5 = html5.replace(`{{MATHB_${i2}}}`, `<span class="katex-error">$$${math2}$$</span>`);
       }
     });
-    inlinePlaceholders.forEach((math2, i) => {
+    inlinePlaceholders.forEach((math2, i2) => {
       try {
-        html = html.replace(
-          `{{MATHI_${i}}}`,
+        html5 = html5.replace(
+          `{{MATHI_${i2}}}`,
           katex.renderToString(math2, { ...katexOpts, displayMode: false })
         );
-      } catch (_2) {
-        html = html.replace(`{{MATHI_${i}}}`, `<span class="katex-error">$${math2}$</span>`);
+      } catch (_4) {
+        html5 = html5.replace(`{{MATHI_${i2}}}`, `<span class="katex-error">$${math2}$</span>`);
       }
     });
-    return html;
+    return html5;
   }
   function scrollChatToBottom() {
     if (chatLog) {
@@ -29810,7 +39182,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       return;
     }
     const n = toolCallCount;
-    toolSummaryElem.textContent = n === 0 ? "Tool activity" : n === 1 ? "1 tool call" : `${n} tool calls`;
+    const label = n === 0 ? "Tool activity" : n === 1 ? "1 tool call" : `${n} tool calls`;
+    toolSummaryElem.innerHTML = `<span class="tool-summary-icon">\u2699</span> <span class="tool-summary-label">${label}</span>`;
   }
   function ensureAssistantTurn() {
     if (!chatLog) {
@@ -29820,6 +39193,14 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       setTypingIndicator(true);
       currentTurnElem = document.createElement("div");
       currentTurnElem.className = "chatMessage assistant streaming";
+      const header = document.createElement("div");
+      header.className = "chat-message-header assistant-header";
+      const role = document.createElement("span");
+      role.className = "chat-role-badge assistant-badge";
+      role.textContent = "Assistant";
+      header.appendChild(role);
+      const body3 = document.createElement("div");
+      body3.className = "chat-message-body assistant-body";
       mainResponseElem = document.createElement("div");
       mainResponseElem.className = "chat-response-main";
       toolDetailsElem = document.createElement("details");
@@ -29830,16 +39211,30 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       toolLogElem.className = "chat-tool-activity-log";
       toolDetailsElem.appendChild(toolSummaryElem);
       toolDetailsElem.appendChild(toolLogElem);
-      currentTurnElem.appendChild(mainResponseElem);
-      currentTurnElem.appendChild(toolDetailsElem);
+      body3.appendChild(mainResponseElem);
+      body3.appendChild(toolDetailsElem);
+      currentTurnElem.appendChild(header);
+      currentTurnElem.appendChild(body3);
       chatLog.appendChild(currentTurnElem);
+      preStreamBuffer = "";
+      postStreamBuffer = "";
       streamBuffer = "";
       toolCallCount = 0;
+      hasExecutedToolsInTurn = false;
+      postResponseElem = null;
       updateToolSummary();
     }
   }
   function formatToolActivityLabel(activity) {
-    const name = activity.toolName ? activity.toolName : "agent";
+    let name = activity.toolName ? activity.toolName : "agent";
+    const args = activity.toolArgs;
+    if (activity.toolName === "try_tactic" && args?.tactic) {
+      name = `try_tactic ("${args.tactic}")`;
+    } else if (activity.toolName === "search_theorems" && args?.query) {
+      name = `search_theorems ("${args.query}")`;
+    } else if (activity.toolName === "check_term_validity" && args?.term) {
+      name = `check_term_validity ("${args.term}")`;
+    }
     switch (activity.kind) {
       case "call":
         return `Model requested: ${name}`;
@@ -29853,25 +39248,64 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         return activity.toolName ? `Status: ${name}` : "Status";
     }
   }
-  function appendChatMessage(text2, cls = "assistant") {
+  function appendChatMessage(text3, cls = "assistant") {
     if (!chatLog) {
       return null;
     }
     const el = document.createElement("div");
     el.className = "chatMessage " + cls;
-    el.innerHTML = renderMarkdownWithMath(text2);
+    const isUser = cls === "user";
+    const header = document.createElement("div");
+    header.className = `chat-message-header ${isUser ? "user-header" : "assistant-header"}`;
+    const role = document.createElement("span");
+    role.className = `chat-role-badge ${isUser ? "user-badge" : "assistant-badge"}`;
+    if (isUser) {
+      role.textContent = "You";
+    } else if (text3.startsWith("Suggestion:")) {
+      role.textContent = "Suggestion";
+    } else if (text3.includes("Prover Agent:")) {
+      role.textContent = "Prover Agent";
+    } else {
+      role.textContent = "Assistant";
+    }
+    header.appendChild(role);
+    const contentElem = document.createElement("div");
+    contentElem.className = isUser ? "chat-message-bubble user-bubble" : "chat-message-body assistant-body";
+    contentElem.innerHTML = renderMarkdownWithMath(text3);
+    el.appendChild(header);
+    el.appendChild(contentElem);
     chatLog.appendChild(el);
     scrollChatToBottom();
     return el;
   }
-  function appendChatStreamPart(text2) {
-    if (!text2 || !chatLog) {
+  function appendChatStreamPart(text3) {
+    if (!text3 || !chatLog) {
       return;
     }
     ensureAssistantTurn();
-    streamBuffer += text2;
-    if (mainResponseElem) {
-      mainResponseElem.innerHTML = renderMarkdownWithMath(streamBuffer);
+    streamBuffer += text3;
+    if (currentTurnElem && streamBuffer.includes("Prover Agent:")) {
+      const badge = currentTurnElem.querySelector(".assistant-badge");
+      if (badge && badge.textContent !== "Prover Agent") {
+        badge.textContent = "Prover Agent";
+      }
+    }
+    if (hasExecutedToolsInTurn) {
+      if (!postResponseElem) {
+        postResponseElem = document.createElement("div");
+        postResponseElem.className = "chat-response-main chat-response-post";
+        const body3 = currentTurnElem.querySelector(".chat-message-body");
+        if (body3) {
+          body3.appendChild(postResponseElem);
+        }
+      }
+      postStreamBuffer += text3;
+      postResponseElem.innerHTML = renderMarkdownWithMath(postStreamBuffer);
+    } else {
+      preStreamBuffer += text3;
+      if (mainResponseElem) {
+        mainResponseElem.innerHTML = renderMarkdownWithMath(preStreamBuffer);
+      }
     }
     scrollChatToBottom();
   }
@@ -29880,6 +39314,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       return;
     }
     ensureAssistantTurn();
+    hasExecutedToolsInTurn = true;
     if (activity.kind === "call") {
       toolCallCount += 1;
       updateToolSummary();
@@ -29892,11 +39327,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     const label = document.createElement("div");
     label.className = "chat-tool-activity-entry-label";
     label.textContent = formatToolActivityLabel(activity);
-    const body = document.createElement("pre");
-    body.className = "chat-tool-activity-entry-body";
-    body.textContent = activity.detail;
+    const body3 = document.createElement("pre");
+    body3.className = "chat-tool-activity-entry-body";
+    body3.textContent = activity.detail;
     entry.appendChild(label);
-    entry.appendChild(body);
+    entry.appendChild(body3);
     if (toolLogElem) {
       toolLogElem.appendChild(entry);
     }
@@ -29909,459 +39344,27 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       if (toolDetailsElem && toolCallCount === 0 && !toolLogElem?.childElementCount) {
         toolDetailsElem.remove();
       }
-      if (mainResponseElem && !streamBuffer.trim()) {
+      if (mainResponseElem && !preStreamBuffer.trim()) {
         mainResponseElem.remove();
+      }
+      if (postResponseElem && !postStreamBuffer.trim()) {
+        postResponseElem.remove();
       }
     }
     currentTurnElem = null;
     mainResponseElem = null;
+    postResponseElem = null;
     toolDetailsElem = null;
     toolSummaryElem = null;
     toolLogElem = null;
+    preStreamBuffer = "";
+    postStreamBuffer = "";
     streamBuffer = "";
     toolCallCount = 0;
+    hasExecutedToolsInTurn = false;
   }
   function resetChatStream() {
     finalizeChatStream();
-  }
-
-  // node_modules/highlight.js/es/languages/coq.js
-  function coq(hljs) {
-    const KEYWORDS = [
-      "_|0",
-      "as",
-      "at",
-      "cofix",
-      "else",
-      "end",
-      "exists",
-      "exists2",
-      "fix",
-      "for",
-      "forall",
-      "fun",
-      "if",
-      "IF",
-      "in",
-      "let",
-      "match",
-      "mod",
-      "Prop",
-      "return",
-      "Set",
-      "then",
-      "Type",
-      "using",
-      "where",
-      "with",
-      "Abort",
-      "About",
-      "Add",
-      "Admit",
-      "Admitted",
-      "All",
-      "Arguments",
-      "Assumptions",
-      "Axiom",
-      "Back",
-      "BackTo",
-      "Backtrack",
-      "Bind",
-      "Blacklist",
-      "Canonical",
-      "Cd",
-      "Check",
-      "Class",
-      "Classes",
-      "Close",
-      "Coercion",
-      "Coercions",
-      "CoFixpoint",
-      "CoInductive",
-      "Collection",
-      "Combined",
-      "Compute",
-      "Conjecture",
-      "Conjectures",
-      "Constant",
-      "constr",
-      "Constraint",
-      "Constructors",
-      "Context",
-      "Corollary",
-      "CreateHintDb",
-      "Cut",
-      "Declare",
-      "Defined",
-      "Definition",
-      "Delimit",
-      "Dependencies",
-      "Dependent",
-      "Derive",
-      "Drop",
-      "eauto",
-      "End",
-      "Equality",
-      "Eval",
-      "Example",
-      "Existential",
-      "Existentials",
-      "Existing",
-      "Export",
-      "exporting",
-      "Extern",
-      "Extract",
-      "Extraction",
-      "Fact",
-      "Field",
-      "Fields",
-      "File",
-      "Fixpoint",
-      "Focus",
-      "for",
-      "From",
-      "Function",
-      "Functional",
-      "Generalizable",
-      "Global",
-      "Goal",
-      "Grab",
-      "Grammar",
-      "Graph",
-      "Guarded",
-      "Heap",
-      "Hint",
-      "HintDb",
-      "Hints",
-      "Hypotheses",
-      "Hypothesis",
-      "ident",
-      "Identity",
-      "If",
-      "Immediate",
-      "Implicit",
-      "Import",
-      "Include",
-      "Inductive",
-      "Infix",
-      "Info",
-      "Initial",
-      "Inline",
-      "Inspect",
-      "Instance",
-      "Instances",
-      "Intro",
-      "Intros",
-      "Inversion",
-      "Inversion_clear",
-      "Language",
-      "Left",
-      "Lemma",
-      "Let",
-      "Libraries",
-      "Library",
-      "Load",
-      "LoadPath",
-      "Local",
-      "Locate",
-      "Ltac",
-      "ML",
-      "Mode",
-      "Module",
-      "Modules",
-      "Monomorphic",
-      "Morphism",
-      "Next",
-      "NoInline",
-      "Notation",
-      "Obligation",
-      "Obligations",
-      "Opaque",
-      "Open",
-      "Optimize",
-      "Options",
-      "Parameter",
-      "Parameters",
-      "Parametric",
-      "Path",
-      "Paths",
-      "pattern",
-      "Polymorphic",
-      "Preterm",
-      "Print",
-      "Printing",
-      "Program",
-      "Projections",
-      "Proof",
-      "Proposition",
-      "Pwd",
-      "Qed",
-      "Quit",
-      "Rec",
-      "Record",
-      "Recursive",
-      "Redirect",
-      "Relation",
-      "Remark",
-      "Remove",
-      "Require",
-      "Reserved",
-      "Reset",
-      "Resolve",
-      "Restart",
-      "Rewrite",
-      "Right",
-      "Ring",
-      "Rings",
-      "Save",
-      "Scheme",
-      "Scope",
-      "Scopes",
-      "Script",
-      "Search",
-      "SearchAbout",
-      "SearchHead",
-      "SearchPattern",
-      "SearchRewrite",
-      "Section",
-      "Separate",
-      "Set",
-      "Setoid",
-      "Show",
-      "Solve",
-      "Sorted",
-      "Step",
-      "Strategies",
-      "Strategy",
-      "Structure",
-      "SubClass",
-      "Table",
-      "Tables",
-      "Tactic",
-      "Term",
-      "Test",
-      "Theorem",
-      "Time",
-      "Timeout",
-      "Transparent",
-      "Type",
-      "Typeclasses",
-      "Types",
-      "Undelimit",
-      "Undo",
-      "Unfocus",
-      "Unfocused",
-      "Unfold",
-      "Universe",
-      "Universes",
-      "Unset",
-      "Unshelve",
-      "using",
-      "Variable",
-      "Variables",
-      "Variant",
-      "Verbose",
-      "Visibility",
-      "where",
-      "with"
-    ];
-    const BUILT_INS = [
-      "abstract",
-      "absurd",
-      "admit",
-      "after",
-      "apply",
-      "as",
-      "assert",
-      "assumption",
-      "at",
-      "auto",
-      "autorewrite",
-      "autounfold",
-      "before",
-      "bottom",
-      "btauto",
-      "by",
-      "case",
-      "case_eq",
-      "cbn",
-      "cbv",
-      "change",
-      "classical_left",
-      "classical_right",
-      "clear",
-      "clearbody",
-      "cofix",
-      "compare",
-      "compute",
-      "congruence",
-      "constr_eq",
-      "constructor",
-      "contradict",
-      "contradiction",
-      "cut",
-      "cutrewrite",
-      "cycle",
-      "decide",
-      "decompose",
-      "dependent",
-      "destruct",
-      "destruction",
-      "dintuition",
-      "discriminate",
-      "discrR",
-      "do",
-      "double",
-      "dtauto",
-      "eapply",
-      "eassumption",
-      "eauto",
-      "ecase",
-      "econstructor",
-      "edestruct",
-      "ediscriminate",
-      "eelim",
-      "eexact",
-      "eexists",
-      "einduction",
-      "einjection",
-      "eleft",
-      "elim",
-      "elimtype",
-      "enough",
-      "equality",
-      "erewrite",
-      "eright",
-      "esimplify_eq",
-      "esplit",
-      "evar",
-      "exact",
-      "exactly_once",
-      "exfalso",
-      "exists",
-      "f_equal",
-      "fail",
-      "field",
-      "field_simplify",
-      "field_simplify_eq",
-      "first",
-      "firstorder",
-      "fix",
-      "fold",
-      "fourier",
-      "functional",
-      "generalize",
-      "generalizing",
-      "gfail",
-      "give_up",
-      "has_evar",
-      "hnf",
-      "idtac",
-      "in",
-      "induction",
-      "injection",
-      "instantiate",
-      "intro",
-      "intro_pattern",
-      "intros",
-      "intuition",
-      "inversion",
-      "inversion_clear",
-      "is_evar",
-      "is_var",
-      "lapply",
-      "lazy",
-      "left",
-      "lia",
-      "lra",
-      "move",
-      "native_compute",
-      "nia",
-      "nsatz",
-      "omega",
-      "once",
-      "pattern",
-      "pose",
-      "progress",
-      "proof",
-      "psatz",
-      "quote",
-      "record",
-      "red",
-      "refine",
-      "reflexivity",
-      "remember",
-      "rename",
-      "repeat",
-      "replace",
-      "revert",
-      "revgoals",
-      "rewrite",
-      "rewrite_strat",
-      "right",
-      "ring",
-      "ring_simplify",
-      "rtauto",
-      "set",
-      "setoid_reflexivity",
-      "setoid_replace",
-      "setoid_rewrite",
-      "setoid_symmetry",
-      "setoid_transitivity",
-      "shelve",
-      "shelve_unifiable",
-      "simpl",
-      "simple",
-      "simplify_eq",
-      "solve",
-      "specialize",
-      "split",
-      "split_Rabs",
-      "split_Rmult",
-      "stepl",
-      "stepr",
-      "subst",
-      "sum",
-      "swap",
-      "symmetry",
-      "tactic",
-      "tauto",
-      "time",
-      "timeout",
-      "top",
-      "transitivity",
-      "trivial",
-      "try",
-      "tryif",
-      "unfold",
-      "unify",
-      "until",
-      "using",
-      "vm_compute",
-      "with"
-    ];
-    return {
-      name: "Coq",
-      keywords: {
-        keyword: KEYWORDS,
-        built_in: BUILT_INS
-      },
-      contains: [
-        hljs.QUOTE_STRING_MODE,
-        hljs.COMMENT("\\(\\*", "\\*\\)"),
-        hljs.C_NUMBER_MODE,
-        {
-          className: "type",
-          excludeBegin: true,
-          begin: "\\|\\s*",
-          end: "\\w+"
-        },
-        {
-          // relevance booster
-          begin: /[-=]>/
-        }
-      ]
-    };
   }
 
   // node_modules/@handlewithcare/prosemirror-suggest-changes/dist/utils.js
@@ -30389,9 +39392,9 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     const { deletion: deletion2, insertion: insertion2, modification: modification2 } = getSuggestionMarks(schema3);
     let suggestionId = 0;
     doc3?.descendants((node) => {
-      const mark = node.marks.find((mark2) => mark2.type === insertion2 || mark2.type === deletion2 || mark2.type === modification2);
-      if (mark) {
-        suggestionId = Math.max(suggestionId, mark.attrs["id"]);
+      const mark2 = node.marks.find((mark3) => mark3.type === insertion2 || mark3.type === deletion2 || mark3.type === modification2);
+      if (mark2) {
+        suggestionId = Math.max(suggestionId, mark2.attrs["id"]);
         return false;
       }
       return true;
@@ -30408,11 +39411,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         validate: suggestionIdValidate
       }
     },
-    toDOM(mark, inline) {
+    toDOM(mark2, inline) {
       return [
         "del",
         {
-          "data-id": JSON.stringify(mark.attrs["id"]),
+          "data-id": JSON.stringify(mark2.attrs["id"]),
           "data-inline": String(inline),
           ...!inline && {
             style: "display: block"
@@ -30441,11 +39444,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         validate: suggestionIdValidate
       }
     },
-    toDOM(mark, inline) {
+    toDOM(mark2, inline) {
       return [
         "ins",
         {
-          "data-id": JSON.stringify(mark.attrs["id"]),
+          "data-id": JSON.stringify(mark2.attrs["id"]),
           "data-inline": String(inline),
           ...!inline && {
             style: "display: block"
@@ -30487,16 +39490,16 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         default: null
       }
     },
-    toDOM(mark, inline) {
+    toDOM(mark2, inline) {
       return [
         inline ? "span" : "div",
         {
           "data-type": "modification",
-          "data-id": JSON.stringify(mark.attrs["id"]),
-          "data-mod-type": mark.attrs["type"],
-          "data-mod-prev-val": JSON.stringify(mark.attrs["previousValue"]),
+          "data-id": JSON.stringify(mark2.attrs["id"]),
+          "data-mod-type": mark2.attrs["type"],
+          "data-mod-prev-val": JSON.stringify(mark2.attrs["previousValue"]),
           // TODO: Try to serialize marks with toJSON?
-          "data-mod-new-val": JSON.stringify(mark.attrs["newValue"])
+          "data-mod-new-val": JSON.stringify(mark2.attrs["newValue"])
         },
         0
       ];
@@ -30538,7 +39541,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
 
   // node_modules/@handlewithcare/prosemirror-suggest-changes/dist/findSuggestionMarkEnd.js
   function findSuggestionMarkEnd($pos, markType) {
-    const initialDeletionMark = ($pos.nodeAfter ?? $pos.nodeBefore)?.marks.find((mark) => mark.type === markType);
+    const initialDeletionMark = ($pos.nodeAfter ?? $pos.nodeBefore)?.marks.find((mark2) => mark2.type === markType);
     if (!initialDeletionMark) {
       return $pos.pos;
     }
@@ -30562,7 +39565,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         cousin = cousin.firstChild;
         cousinStartPos++;
       }
-      const deletionMark = cousin?.marks.find((mark) => mark.type === markType);
+      const deletionMark = cousin?.marks.find((mark2) => mark2.type === markType);
       if (!cousin || !deletionMark || deletionMark.attrs["id"] !== initialDeletionMark.attrs["id"]) {
         return $afterPos.pos;
       }
@@ -30597,10 +39600,10 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
       }
       if (node.type.name !== "text") return true;
-      const currentDeletionMark = node.marks.find((mark) => mark.type === deletion2);
-      const currentInsertionMark = node.marks.find((mark) => mark.type === insertion2);
-      const lastDeletionMark = lastTextNode?.marks.find((mark) => mark.type === deletion2);
-      const lastInsertionMark = lastTextNode?.marks.find((mark) => mark.type === insertion2);
+      const currentDeletionMark = node.marks.find((mark2) => mark2.type === deletion2);
+      const currentInsertionMark = node.marks.find((mark2) => mark2.type === insertion2);
+      const lastDeletionMark = lastTextNode?.marks.find((mark2) => mark2.type === deletion2);
+      const lastInsertionMark = lastTextNode?.marks.find((mark2) => mark2.type === insertion2);
       const widgetPos = lastTextNodeEndPos;
       lastTextNode = node;
       lastTextNodeEndPos = pos + node.nodeSize;
@@ -30655,8 +39658,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
             enabled: false
           };
         },
-        apply(tr, value) {
-          const meta = tr.getMeta(suggestChangesKey);
+        apply(tr2, value) {
+          const meta = tr2.getMeta(suggestChangesKey);
           if (meta && "enabled" in meta) return meta;
           return value;
         }
@@ -30682,7 +39685,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   }
 
   // node_modules/@handlewithcare/prosemirror-suggest-changes/dist/commands.js
-  function applySuggestionsToTransform(node, tr, markTypeToApply, markTypeToRevert, suggestionId, from2, to) {
+  function applySuggestionsToTransform(node, tr2, markTypeToApply, markTypeToRevert, suggestionId, from2, to) {
     const toApplyIsInSet = suggestionId === void 0 ? (marks2) => markTypeToApply.isInSet(marks2) : (marks2) => markTypeToApply.create({
       id: suggestionId
     }).isInSet(marks2);
@@ -30692,9 +39695,9 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     const isToApply = toApplyIsInSet(node.marks);
     if (isToApply) {
       if (node.isInline) {
-        tr.removeMark(0, node.nodeSize, markTypeToApply);
+        tr2.removeMark(0, node.nodeSize, markTypeToApply);
       } else {
-        tr.removeNodeMark(0, markTypeToApply);
+        tr2.removeNodeMark(0, markTypeToApply);
       }
     }
     node.descendants((child, pos) => {
@@ -30710,69 +39713,69 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         return true;
       }
       if (isToRevert) {
-        const { pos: deletionFrom, deleted } = tr.mapping.mapResult(pos);
+        const { pos: deletionFrom, deleted } = tr2.mapping.mapResult(pos);
         if (deleted) return false;
-        const deletionTo = findSuggestionMarkEnd(tr.doc.resolve(deletionFrom + child.nodeSize), markTypeToRevert);
-        const prevChar = tr.doc.textBetween(deletionFrom - 1, deletionFrom, "x", "x");
+        const deletionTo = findSuggestionMarkEnd(tr2.doc.resolve(deletionFrom + child.nodeSize), markTypeToRevert);
+        const prevChar = tr2.doc.textBetween(deletionFrom - 1, deletionFrom, "x", "x");
         const nextChar = (
           // textBetween is fine with negative positions (??),
           // but it errors if passed a position greater than the
           // size of the doc
-          deletionTo <= tr.doc.content.size ? tr.doc.textBetween(deletionTo, deletionTo + 1, "x", "x") : ""
+          deletionTo <= tr2.doc.content.size ? tr2.doc.textBetween(deletionTo, deletionTo + 1, "x", "x") : ""
         );
         const addedRange = prevChar === " " && nextChar === " " ? 1 : 0;
-        tr.deleteRange(deletionFrom, deletionTo + addedRange);
+        tr2.deleteRange(deletionFrom, deletionTo + addedRange);
         return false;
       }
-      const insertionFrom = tr.mapping.map(pos);
+      const insertionFrom = tr2.mapping.map(pos);
       const insertionTo = insertionFrom + child.nodeSize;
       if (child.isInline) {
-        tr.removeMark(insertionFrom, insertionTo, markTypeToApply);
+        tr2.removeMark(insertionFrom, insertionTo, markTypeToApply);
         if (child.text === "\u200B") {
-          tr.delete(insertionFrom, insertionTo);
+          tr2.delete(insertionFrom, insertionTo);
         }
       } else {
-        tr.removeNodeMark(insertionFrom, markTypeToApply);
+        tr2.removeNodeMark(insertionFrom, markTypeToApply);
       }
       return true;
     });
   }
-  function revertModifications(node, pos, tr) {
+  function revertModifications(node, pos, tr2) {
     const { modification: modification2 } = getSuggestionMarks(node.type.schema);
-    const existingMods = node.marks.filter((mark) => mark.type === modification2);
+    const existingMods = node.marks.filter((mark2) => mark2.type === modification2);
     for (const mod of existingMods) {
       if (mod.attrs["type"] === "attr" && typeof mod.attrs["attrName"] === "string") {
-        tr.setNodeAttribute(pos, mod.attrs["attrName"], mod.attrs["previousValue"]);
+        tr2.setNodeAttribute(pos, mod.attrs["attrName"], mod.attrs["previousValue"]);
       } else if (mod.attrs["type"] === "mark") {
         if (mod.attrs["previousValue"]) {
-          tr.addNodeMark(0, node.type.schema.markFromJSON(mod.attrs["previousValue"]));
+          tr2.addNodeMark(0, node.type.schema.markFromJSON(mod.attrs["previousValue"]));
         } else {
-          tr.removeNodeMark(pos, node.type.schema.markFromJSON(mod.attrs["previousValue"]));
+          tr2.removeNodeMark(pos, node.type.schema.markFromJSON(mod.attrs["previousValue"]));
         }
       } else if (mod.attrs["type"] === "nodeType") {
-        tr.setNodeMarkup(pos, node.type.schema.nodes[mod.attrs["previousValue"]], null);
+        tr2.setNodeMarkup(pos, node.type.schema.nodes[mod.attrs["previousValue"]], null);
       } else {
         throw new Error("Unknown modification type");
       }
     }
   }
   function modificationIsInSet(modification2, id, marks2) {
-    const mark = modification2.isInSet(marks2);
-    if (id === void 0) return mark;
-    if (mark?.attrs["id"] === id) return mark;
+    const mark2 = modification2.isInSet(marks2);
+    if (id === void 0) return mark2;
+    if (mark2?.attrs["id"] === id) return mark2;
     return void 0;
   }
-  function applyModificationsToTransform(node, tr, dir, suggestionId, from2, to) {
+  function applyModificationsToTransform(node, tr2, dir, suggestionId, from2, to) {
     const { modification: modification2 } = getSuggestionMarks(node.type.schema);
     const isModification = modificationIsInSet(modification2, suggestionId, node.marks);
     if (isModification) {
       let prevLength;
       do {
-        prevLength = tr.steps.length;
-        tr.removeNodeMark(0, modification2);
-      } while (tr.steps.length > prevLength);
+        prevLength = tr2.steps.length;
+        tr2.removeNodeMark(0, modification2);
+      } while (tr2.steps.length > prevLength);
       if (dir < 0) {
-        revertModifications(node, 0, tr);
+        revertModifications(node, 0, tr2);
       }
     }
     node.descendants((child, pos) => {
@@ -30788,11 +39791,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       }
       let prevLength;
       do {
-        prevLength = tr.steps.length;
-        tr.removeNodeMark(pos, modification2);
-      } while (tr.steps.length > prevLength);
+        prevLength = tr2.steps.length;
+        tr2.removeNodeMark(pos, modification2);
+      } while (tr2.steps.length > prevLength);
       if (dir < 0) {
-        revertModifications(child, pos, tr);
+        revertModifications(child, pos, tr2);
       }
       return true;
     });
@@ -30800,31 +39803,31 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   function applySuggestionsToRange(doc3, from2, to) {
     const nodeRange = doc3.resolve(from2).blockRange(doc3.resolve(to));
     const { deletion: deletion2, insertion: insertion2 } = getSuggestionMarks(doc3.type.schema);
-    const transform = new Transform(doc3);
-    applySuggestionsToTransform(doc3, transform, insertion2, deletion2, void 0, nodeRange.start, nodeRange.end);
-    applyModificationsToTransform(doc3, transform, 1, void 0, nodeRange.start, nodeRange.end);
-    return transform.doc.slice(transform.mapping.map(from2), transform.mapping.map(to));
+    const transform2 = new Transform(doc3);
+    applySuggestionsToTransform(doc3, transform2, insertion2, deletion2, void 0, nodeRange.start, nodeRange.end);
+    applyModificationsToTransform(doc3, transform2, 1, void 0, nodeRange.start, nodeRange.end);
+    return transform2.doc.slice(transform2.mapping.map(from2), transform2.mapping.map(to));
   }
   function applySuggestions(state, dispatch) {
     const { deletion: deletion2, insertion: insertion2 } = getSuggestionMarks(state.schema);
-    const tr = state.tr;
-    applySuggestionsToTransform(state.doc, tr, insertion2, deletion2);
-    applyModificationsToTransform(tr.doc, tr, 1);
-    tr.setMeta(suggestChangesKey, {
+    const tr2 = state.tr;
+    applySuggestionsToTransform(state.doc, tr2, insertion2, deletion2);
+    applyModificationsToTransform(tr2.doc, tr2, 1);
+    tr2.setMeta(suggestChangesKey, {
       skip: true
     });
-    dispatch?.(tr);
+    dispatch?.(tr2);
     return true;
   }
   function revertSuggestions(state, dispatch) {
     const { deletion: deletion2, insertion: insertion2 } = getSuggestionMarks(state.schema);
-    const tr = state.tr;
-    applySuggestionsToTransform(state.doc, tr, deletion2, insertion2);
-    applyModificationsToTransform(tr.doc, tr, -1);
-    tr.setMeta(suggestChangesKey, {
+    const tr2 = state.tr;
+    applySuggestionsToTransform(state.doc, tr2, deletion2, insertion2);
+    applyModificationsToTransform(tr2.doc, tr2, -1);
+    tr2.setMeta(suggestChangesKey, {
       skip: true
     });
-    dispatch?.(tr);
+    dispatch?.(tr2);
     return true;
   }
   function toggleSuggestChanges(state, dispatch) {
@@ -30848,9 +39851,9 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   function suggestReplaceStep(trackedTransaction, state, doc3, step, prevSteps, suggestionId) {
     const { deletion: deletion2, insertion: insertion2 } = getSuggestionMarks(state.schema);
     const nodeBefore = doc3.resolve(step.from).nodeBefore;
-    const markBefore = nodeBefore?.marks.find((mark) => mark.type === deletion2 || mark.type === insertion2) ?? null;
+    const markBefore = nodeBefore?.marks.find((mark2) => mark2.type === deletion2 || mark2.type === insertion2) ?? null;
     const nodeAfter = doc3.resolve(step.to).nodeAfter;
-    const markAfter = nodeAfter?.marks.find((mark) => mark.type === deletion2 || mark.type === insertion2) ?? null;
+    const markAfter = nodeAfter?.marks.find((mark2) => mark2.type === deletion2 || mark2.type === insertion2) ?? null;
     const markId = markBefore?.attrs["id"] ?? markAfter?.attrs["id"] ?? suggestionId;
     const insertedRanges = [];
     let stepFrom = rebasePos(step.from, prevSteps, trackedTransaction.steps);
@@ -30869,8 +39872,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       return true;
     });
     insertedRanges.reverse();
-    for (const range of insertedRanges) {
-      trackedTransaction.delete(range.from, range.to);
+    for (const range2 of insertedRanges) {
+      trackedTransaction.delete(range2.from, range2.to);
     }
     stepFrom = rebasePos(step.from, prevSteps, trackedTransaction.steps);
     stepTo = rebasePos(step.to, prevSteps, trackedTransaction.steps);
@@ -30912,7 +39915,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         id: markId
       }));
     } else {
-      trackedTransaction.doc.nodesBetween(blockRange.start, blockRange.end, (_2, pos) => {
+      trackedTransaction.doc.nodesBetween(blockRange.start, blockRange.end, (_4, pos) => {
         if (pos < blockRange.start) return true;
         trackedTransaction.addNodeMark(pos, deletion2.create({
           id: markId
@@ -30950,8 +39953,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       let insertedTo = insertStep.getMap().map(insertFrom);
       trackedTransaction.doc.nodesBetween(insertFrom, insertedTo, (node, pos) => {
         const $pos = trackedTransaction.doc.resolve(pos);
-        for (let d2 = $pos.depth; d2 >= 0; d2--) {
-          if (insertion2.isInSet($pos.node(d2).marks)) return;
+        for (let d3 = $pos.depth; d3 >= 0; d3--) {
+          if (insertion2.isInSet($pos.node(d3).marks)) return;
         }
         const shouldAddInlineMarks = pos < insertFrom || pos + node.nodeSize > insertedTo || node.isInline;
         if (shouldAddInlineMarks) {
@@ -31006,15 +40009,15 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     const $pos = trackedTransaction.doc.resolve(rebasedPos);
     const node = $pos.nodeAfter;
     let marks2 = node?.marks ?? [];
-    const existingMods = marks2.filter((mark) => mark.type === modification2 && mark.attrs["type"] === "mark" && step.mark.type.excludes(state.schema.markFromJSON(mark.attrs["newValue"]).type));
-    existingMods.forEach((mark) => {
-      marks2 = mark.removeFromSet(marks2);
+    const existingMods = marks2.filter((mark2) => mark2.type === modification2 && mark2.attrs["type"] === "mark" && step.mark.type.excludes(state.schema.markFromJSON(mark2.attrs["newValue"]).type));
+    existingMods.forEach((mark2) => {
+      marks2 = mark2.removeFromSet(marks2);
     });
     let newMarks = step.mark.addToSet(marks2);
     let previousValue = null;
-    for (const mark of marks2) {
-      if (!newMarks.some((m2) => m2.eq(mark))) {
-        previousValue = mark;
+    for (const mark2 of marks2) {
+      if (!newMarks.some((m4) => m4.eq(mark2))) {
+        previousValue = mark2;
         break;
       }
     }
@@ -31037,7 +40040,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     const $pos = trackedTransaction.doc.resolve(rebasedPos);
     const node = $pos.nodeAfter;
     let marks2 = node?.marks ?? [];
-    const existingMod = marks2.find((mark) => mark.type === modification2 && mark.attrs["type"] === "attr" && mark.attrs["attrName"] === step.attr);
+    const existingMod = marks2.find((mark2) => mark2.type === modification2 && mark2.attrs["type"] === "attr" && mark2.attrs["attrName"] === step.attr);
     if (existingMod) {
       marks2 = existingMod.removeFromSet(marks2);
     }
@@ -31080,7 +40083,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     const $pos = trackedTransaction.doc.resolve(rebasedPos);
     const node = $pos.nodeAfter;
     let marks2 = node?.marks ?? [];
-    const existingMod = marks2.find((mark) => mark.type === modification2 && mark.attrs["type"] === "mark" && mark.attrs["newValue"] && step.mark.eq(state.schema.markFromJSON(mark.attrs["newValue"])));
+    const existingMod = marks2.find((mark2) => mark2.type === modification2 && mark2.attrs["type"] === "mark" && mark2.attrs["newValue"] && step.mark.eq(state.schema.markFromJSON(mark2.attrs["newValue"])));
     if (existingMod) {
       trackedTransaction.removeNodeMark(rebasedPos, existingMod);
       trackedTransaction.removeNodeMark(rebasedPos, state.schema.markFromJSON(existingMod.attrs["newValue"]));
@@ -31108,24 +40111,24 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       if (!newNode || !oldNode) {
         throw new Error("Failed to apply modifications to node: unexpected ReplaceAroundStep as oldNode / newNode is null");
       }
-      const addedMarks = newNode.marks.filter((m2) => !oldNode?.marks.some((m22) => m22.eq(m2)));
-      addedMarks.forEach((mark) => {
-        if (mark.type === modification2) {
+      const addedMarks = newNode.marks.filter((m4) => !oldNode?.marks.some((m22) => m22.eq(m4)));
+      addedMarks.forEach((mark2) => {
+        if (mark2.type === modification2) {
           return;
         }
-        trackAddNodeMarkStep(trackedTransaction, state, doc3, new AddNodeMarkStep(step.from, mark), prevSteps, suggestionId);
+        trackAddNodeMarkStep(trackedTransaction, state, doc3, new AddNodeMarkStep(step.from, mark2), prevSteps, suggestionId);
       });
       from2 = rebasePos(step.from, prevSteps, trackedTransaction.steps);
       oldNode = trackedTransaction.doc.resolve(step.from).nodeAfter;
       if (!oldNode) {
         throw new Error("Failed to apply modifications to node: unexpected ReplaceAroundStep as oldNode is null");
       }
-      const removedMarks = oldNode.marks.filter((m2) => !newNode.marks.some((m22) => m22.eq(m2)));
-      removedMarks.forEach((mark) => {
-        if (mark.type === modification2) {
+      const removedMarks = oldNode.marks.filter((m4) => !newNode.marks.some((m22) => m22.eq(m4)));
+      removedMarks.forEach((mark2) => {
+        if (mark2.type === modification2) {
           return;
         }
-        suggestRemoveNodeMarkStep(trackedTransaction, state, doc3, new RemoveNodeMarkStep(step.from, mark), prevSteps, suggestionId);
+        suggestRemoveNodeMarkStep(trackedTransaction, state, doc3, new RemoveNodeMarkStep(step.from, mark2), prevSteps, suggestionId);
       });
       if (newNode.type.name !== oldNode.type.name) {
         const rebasedPos = rebasePos(step.from, prevSteps, trackedTransaction.steps);
@@ -31135,7 +40138,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
           throw new Error("Failed to apply modifications to node: no node found");
         }
         let marks2 = node.marks;
-        const existingMod = marks2.find((mark) => mark.type === modification2 && mark.attrs["type"] === "nodeType");
+        const existingMod = marks2.find((mark2) => mark2.type === modification2 && mark2.attrs["type"] === "nodeType");
         if (existingMod) {
           marks2 = existingMod.removeFromSet(marks2);
         }
@@ -31212,11 +40215,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     getSuggestionMarks(state.schema);
     let suggestionId = generateId ? generateId(state.schema, originalTransaction.docs[0]) : generateNextNumberId(state.schema, originalTransaction.docs[0]);
     const trackedTransaction = state.tr;
-    for (let i = 0; i < originalTransaction.steps.length; i++) {
-      const step = originalTransaction.steps[i];
-      const doc3 = originalTransaction.docs[i];
+    for (let i2 = 0; i2 < originalTransaction.steps.length; i2++) {
+      const step = originalTransaction.steps[i2];
+      const doc3 = originalTransaction.docs[i2];
       const stepTracker = getStepHandler(step);
-      if (stepTracker(trackedTransaction, state, doc3, step, originalTransaction.steps.slice(0, i), suggestionId) && i < originalTransaction.steps.length - 1) {
+      if (stepTracker(trackedTransaction, state, doc3, step, originalTransaction.steps.slice(0, i2), suggestionId) && i2 < originalTransaction.steps.length - 1) {
         if (generateId) {
           suggestionId = generateId(state.schema, trackedTransaction.doc);
         } else if (typeof suggestionId === "number") {
@@ -31240,43 +40243,33 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     return trackedTransaction;
   }
   function withSuggestChanges(dispatchTransaction, generateId) {
-    const dispatch = dispatchTransaction ?? function(tr) {
-      this.updateState(this.state.apply(tr));
+    const dispatch = dispatchTransaction ?? function(tr2) {
+      this.updateState(this.state.apply(tr2));
     };
-    return function dispatchTransaction2(tr) {
-      const ySyncMeta = tr.getMeta("y-sync$") ?? {};
-      const transaction = isSuggestChangesEnabled(this.state) && !tr.getMeta("history$") && !tr.getMeta("collab$") && !ySyncMeta.isUndoRedoOperation && !ySyncMeta.isChangeOrigin && !("skip" in (tr.getMeta(suggestChangesKey) ?? {})) ? transformToSuggestionTransaction(tr, this.state, generateId) : tr;
+    return function dispatchTransaction2(tr2) {
+      const ySyncMeta = tr2.getMeta("y-sync$") ?? {};
+      const transaction = isSuggestChangesEnabled(this.state) && !tr2.getMeta("history$") && !tr2.getMeta("collab$") && !ySyncMeta.isUndoRedoOperation && !ySyncMeta.isChangeOrigin && !("skip" in (tr2.getMeta(suggestChangesKey) ?? {})) ? transformToSuggestionTransaction(tr2, this.state, generateId) : tr2;
       dispatch.call(this, transaction);
     };
   }
 
   // src/webview/main.js
-  core_default.registerLanguage("coq", (hljs) => {
-    const lang = coq(hljs);
-    const standardTypes = "nat list bool string unit option sum prod Z Z0 positive N";
-    if (lang.keywords && lang.keywords.built_in) {
-      lang.keywords.built_in += " " + standardTypes;
-    } else if (lang.keywords) {
-      lang.keywords.built_in = standardTypes;
-    }
-    return lang;
-  });
   var originalRemoveNodeMark = Transform.prototype.removeNodeMark;
-  Transform.prototype.removeNodeMark = function(pos, mark) {
+  Transform.prototype.removeNodeMark = function(pos, mark2) {
     const node = this.doc.nodeAt(pos);
     if (node && node.isText) {
-      return this.removeMark(pos, pos + node.nodeSize, mark);
+      return this.removeMark(pos, pos + node.nodeSize, mark2);
     }
-    return originalRemoveNodeMark.call(this, pos, mark);
+    return originalRemoveNodeMark.call(this, pos, mark2);
   };
   var vscode = acquireVsCodeApi();
   var activeProverLabel = "Coq";
   function logToHost(level, message) {
     vscode.postMessage({ command: "log", level, message });
   }
-  function updateWebviewStatus(text2) {
+  function updateWebviewStatus(text3) {
     const el = document.getElementById("webviewStatus");
-    if (el) el.textContent = text2;
+    if (el) el.textContent = text3;
   }
   function updateActiveProverLabel() {
     const label = document.getElementById("activeProverLabel");
@@ -31330,10 +40323,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       code: true,
       defining: true,
       toDOM() {
-        return ["div", {
-          class: "hypothesis",
-          style: "margin: 0; white-space: pre-wrap; font-family: var(--vscode-editor-font-family);"
-        }, 0];
+        return ["div", { class: "hypothesis" }, 0];
       },
       parseDOM: [
         { tag: "div.hypothesis", priority: 60, preserveWhitespace: "full" },
@@ -31346,10 +40336,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       code: true,
       defining: true,
       toDOM() {
-        return ["div", {
-          class: "goalType",
-          style: "margin: 0; white-space: pre-wrap; font-weight: bold; font-family: var(--vscode-editor-font-family);"
-        }, 0];
+        return ["div", { class: "goalType" }, 0];
       },
       parseDOM: [
         { tag: "div.goalType", priority: 60, preserveWhitespace: "full" },
@@ -31384,11 +40371,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   function highlightPlugin() {
     return new Plugin({
       state: {
-        init(_2, { doc: doc3 }) {
+        init(_4, { doc: doc3 }) {
           return getHighlightDecorations(doc3);
         },
-        apply(tr, old, oldState, newState) {
-          return tr.docChanged ? getHighlightDecorations(newState.doc) : old;
+        apply(tr2, old, oldState, newState) {
+          return tr2.docChanged ? getHighlightDecorations(newState.doc) : old;
         }
       },
       props: {
@@ -31399,35 +40386,29 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     });
   }
   function getHighlightDecorations(doc3) {
-    const decorations = [];
+    const decorations2 = [];
+    const lang = activeProverLabel === "Lean" ? "lean4" : "rocq";
     doc3.descendants((node, pos) => {
       if (node.type.name === "hypothesis" || node.type.name === "goalType") {
-        let traverse2 = function(domNode) {
-          if (domNode.nodeType === 3) {
-            currentIndex += domNode.nodeValue.length;
-          } else if (domNode.nodeType === 1) {
-            const start = currentIndex;
-            domNode.childNodes.forEach(traverse2);
-            const end = currentIndex;
-            if (domNode.tagName === "SPAN" && domNode.className.startsWith("hljs-")) {
-              decorations.push(
-                Decoration.inline(pos + 1 + start, pos + 1 + end, {
-                  class: domNode.className
+        const textContent = node.textContent;
+        if (!textContent) return;
+        const tokens = tokenizeCode(textContent, lang);
+        if (tokens) {
+          for (let i2 = 0; i2 < tokens.length; i2++) {
+            const t = tokens[i2];
+            if (t.start < t.end) {
+              decorations2.push(
+                Decoration.inline(pos + 1 + t.start, pos + 1 + t.end, {
+                  style: `color: ${t.color};${t.fontStyle === 1 ? " font-style: italic;" : ""}${t.fontStyle === 2 ? " font-weight: bold;" : ""}`,
+                  class: "syntax-token"
                 })
               );
             }
           }
-        };
-        var traverse = traverse2;
-        const textContent = node.textContent;
-        const highlightedHtml = core_default.highlight(textContent, { language: "coq" }).value;
-        const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = highlightedHtml;
-        let currentIndex = 0;
-        tempDiv.childNodes.forEach(traverse2);
+        }
       }
     });
-    return DecorationSet.create(doc3, decorations);
+    return DecorationSet.create(doc3, decorations2);
   }
   var schema2 = new Schema({
     nodes: nodes2,
@@ -31437,9 +40418,9 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     let deletedText = "";
     let insertedText = "";
     node.content.forEach((child) => {
-      const deletionMark = child.marks.find((m2) => m2.type.name === "deletion");
-      const insertionMark = child.marks.find((m2) => m2.type.name === "insertion");
-      const modificationMark = child.marks.find((m2) => m2.type.name === "modification" && m2.attrs?.type === "replace");
+      const deletionMark = child.marks.find((m4) => m4.type.name === "deletion");
+      const insertionMark = child.marks.find((m4) => m4.type.name === "insertion");
+      const modificationMark = child.marks.find((m4) => m4.type.name === "modification" && m4.attrs?.type === "replace");
       if (deletionMark) deletedText += child.text;
       if (insertionMark) insertedText += child.text;
       if (modificationMark && modificationMark.attrs) {
@@ -31461,9 +40442,9 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       }
       if (isBlock) needNewline = true;
       if (node.isText) {
-        const modificationMark = node.marks.find((m2) => m2.type.name === "modification" && m2.attrs?.type === "replace");
-        const deletionMark = node.marks.find((m2) => m2.type.name === "deletion");
-        const insertionMark = node.marks.find((m2) => m2.type.name === "insertion");
+        const modificationMark = node.marks.find((m4) => m4.type.name === "modification" && m4.attrs?.type === "replace");
+        const deletionMark = node.marks.find((m4) => m4.type.name === "deletion");
+        const insertionMark = node.marks.find((m4) => m4.type.name === "insertion");
         if (modificationMark && modificationMark.attrs) {
           before += modificationMark.attrs.previousValue ?? node.text;
           after += modificationMark.attrs.newValue ?? "";
@@ -31488,45 +40469,45 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     return { before, after };
   }
   function renderGoalsToHtml(goals, messages, error) {
-    let html = "";
+    let html5 = "";
     if (!goals || goals.length === 0) {
-      html += '<p class="error"><i>No goals at the current cursor position.</i></p>';
+      html5 += '<p class="error"><i>No goals at the current cursor position.</i></p>';
     } else {
       for (const g of goals) {
-        html += '<div class="goal">';
+        html5 += '<div class="goal">';
         if (g.hyps && g.hyps.length > 0) {
-          html += '<div class="hyps">';
-          g.hyps.forEach((h) => {
-            const rawText = h.names.join(", ") + ": " + h.ty;
-            html += `<pre class="hypothesis">${escapeHtml(rawText)}</pre>`;
+          html5 += '<div class="hyps">';
+          g.hyps.forEach((h2) => {
+            const rawText = h2.names.join(", ") + ": " + h2.ty;
+            html5 += `<pre class="hypothesis">${escapeHtml2(rawText)}</pre>`;
           });
-          html += "</div>";
+          html5 += "</div>";
         }
         const rawGoal = g.ty;
-        html += `<pre class="goalType">${escapeHtml(rawGoal)}</pre>`;
-        html += "</div>";
+        html5 += `<pre class="goalType">${escapeHtml2(rawGoal)}</pre>`;
+        html5 += "</div>";
       }
     }
     if (messages && messages.length > 0 || error) {
-      html += '<div class="messages-section">';
-      html += '<div class="messages-header">Messages</div>';
+      html5 += '<div class="messages-section">';
+      html5 += '<div class="messages-header">Messages</div>';
       if (error) {
-        html += `<div class="message error-message">${escapeHtml(error)}</div>`;
+        html5 += `<div class="message error-message">${escapeHtml2(error)}</div>`;
       }
       if (messages && messages.length > 0) {
         messages.forEach((msg) => {
-          html += `<div class="message">${escapeHtml(msg)}</div>`;
+          html5 += `<div class="message">${escapeHtml2(msg)}</div>`;
         });
       }
-      html += "</div>";
+      html5 += "</div>";
     }
-    return html;
+    return html5;
   }
-  function escapeHtml(s) {
-    if (!s) {
+  function escapeHtml2(s2) {
+    if (!s2) {
       return "";
     }
-    return s.replace(
+    return s2.replace(
       /[&<>"']/g,
       (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] || c
     );
@@ -31608,8 +40589,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     }
   });
   var readOnlyGoalsPlugin = new Plugin({
-    filterTransaction(tr, state) {
-      if (isSuggestChangesEnabled(state) || !tr.docChanged) return true;
+    filterTransaction(tr2, state) {
+      if (isSuggestChangesEnabled(state) || !tr2.docChanged) return true;
       return false;
     }
   });
@@ -31618,10 +40599,10 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     const decos = [];
     doc3.descendants((node, pos) => {
       if (!node.isText || !node.marks.length) return;
-      const mark = node.marks.find((m2) => m2.type === mod && m2.attrs && m2.attrs.type === "replace");
-      if (!mark || mark.attrs.newValue === null || mark.attrs.newValue === void 0) return;
+      const mark2 = node.marks.find((m4) => m4.type === mod && m4.attrs && m4.attrs.type === "replace");
+      if (!mark2 || mark2.attrs.newValue === null || mark2.attrs.newValue === void 0) return;
       const endPos = pos + node.nodeSize;
-      const newVal = String(mark.attrs.newValue);
+      const newVal = String(mark2.attrs.newValue);
       decos.push(Decoration.widget(endPos, () => {
         const span = document.createElement("span");
         span.className = "suggestion-new-value";
@@ -31633,11 +40614,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
   }
   var suggestionNewValuePlugin = new Plugin({
     state: {
-      init(_2, { doc: doc3 }) {
+      init(_4, { doc: doc3 }) {
         return suggestionNewValueDecorations(doc3, schema2);
       },
-      apply(tr, old, _o, state) {
-        return tr.docChanged ? suggestionNewValueDecorations(state.doc, schema2) : old;
+      apply(tr2, old, _o, state) {
+        return tr2.docChanged || tr2.steps.length > 0 ? suggestionNewValueDecorations(state.doc, schema2) : old;
       }
     },
     props: {
@@ -31658,11 +40639,11 @@ Please report this to https://github.com/markedjs/marked.`, e) {
               if (node.type.name === "hypothesis") {
                 const { deletedText, insertedText } = getDiffFromNode(node);
                 if (deletedText && insertedText) {
-                  const key = editKey(deletedText, insertedText);
+                  const key2 = editKey(deletedText, insertedText);
                   currentEdits.push({
                     lhs: deletedText,
                     rhs: insertedText,
-                    key
+                    key: key2
                   });
                 }
               }
@@ -31682,9 +40663,9 @@ Please report this to https://github.com/markedjs/marked.`, e) {
               }
             });
             const currentKeys = new Set(currentEdits.map((e) => e.key));
-            for (const key of sentEdits) {
-              if (!currentKeys.has(key)) {
-                sentEdits.delete(key);
+            for (const key2 of sentEdits) {
+              if (!currentKeys.has(key2)) {
+                sentEdits.delete(key2);
               }
             }
           }
@@ -31711,14 +40692,40 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     state: initialState,
     dispatchTransaction: withSuggestChanges()
   });
+  getHighlighter().then(() => {
+    if (view) {
+      view.dispatch(view.state.tr);
+    }
+  }).catch((err) => {
+    console.error("Highlighter initialization error:", err);
+  });
+  if (typeof MutationObserver !== "undefined" && document.body) {
+    const themeObserver = new MutationObserver(() => {
+      if (view) {
+        view.dispatch(view.state.tr);
+      }
+    });
+    themeObserver.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  }
   window.addEventListener("message", (event) => {
     const msg = event.data;
     if (msg && msg.type) updateWebviewStatus("Got: " + msg.type);
-    let html;
+    let html5;
     switch (msg.type) {
       case "getChatLogContent":
         vscode.postMessage({ type: "chatLogContent", content: (document.getElementById("chatLog") || {}).innerHTML || "" });
         return;
+      case "setChatLogContent": {
+        const chatLog2 = document.getElementById("chatLog");
+        if (chatLog2 && msg.content != null) {
+          chatLog2.innerHTML = msg.content;
+          chatLog2.scrollTop = chatLog2.scrollHeight;
+          if (!msg.content) {
+            resetChatStream();
+          }
+        }
+        return;
+      }
       case "setChatVisible":
         const chatEl = document.getElementById("chat");
         if (chatEl) chatEl.style.display = msg.visible !== false ? "" : "none";
@@ -31726,18 +40733,30 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       case "activeProverChanged":
         activeProverLabel = msg.prover || "Coq";
         updateActiveProverLabel();
+        if (view) {
+          view.dispatch(view.state.tr);
+        }
         return;
+      case "activeModelChanged": {
+        const label = document.getElementById("activeModelLabel");
+        if (label) {
+          const provider = msg.provider || "AI";
+          const model = msg.model || "Default";
+          label.textContent = `Model: ${model} (${provider})`;
+        }
+        return;
+      }
       case "setProofStateMode":
         setProofStateModeUi(msg.mode);
         return;
       case "noDocument":
-        html = "<p><i>No active prover document or cursor not at a goal position.</i></p>";
+        html5 = "<p><i>No active prover document or cursor not at a goal position.</i></p>";
         break;
       case "error":
-        html = "<p><i>Error: " + escapeHtml(msg.message) + "</i></p>";
+        html5 = "<p><i>Error: " + escapeHtml2(msg.message) + "</i></p>";
         break;
       case "proofUpdate":
-        html = renderGoalsToHtml(msg.goals, msg.messages, msg.error);
+        html5 = renderGoalsToHtml(msg.goals, msg.messages, msg.error);
         break;
       case "chatResponsePart":
         appendChatStreamPart(msg.text);
@@ -31747,6 +40766,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         return;
       case "chatResponseDone":
         finalizeChatStream();
+        vscode.postMessage({ type: "chatLogContent", content: (document.getElementById("chatLog") || {}).innerHTML || "" });
         return;
       case "proverAgentStarted":
         updateWebviewStatus("Synthesizing proof\u2026");
@@ -31769,7 +40789,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         return;
     }
     const domNode = document.createElement("div");
-    domNode.innerHTML = html;
+    domNode.innerHTML = html5;
     const newDoc = DOMParser.fromSchema(schema2).parse(domNode);
     const newState = EditorState.create({
       doc: newDoc,
@@ -31783,9 +40803,28 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       logToHost("warn", "Invalid suggestion received: " + JSON.stringify(suggestion));
       return;
     }
-    const isAddHypothesis = suggestion.originalValue == null || String(suggestion.originalValue).trim() === "";
+    const hypName = (suggestion.hypothesisName || "").trim();
+    const origVal = suggestion.originalValue != null && String(suggestion.originalValue).trim() !== "" && String(suggestion.originalValue).trim() !== "undefined" ? String(suggestion.originalValue).trim() : "";
+    const isGoalTarget = ["goal", "\u22A2", "|-"].includes(hypName.toLowerCase()) || hypName === "\u22A2" || hypName === "|-";
     let state = view.state;
     let doc3 = state.doc;
+    let existingHypPos = -1;
+    let existingHypNode = null;
+    if (!isGoalTarget && hypName) {
+      const hypPrefixRegex = new RegExp(`^${hypName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*:`, "i");
+      doc3.descendants((node, pos) => {
+        if (node.type.name === "hypothesis") {
+          const text3 = node.textContent;
+          if (hypPrefixRegex.test(text3)) {
+            existingHypPos = pos;
+            existingHypNode = node;
+            return false;
+          }
+        }
+        return true;
+      });
+    }
+    const isAddHypothesis = !isGoalTarget && !origVal && existingHypPos === -1;
     if (isAddHypothesis) {
       const goalIndex = Math.max(1, suggestion.goalIndex || 1);
       let goalCount = 0;
@@ -31830,44 +40869,111 @@ Please report this to https://github.com/markedjs/marked.`, e) {
           insertPos = node ? hypsPos + 1 + node.content.size : state.doc.resolve(hypsPos).end();
         }
       }
+      let hypContent = suggestion.suggestedValue.trim();
+      const hypPrefixRegex = new RegExp(`^${hypName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*:`, "i");
+      if (!hypPrefixRegex.test(hypContent)) {
+        hypContent = `${hypName} : ${hypContent}`;
+      }
       const insertionMark = schema2.marks.insertion.create({ id: suggestionId2 });
-      const textNode = schema2.text(suggestion.suggestedValue, [insertionMark]);
+      const textNode = schema2.text(hypContent, [insertionMark]);
       const hypothesisNode = schema2.nodes.hypothesis.create(null, [textNode]);
-      const tr2 = state.tr;
-      tr2.setMeta(suggestChangesKey, { skip: true });
+      const tr3 = state.tr;
+      tr3.setMeta(suggestChangesKey, { skip: true });
       try {
         if (hypsNode != null) {
-          tr2.insert(insertPos, hypothesisNode);
+          tr3.insert(insertPos, hypothesisNode);
         } else {
           const newHypsNode = schema2.nodes.hyps.create(null, [hypothesisNode]);
-          tr2.insert(insertPos, newHypsNode);
+          tr3.insert(insertPos, newHypsNode);
         }
-        view.dispatch(tr2);
+        view.dispatch(tr3);
       } catch (err) {
         console.warn("Failed to insert add-hypothesis suggestion:", err);
         logToHost("error", "Failed to insert add-hypothesis suggestion: " + (err.message || String(err)));
       }
-      appendChatMessage(`Suggestion: Add hypothesis "${suggestion.hypothesisName} : ${suggestion.suggestedValue}"${suggestion.reason ? ` (${suggestion.reason})` : ""}`, "assistant");
+      appendChatMessage(`Suggestion: Add hypothesis "${hypContent}"${suggestion.reason ? ` (${suggestion.reason})` : ""}`, "assistant");
       return;
     }
     let foundPos = -1;
     let foundLength = 0;
-    doc3.descendants((node, pos) => {
-      if (node.isText) {
-        const text2 = node.text;
-        const searchText = suggestion.originalValue;
-        const index = text2.indexOf(searchText);
-        if (index !== -1 && foundPos === -1) {
-          foundPos = pos + index;
-          foundLength = searchText.length;
+    let actualPreviousValue = origVal;
+    let actualSuggestedValue = suggestion.suggestedValue;
+    if (origVal) {
+      doc3.descendants((node, pos) => {
+        if (node.isText) {
+          const text3 = node.text;
+          const index = text3.indexOf(origVal);
+          if (index !== -1 && foundPos === -1) {
+            foundPos = pos + index;
+            foundLength = origVal.length;
+            return false;
+          }
+        }
+        return true;
+      });
+    }
+    if (foundPos === -1 && isGoalTarget) {
+      const goalIndex = Math.max(1, suggestion.goalIndex || 1);
+      let goalCount = 0;
+      doc3.descendants((node, pos) => {
+        if (node.type.name === "goal") {
+          goalCount++;
+          if (goalCount === goalIndex) {
+            node.forEach((child, off) => {
+              if (child.type.name === "goalType") {
+                const goalTypePos = pos + 1 + off;
+                child.forEach((textNode, textOff) => {
+                  if (textNode.isText && foundPos === -1) {
+                    const rawText = textNode.text;
+                    const textPos = goalTypePos + 1 + textOff;
+                    if (rawText.startsWith("\u22A2 ") && !actualSuggestedValue.startsWith("\u22A2 ")) {
+                      foundPos = textPos + 2;
+                      foundLength = rawText.length - 2;
+                      actualPreviousValue = rawText.slice(2);
+                    } else {
+                      foundPos = textPos;
+                      foundLength = rawText.length;
+                      actualPreviousValue = rawText;
+                    }
+                    return false;
+                  }
+                });
+                return false;
+              }
+            });
+            return false;
+          }
+        }
+        return true;
+      });
+    }
+    if (foundPos === -1 && existingHypPos !== -1 && existingHypNode) {
+      existingHypNode.forEach((textNode, textOff) => {
+        if (textNode.isText && foundPos === -1) {
+          const rawText = textNode.text;
+          const textPos = existingHypPos + 1 + textOff;
+          const colonIndex = rawText.indexOf(":");
+          if (colonIndex !== -1 && !actualSuggestedValue.includes(":")) {
+            const afterColon = colonIndex + 1;
+            const leadingSpaces = rawText.slice(afterColon).match(/^\s*/)?.[0]?.length || 0;
+            const startIdx = afterColon + leadingSpaces;
+            foundPos = textPos + startIdx;
+            foundLength = rawText.length - startIdx;
+            actualPreviousValue = rawText.slice(startIdx);
+          } else {
+            foundPos = textPos;
+            foundLength = rawText.length;
+            actualPreviousValue = rawText;
+          }
           return false;
         }
-      }
-    });
+      });
+    }
     if (foundPos === -1) {
-      console.warn(`Could not find original value "${suggestion.originalValue}" in document`);
-      logToHost("warn", `Could not find original value "${suggestion.originalValue}" in document`);
-      appendChatMessage(`Suggestion: Replace "${suggestion.originalValue}" with "${suggestion.suggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ""}`, "assistant");
+      console.warn(`Could not find target to edit for suggestion:`, suggestion);
+      logToHost("warn", `Could not find target to edit for ${suggestion.hypothesisName}`);
+      const fallbackMsg = isGoalTarget ? `Suggestion: Update goal to "${suggestion.suggestedValue}"${suggestion.reason ? ` (${suggestion.reason})` : ""}` : `Suggestion: Replace "${origVal || "current value"}" with "${suggestion.suggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ""}`;
+      appendChatMessage(fallbackMsg, "assistant");
       return;
     }
     const suggestionId = `suggestion-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -31877,17 +40983,17 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       });
       state = view.state;
     }
-    const tr = state.tr;
-    tr.setMeta(suggestChangesKey, { skip: true });
+    const tr2 = state.tr;
+    tr2.setMeta(suggestChangesKey, { skip: true });
     const modificationMark = schema2.marks.modification.create({
       id: suggestionId,
       type: "replace",
-      previousValue: suggestion.originalValue,
-      newValue: suggestion.suggestedValue
+      previousValue: actualPreviousValue,
+      newValue: actualSuggestedValue
     });
-    tr.addMark(foundPos, foundPos + foundLength, modificationMark);
-    view.dispatch(tr);
-    const suggestionMsg = `Suggestion: Replace "${suggestion.originalValue}" with "${suggestion.suggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ""}`;
+    tr2.addMark(foundPos, foundPos + foundLength, modificationMark);
+    view.dispatch(tr2);
+    const suggestionMsg = isGoalTarget ? `Suggestion: Update goal to "${actualSuggestedValue}"${suggestion.reason ? ` (${suggestion.reason})` : ""}` : `Suggestion: Replace "${actualPreviousValue}" with "${actualSuggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ""}`;
     appendChatMessage(suggestionMsg, "assistant");
   }
   var chatInput = document.getElementById("chatInput");
@@ -31912,6 +41018,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       chatInput.value = "";
       resetChatStream();
       vscode.postMessage({ command: "chat", prompt });
+      vscode.postMessage({ type: "chatLogContent", content: (document.getElementById("chatLog") || {}).innerHTML || "" });
     });
   }
   if (chatInput) {
@@ -31928,10 +41035,22 @@ Please report this to https://github.com/markedjs/marked.`, e) {
       vscode.postMessage({ command: "popOutChat" });
     });
   }
+  var activeModelBadge = document.getElementById("activeModelBadge");
+  if (activeModelBadge) {
+    activeModelBadge.addEventListener("click", () => {
+      vscode.postMessage({ command: "changeModel" });
+    });
+  }
   var chatStopBtn = document.getElementById("chatStop");
   if (chatStopBtn) {
     chatStopBtn.addEventListener("click", () => {
       vscode.postMessage({ command: "stopGeneration" });
+    });
+  }
+  var chatClearBtn = document.getElementById("chatClear");
+  if (chatClearBtn) {
+    chatClearBtn.addEventListener("click", () => {
+      vscode.postMessage({ command: "clearChat" });
     });
   }
   var btnModeAuto = document.getElementById("btn-mode-auto");

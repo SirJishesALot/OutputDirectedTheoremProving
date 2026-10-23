@@ -3,17 +3,35 @@
  */
 import { marked } from 'marked';
 import katex from 'katex';
+import { highlightCodeHtml, getHighlighter } from './syntaxHighlighter.js';
+
+// Pre-initialize highlighter for code blocks
+getHighlighter().catch(() => {});
+
+marked.use({
+    renderer: {
+        code({ text, lang }) {
+            const cleanLang = (lang || '').trim().toLowerCase();
+            const highlighted = highlightCodeHtml(text, cleanLang);
+            return `<pre><code class="language-${cleanLang || 'text'}">${highlighted}</code></pre>`;
+        }
+    }
+});
 
 let chatLog = null;
 let chatTypingIndicator = null;
 let currentTurnElem = null;
 let mainResponseElem = null;
+let postResponseElem = null;
 let toolDetailsElem = null;
 let toolSummaryElem = null;
 let toolLogElem = null;
+let preStreamBuffer = '';
+let postStreamBuffer = '';
 let streamBuffer = '';
 /** Logical tool invocations (kind === 'call'). */
 let toolCallCount = 0;
+let hasExecutedToolsInTurn = false;
 
 export function initChatStreamUi(options = {}) {
     chatLog = options.chatLog ?? document.getElementById('chatLog');
@@ -80,8 +98,8 @@ function updateToolSummary() {
         return;
     }
     const n = toolCallCount;
-    toolSummaryElem.textContent =
-        n === 0 ? 'Tool activity' : n === 1 ? '1 tool call' : `${n} tool calls`;
+    const label = n === 0 ? 'Tool activity' : n === 1 ? '1 tool call' : `${n} tool calls`;
+    toolSummaryElem.innerHTML = `<span class="tool-summary-icon">⚙</span> <span class="tool-summary-label">${label}</span>`;
 }
 
 function ensureAssistantTurn() {
@@ -92,6 +110,16 @@ function ensureAssistantTurn() {
         setTypingIndicator(true);
         currentTurnElem = document.createElement('div');
         currentTurnElem.className = 'chatMessage assistant streaming';
+
+        const header = document.createElement('div');
+        header.className = 'chat-message-header assistant-header';
+        const role = document.createElement('span');
+        role.className = 'chat-role-badge assistant-badge';
+        role.textContent = 'Assistant';
+        header.appendChild(role);
+
+        const body = document.createElement('div');
+        body.className = 'chat-message-body assistant-body';
 
         mainResponseElem = document.createElement('div');
         mainResponseElem.className = 'chat-response-main';
@@ -105,18 +133,33 @@ function ensureAssistantTurn() {
 
         toolDetailsElem.appendChild(toolSummaryElem);
         toolDetailsElem.appendChild(toolLogElem);
-        currentTurnElem.appendChild(mainResponseElem);
-        currentTurnElem.appendChild(toolDetailsElem);
+        body.appendChild(mainResponseElem);
+        body.appendChild(toolDetailsElem);
+
+        currentTurnElem.appendChild(header);
+        currentTurnElem.appendChild(body);
 
         chatLog.appendChild(currentTurnElem);
+        preStreamBuffer = '';
+        postStreamBuffer = '';
         streamBuffer = '';
         toolCallCount = 0;
+        hasExecutedToolsInTurn = false;
+        postResponseElem = null;
         updateToolSummary();
     }
 }
 
 function formatToolActivityLabel(activity) {
-    const name = activity.toolName ? activity.toolName : 'agent';
+    let name = activity.toolName ? activity.toolName : 'agent';
+    const args = activity.toolArgs;
+    if (activity.toolName === 'try_tactic' && args?.tactic) {
+        name = `try_tactic ("${args.tactic}")`;
+    } else if (activity.toolName === 'search_theorems' && args?.query) {
+        name = `search_theorems ("${args.query}")`;
+    } else if (activity.toolName === 'check_term_validity' && args?.term) {
+        name = `check_term_validity ("${args.term}")`;
+    }
     switch (activity.kind) {
         case 'call':
             return `Model requested: ${name}`;
@@ -137,7 +180,31 @@ export function appendChatMessage(text, cls = 'assistant') {
     }
     const el = document.createElement('div');
     el.className = 'chatMessage ' + cls;
-    el.innerHTML = renderMarkdownWithMath(text);
+
+    const isUser = cls === 'user';
+    const header = document.createElement('div');
+    header.className = `chat-message-header ${isUser ? 'user-header' : 'assistant-header'}`;
+
+    const role = document.createElement('span');
+    role.className = `chat-role-badge ${isUser ? 'user-badge' : 'assistant-badge'}`;
+    if (isUser) {
+        role.textContent = 'You';
+    } else if (text.startsWith('Suggestion:')) {
+        role.textContent = 'Suggestion';
+    } else if (text.includes('Prover Agent:')) {
+        role.textContent = 'Prover Agent';
+    } else {
+        role.textContent = 'Assistant';
+    }
+    header.appendChild(role);
+
+    const contentElem = document.createElement('div');
+    contentElem.className = isUser ? 'chat-message-bubble user-bubble' : 'chat-message-body assistant-body';
+    contentElem.innerHTML = renderMarkdownWithMath(text);
+
+    el.appendChild(header);
+    el.appendChild(contentElem);
+
     chatLog.appendChild(el);
     scrollChatToBottom();
     return el;
@@ -149,8 +216,29 @@ export function appendChatStreamPart(text) {
     }
     ensureAssistantTurn();
     streamBuffer += text;
-    if (mainResponseElem) {
-        mainResponseElem.innerHTML = renderMarkdownWithMath(streamBuffer);
+    if (currentTurnElem && streamBuffer.includes('Prover Agent:')) {
+        const badge = currentTurnElem.querySelector('.assistant-badge');
+        if (badge && badge.textContent !== 'Prover Agent') {
+            badge.textContent = 'Prover Agent';
+        }
+    }
+
+    if (hasExecutedToolsInTurn) {
+        if (!postResponseElem) {
+            postResponseElem = document.createElement('div');
+            postResponseElem.className = 'chat-response-main chat-response-post';
+            const body = currentTurnElem.querySelector('.chat-message-body');
+            if (body) {
+                body.appendChild(postResponseElem);
+            }
+        }
+        postStreamBuffer += text;
+        postResponseElem.innerHTML = renderMarkdownWithMath(postStreamBuffer);
+    } else {
+        preStreamBuffer += text;
+        if (mainResponseElem) {
+            mainResponseElem.innerHTML = renderMarkdownWithMath(preStreamBuffer);
+        }
     }
     scrollChatToBottom();
 }
@@ -160,6 +248,7 @@ export function appendToolActivity(activity) {
         return;
     }
     ensureAssistantTurn();
+    hasExecutedToolsInTurn = true;
     if (activity.kind === 'call') {
         toolCallCount += 1;
         updateToolSummary();
@@ -190,17 +279,24 @@ export function finalizeChatStream() {
         if (toolDetailsElem && toolCallCount === 0 && !toolLogElem?.childElementCount) {
             toolDetailsElem.remove();
         }
-        if (mainResponseElem && !streamBuffer.trim()) {
+        if (mainResponseElem && !preStreamBuffer.trim()) {
             mainResponseElem.remove();
+        }
+        if (postResponseElem && !postStreamBuffer.trim()) {
+            postResponseElem.remove();
         }
     }
     currentTurnElem = null;
     mainResponseElem = null;
+    postResponseElem = null;
     toolDetailsElem = null;
     toolSummaryElem = null;
     toolLogElem = null;
+    preStreamBuffer = '';
+    postStreamBuffer = '';
     streamBuffer = '';
     toolCallCount = 0;
+    hasExecutedToolsInTurn = false;
 }
 
 export function resetChatStream() {

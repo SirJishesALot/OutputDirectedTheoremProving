@@ -11,13 +11,13 @@ Open Scope R_scope.
 Theorem expand_thm : forall a b : R,
   (a + b) ^ 2 = a ^ 2 + 2 * a * b + b ^ 2.
 Proof.
-  
+
   Admitted.
 
 Theorem quadratic_gt_zero : forall a b : R, 
   0 <= a ^ 2 + 2 * a * b + b ^ 2.
 Proof.
-  
+
   Admitted.
 
 Close Scope R_scope.
@@ -42,6 +42,9 @@ Fixpoint sum_range (n : nat) (f : nat -> nat) : nat :=
 Theorem sum_n : forall n : nat, 
   sum_range (S n) (fun i => i) = (n * (n + 1)) / 2.
 Proof.  
+  intros. induction n. 
+  - simpl. reflexivity. 
+  - 
 
   Admitted.
 

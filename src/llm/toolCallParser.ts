@@ -156,8 +156,12 @@ export function sanitizeAndRepairJson(raw: string): string {
     // Normalize unicode quotes
     s = s.replace(/[\u201C\u201D]/g, '"').replace(/[\u2018\u2019]/g, "'");
 
+    // Repair unescaped single-quoted JSON properties / values: {'tool': '...'} -> {"tool": "..."}
+    s = s.replace(/'([^'\\]*(?:\\.[^'\\]*)*)'/g, '"$1"');
+
     // Repair unescaped backslashes in math/logic expressions (e.g. \forall, \exists, /\, \/)
     // JSON permits \", \\, \/, \b, \f, \n, \r, \t, \uXXXX
+    s = s.replace(/\\(forall|exists)/g, '\\\\$1');
     s = s.replace(/\\([^"\\\/bfnrtu])/g, '\\\\$1');
 
     // Remove trailing commas before closing braces/brackets
@@ -382,6 +386,8 @@ export function isReadOnlyTool(toolName: string): boolean {
         'get_proof_context',
         'get_edit_history',
         'check_term_validity',
+        'try_tactic',
+        'search_theorems',
     ]);
     return readOnlyTools.has(toolName);
 }
