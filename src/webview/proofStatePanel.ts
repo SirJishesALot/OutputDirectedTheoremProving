@@ -500,7 +500,7 @@ export class ProofStatePanel {
             this.extensionUri, 'src', 'webview', 'proofState.css'
         ));
         const katexCssUri = webview.asWebviewUri(vscode.Uri.joinPath(
-            this.extensionUri, 'node_modules', 'katex', 'dist', 'katex.min.css'
+            this.extensionUri, 'src', 'webview', 'katex.min.css'
         ));
         const info = this.getActiveModelInfo();
         const initialModelLabel = `${info.model} (${info.provider})`;
@@ -511,8 +511,9 @@ export class ProofStatePanel {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'none';
-    style-src ${webview.cspSource} ${katexCssUri} 'unsafe-inline';
+    style-src ${webview.cspSource} 'unsafe-inline';
     script-src ${webview.cspSource};
+    font-src ${webview.cspSource};
   ">
   <link rel="stylesheet" type="text/css" href="${cssUri}">
   <link rel="stylesheet" type="text/css" href="${katexCssUri}">
@@ -1285,11 +1286,11 @@ export class ProofStatePanel {
         ));
 
         const proseMirrorCssUri = webview.asWebviewUri(vscode.Uri.joinPath(
-            this.extensionUri, 'node_modules', 'prosemirror-view', 'style', 'prosemirror.css'
+            this.extensionUri, 'src', 'webview', 'prosemirror.css'
         ));
 
         const katexCssUri = webview.asWebviewUri(vscode.Uri.joinPath(
-            this.extensionUri, 'node_modules', 'katex', 'dist', 'katex.min.css'
+            this.extensionUri, 'src', 'webview', 'katex.min.css'
         ));
 
         const info = this.getActiveModelInfo();
@@ -1302,8 +1303,9 @@ export class ProofStatePanel {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'none'; 
-    style-src ${webview.cspSource} ${katexCssUri} 'unsafe-inline'; 
+    style-src ${webview.cspSource} 'unsafe-inline'; 
     script-src ${webview.cspSource};
+    font-src ${webview.cspSource};
   ">
 
   <link rel="stylesheet" type="text/css" href="${proseMirrorCssUri}">

@@ -3,6 +3,12 @@
 out/**
 node_modules/**
 src/**
+!src/webview/**
+src/webview/*.ts
+src/webview/main.js
+src/webview/chatPanel.js
+src/webview/chatStreamUi.js
+src/webview/syntaxHighlighter.js
 .gitignore
 .yarnrc
 esbuild.js
