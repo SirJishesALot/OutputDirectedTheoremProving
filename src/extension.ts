@@ -440,6 +440,13 @@ export function activate(context: vscode.ExtensionContext) {
     const openProofStateDisposable = vscode.commands.registerCommand(
         'outputdirectedtheoremproving.openProofState',
         async () => {
+            const detected = detectProverFromEditor(vscode.window.activeTextEditor);
+            if (detected && detected !== (proverManager?.getActiveKind() ?? getConfiguredProverKind())) {
+                await vscode.workspace
+                    .getConfiguration()
+                    .update('myExtension.activeProver', detected, vscode.ConfigurationTarget.Global);
+                applyConfiguredProverPromise = applyConfiguredProver();
+            }
             if (applyConfiguredProverPromise) {
                 await applyConfiguredProverPromise;
             }
@@ -448,6 +455,11 @@ export function activate(context: vscode.ExtensionContext) {
                 if (activeKind === 'Lean') {
                     const activeClient = proverManager?.getActiveClient();
                     if (!activeClient) {
+                        applyConfiguredProverPromise = applyConfiguredProver();
+                        await applyConfiguredProverPromise;
+                    }
+                    const readyClient = proverManager?.getActiveClient();
+                    if (!readyClient) {
                         vscode.window.showErrorMessage('Lean prover is not initialized yet.');
                         return;
                     }
@@ -480,8 +492,14 @@ export function activate(context: vscode.ExtensionContext) {
                     );
                     return;
                 }
-                vscode.window.showErrorMessage('Coq LSP is not ready yet.');
-                return;
+                // Try initializing Coq again in case the LSP just became available
+                applyConfiguredProverPromise = applyConfiguredProver();
+                await applyConfiguredProverPromise;
+                if (!coqLspClientReady) {
+                    const lspPath = resolveCoqLspPath();
+                    vscode.window.showErrorMessage(`Coq LSP is not ready yet (checked: ${lspPath}). If OPAM is still building, please wait for setup to complete.`);
+                    return;
+                }
             }
             ProofStatePanel.createOrShow(
                 context,
