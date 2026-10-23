@@ -554,6 +554,9 @@ window.addEventListener('message', (event) => {
             if (chatLog && msg.content != null) {
                 chatLog.innerHTML = msg.content;
                 chatLog.scrollTop = chatLog.scrollHeight;
+                if (!msg.content) {
+                    resetChatStream();
+                }
             }
             return;
         }
@@ -916,6 +919,13 @@ const chatStopBtn = document.getElementById('chatStop');
 if (chatStopBtn) {
     chatStopBtn.addEventListener('click', () => {
         vscode.postMessage({ command: 'stopGeneration' });
+    });
+}
+
+const chatClearBtn = document.getElementById('chatClear');
+if (chatClearBtn) {
+    chatClearBtn.addEventListener('click', () => {
+        vscode.postMessage({ command: 'clearChat' });
     });
 }
 

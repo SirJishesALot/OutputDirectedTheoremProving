@@ -323,7 +323,7 @@ span[data-type="modification"][data-mod-type="replace"] {
     border-color: var(--vscode-focusBorder);
 }
 
-#chatSend, #chatStop, #popOutChat, #popBackChat {
+#chatSend, #chatStop, #chatClear, #popOutChat, #popBackChat {
     flex: 0 0 auto;
     white-space: nowrap;
     padding: 6px 12px;
@@ -348,6 +348,15 @@ span[data-type="modification"][data-mod-type="replace"] {
 
 #chatStop:hover {
     background: var(--vscode-button-secondaryHoverBackground, rgba(128, 128, 128, 0.3));
+}
+
+#chatClear {
+    background: var(--vscode-button-secondaryBackground, rgba(128, 128, 128, 0.15));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-editor-foreground));
+}
+
+#chatClear:hover {
+    background: var(--vscode-button-secondaryHoverBackground, rgba(128, 128, 128, 0.25));
 }
 
 #popOutChat, #popBackChat {
@@ -530,6 +539,11 @@ span[data-type="modification"][data-mod-type="replace"] {
 }
 
 .chat-response-main {
+    margin-bottom: 4px;
+}
+
+.chat-response-post {
+    margin-top: 8px;
     margin-bottom: 4px;
 }
 

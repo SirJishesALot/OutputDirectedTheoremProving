@@ -15,6 +15,7 @@ const vscode = typeof acquireVsCodeApi !== 'undefined' ? acquireVsCodeApi() : nu
 const chatInput = document.getElementById('chatInput');
 const chatSend = document.getElementById('chatSend');
 const chatStop = document.getElementById('chatStop');
+const chatClear = document.getElementById('chatClear');
 const synthesizingIndicator = document.getElementById('synthesizingIndicator');
 const popBackBtn = document.getElementById('popBackChat');
 
@@ -70,6 +71,12 @@ if (chatStop && vscode) {
     });
 }
 
+if (chatClear && vscode) {
+    chatClear.addEventListener('click', () => {
+        vscode.postMessage({ command: 'clearChat' });
+    });
+}
+
 if (vscode) {
     window.addEventListener('message', (event) => {
         const msg = event.data;
@@ -81,6 +88,9 @@ if (vscode) {
                 if (chatLog && msg.content != null) {
                     chatLog.innerHTML = msg.content;
                     chatLog.scrollTop = chatLog.scrollHeight;
+                    if (!msg.content) {
+                        resetChatStream();
+                    }
                 }
                 break;
             }

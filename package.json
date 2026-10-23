@@ -34,6 +34,7 @@
     "onCommand:outputdirectedtheoremproving.copyDiagnosticReport",
     "onCommand:outputdirectedtheoremproving.acceptSuggestion",
     "onCommand:outputdirectedtheoremproving.rejectSuggestion",
+    "onCommand:outputdirectedtheoremproving.clearChat",
     "onLanguage:coq",
     "onLanguage:rocq",
     "onLanguage:lean",
@@ -93,6 +94,10 @@
       {
         "command": "outputdirectedtheoremproving.switchLlmBackend",
         "title": "Switch LLM Backend (Antigravity CLI / Portkey)"
+      },
+      {
+        "command": "outputdirectedtheoremproving.clearChat",
+        "title": "Clear Chat History for Current Document"
       }
     ],
     "configuration": {

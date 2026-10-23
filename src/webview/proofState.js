@@ -39114,11 +39114,15 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
   var chatTypingIndicator = null;
   var currentTurnElem = null;
   var mainResponseElem = null;
+  var postResponseElem = null;
   var toolDetailsElem = null;
   var toolSummaryElem = null;
   var toolLogElem = null;
+  var preStreamBuffer = "";
+  var postStreamBuffer = "";
   var streamBuffer = "";
   var toolCallCount = 0;
+  var hasExecutedToolsInTurn = false;
   function initChatStreamUi(options = {}) {
     chatLog = options.chatLog ?? document.getElementById("chatLog");
     chatTypingIndicator = options.chatTypingIndicator ?? document.getElementById("chatTypingIndicator");
@@ -39212,13 +39216,25 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
       currentTurnElem.appendChild(header);
       currentTurnElem.appendChild(body3);
       chatLog.appendChild(currentTurnElem);
+      preStreamBuffer = "";
+      postStreamBuffer = "";
       streamBuffer = "";
       toolCallCount = 0;
+      hasExecutedToolsInTurn = false;
+      postResponseElem = null;
       updateToolSummary();
     }
   }
   function formatToolActivityLabel(activity) {
-    const name = activity.toolName ? activity.toolName : "agent";
+    let name = activity.toolName ? activity.toolName : "agent";
+    const args = activity.toolArgs;
+    if (activity.toolName === "try_tactic" && args?.tactic) {
+      name = `try_tactic ("${args.tactic}")`;
+    } else if (activity.toolName === "search_theorems" && args?.query) {
+      name = `search_theorems ("${args.query}")`;
+    } else if (activity.toolName === "check_term_validity" && args?.term) {
+      name = `check_term_validity ("${args.term}")`;
+    }
     switch (activity.kind) {
       case "call":
         return `Model requested: ${name}`;
@@ -39274,8 +39290,22 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
         badge.textContent = "Prover Agent";
       }
     }
-    if (mainResponseElem) {
-      mainResponseElem.innerHTML = renderMarkdownWithMath(streamBuffer);
+    if (hasExecutedToolsInTurn) {
+      if (!postResponseElem) {
+        postResponseElem = document.createElement("div");
+        postResponseElem.className = "chat-response-main chat-response-post";
+        const body3 = currentTurnElem.querySelector(".chat-message-body");
+        if (body3) {
+          body3.appendChild(postResponseElem);
+        }
+      }
+      postStreamBuffer += text3;
+      postResponseElem.innerHTML = renderMarkdownWithMath(postStreamBuffer);
+    } else {
+      preStreamBuffer += text3;
+      if (mainResponseElem) {
+        mainResponseElem.innerHTML = renderMarkdownWithMath(preStreamBuffer);
+      }
     }
     scrollChatToBottom();
   }
@@ -39284,6 +39314,7 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
       return;
     }
     ensureAssistantTurn();
+    hasExecutedToolsInTurn = true;
     if (activity.kind === "call") {
       toolCallCount += 1;
       updateToolSummary();
@@ -39313,17 +39344,24 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
       if (toolDetailsElem && toolCallCount === 0 && !toolLogElem?.childElementCount) {
         toolDetailsElem.remove();
       }
-      if (mainResponseElem && !streamBuffer.trim()) {
+      if (mainResponseElem && !preStreamBuffer.trim()) {
         mainResponseElem.remove();
+      }
+      if (postResponseElem && !postStreamBuffer.trim()) {
+        postResponseElem.remove();
       }
     }
     currentTurnElem = null;
     mainResponseElem = null;
+    postResponseElem = null;
     toolDetailsElem = null;
     toolSummaryElem = null;
     toolLogElem = null;
+    preStreamBuffer = "";
+    postStreamBuffer = "";
     streamBuffer = "";
     toolCallCount = 0;
+    hasExecutedToolsInTurn = false;
   }
   function resetChatStream() {
     finalizeChatStream();
@@ -40682,6 +40720,9 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
         if (chatLog2 && msg.content != null) {
           chatLog2.innerHTML = msg.content;
           chatLog2.scrollTop = chatLog2.scrollHeight;
+          if (!msg.content) {
+            resetChatStream();
+          }
         }
         return;
       }
@@ -41004,6 +41045,12 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
   if (chatStopBtn) {
     chatStopBtn.addEventListener("click", () => {
       vscode.postMessage({ command: "stopGeneration" });
+    });
+  }
+  var chatClearBtn = document.getElementById("chatClear");
+  if (chatClearBtn) {
+    chatClearBtn.addEventListener("click", () => {
+      vscode.postMessage({ command: "clearChat" });
     });
   }
   var btnModeAuto = document.getElementById("btn-mode-auto");

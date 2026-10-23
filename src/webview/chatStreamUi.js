@@ -22,12 +22,16 @@ let chatLog = null;
 let chatTypingIndicator = null;
 let currentTurnElem = null;
 let mainResponseElem = null;
+let postResponseElem = null;
 let toolDetailsElem = null;
 let toolSummaryElem = null;
 let toolLogElem = null;
+let preStreamBuffer = '';
+let postStreamBuffer = '';
 let streamBuffer = '';
 /** Logical tool invocations (kind === 'call'). */
 let toolCallCount = 0;
+let hasExecutedToolsInTurn = false;
 
 export function initChatStreamUi(options = {}) {
     chatLog = options.chatLog ?? document.getElementById('chatLog');
@@ -136,14 +140,26 @@ function ensureAssistantTurn() {
         currentTurnElem.appendChild(body);
 
         chatLog.appendChild(currentTurnElem);
+        preStreamBuffer = '';
+        postStreamBuffer = '';
         streamBuffer = '';
         toolCallCount = 0;
+        hasExecutedToolsInTurn = false;
+        postResponseElem = null;
         updateToolSummary();
     }
 }
 
 function formatToolActivityLabel(activity) {
-    const name = activity.toolName ? activity.toolName : 'agent';
+    let name = activity.toolName ? activity.toolName : 'agent';
+    const args = activity.toolArgs;
+    if (activity.toolName === 'try_tactic' && args?.tactic) {
+        name = `try_tactic ("${args.tactic}")`;
+    } else if (activity.toolName === 'search_theorems' && args?.query) {
+        name = `search_theorems ("${args.query}")`;
+    } else if (activity.toolName === 'check_term_validity' && args?.term) {
+        name = `check_term_validity ("${args.term}")`;
+    }
     switch (activity.kind) {
         case 'call':
             return `Model requested: ${name}`;
@@ -206,8 +222,23 @@ export function appendChatStreamPart(text) {
             badge.textContent = 'Prover Agent';
         }
     }
-    if (mainResponseElem) {
-        mainResponseElem.innerHTML = renderMarkdownWithMath(streamBuffer);
+
+    if (hasExecutedToolsInTurn) {
+        if (!postResponseElem) {
+            postResponseElem = document.createElement('div');
+            postResponseElem.className = 'chat-response-main chat-response-post';
+            const body = currentTurnElem.querySelector('.chat-message-body');
+            if (body) {
+                body.appendChild(postResponseElem);
+            }
+        }
+        postStreamBuffer += text;
+        postResponseElem.innerHTML = renderMarkdownWithMath(postStreamBuffer);
+    } else {
+        preStreamBuffer += text;
+        if (mainResponseElem) {
+            mainResponseElem.innerHTML = renderMarkdownWithMath(preStreamBuffer);
+        }
     }
     scrollChatToBottom();
 }
@@ -217,6 +248,7 @@ export function appendToolActivity(activity) {
         return;
     }
     ensureAssistantTurn();
+    hasExecutedToolsInTurn = true;
     if (activity.kind === 'call') {
         toolCallCount += 1;
         updateToolSummary();
@@ -247,17 +279,24 @@ export function finalizeChatStream() {
         if (toolDetailsElem && toolCallCount === 0 && !toolLogElem?.childElementCount) {
             toolDetailsElem.remove();
         }
-        if (mainResponseElem && !streamBuffer.trim()) {
+        if (mainResponseElem && !preStreamBuffer.trim()) {
             mainResponseElem.remove();
+        }
+        if (postResponseElem && !postStreamBuffer.trim()) {
+            postResponseElem.remove();
         }
     }
     currentTurnElem = null;
     mainResponseElem = null;
+    postResponseElem = null;
     toolDetailsElem = null;
     toolSummaryElem = null;
     toolLogElem = null;
+    preStreamBuffer = '';
+    postStreamBuffer = '';
     streamBuffer = '';
     toolCallCount = 0;
+    hasExecutedToolsInTurn = false;
 }
 
 export function resetChatStream() {

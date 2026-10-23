@@ -19,6 +19,7 @@ export interface AgentToolActivity {
     kind: AgentToolActivityKind;
     toolName?: string;
     detail: string;
+    toolArgs?: any;
 }
 
 function truncateToolDetail(detail: string, maxLen = 4000): string {
@@ -105,16 +106,16 @@ async function finalizeAgentAnswerIfNeeded(
     token: vscode.CancellationToken | undefined,
     onUpdate: (text: string) => void,
     emitTool: (activity: AgentToolActivity) => void,
-    userGotSubstantialText: boolean,
+    userGotSubstantialPostToolText: boolean,
     conversationId?: string
 ): Promise<void> {
-    if (userGotSubstantialText || !anyToolExecutedInMessages(messages) || token?.isCancellationRequested) {
+    if (userGotSubstantialPostToolText || !anyToolExecutedInMessages(messages) || token?.isCancellationRequested) {
         return;
     }
 
     emitTool({
         kind: 'status',
-        detail: 'No complete answer yet — summarizing from tool results…',
+        detail: 'Summarizing next steps from tool results…',
     });
     messages.push({ role: 'user', content: FINALIZE_ANSWER_NUDGE });
     const fullResponseText = await invokeModel(messages, model, token, conversationId ? { conversationId } : undefined);
@@ -411,7 +412,11 @@ To use a tool, respond with a JSON block:
 \`\`\`
 
 If you do not need to use a tool, just respond with text.
-When you receive a tool result, either call another tool OR give a complete text answer. Never end your turn silently.`;
+TOOL CALL RULES:
+- If you need to use tools (such as get_current_proof_state or try_tactic), invoke your tool call(s) FIRST.
+- Do NOT begin explaining or start a sentence that is left incomplete before calling a tool.
+- Never output an incomplete thought before a tool JSON block.
+- Once you receive the tool results, then provide your complete, detailed explanation and next steps in prose. Never end your turn silently.`;
 
     let messages: any[] = [];
     if (!conversationHistory || conversationHistory.length === 0 || conversationHistory[0].role !== 'system') {
@@ -427,15 +432,16 @@ When you receive a tool result, either call another tool OR give a complete text
     let nudgeSent = false;
     let suggestionMade = false;
     let toolExecutionCount = 0;
-    let userGotSubstantialText = false;
+    let userGotSubstantialPostToolText = false;
+    let anyToolExecutedSoFar = false;
     let forceAnswerOnly = false;
     let answerOnlyNudgeInjected = false;
     const userAskedForSuggestion = userAskedForSuggestionEdit(userRequest);
     const executedToolSignatures: string[] = [];
 
     const markSubstantialText = (text: string) => {
-        if (isSubstantialUserFacingText(text)) {
-            userGotSubstantialText = true;
+        if (anyToolExecutedSoFar && isSubstantialUserFacingText(text)) {
+            userGotSubstantialPostToolText = true;
         }
     };
 
@@ -459,7 +465,7 @@ When you receive a tool result, either call another tool OR give a complete text
             if (
                 turn >= MAX_AGENT_TURNS - 1 &&
                 anyToolExecuted &&
-                !userGotSubstantialText &&
+                !userGotSubstantialPostToolText &&
                 !userAskedForSuggestion
             ) {
                 OutputLogger.warn('Agent:Chat', 'Nudge: injecting answer-only instruction before turn limit.');
@@ -616,10 +622,13 @@ When you receive a tool result, either call another tool OR give a complete text
                         throw new Error(`Unknown tool: ${toolName}`);
                     }
 
+                    const tacticLabel =
+                        toolName === 'try_tactic' && toolArgs?.tactic ? ` ("${toolArgs.tactic}")` : '';
                     emitTool({
                         kind: 'executing',
                         toolName,
-                        detail: `Executing ${toolName}…`,
+                        detail: `Executing ${toolName}${tacticLabel}…`,
+                        toolArgs,
                     });
 
                     OutputLogger.info('Agent:Chat', `Executing tool "${toolName}"...`, toolArgs);
@@ -627,6 +636,7 @@ When you receive a tool result, either call another tool OR give a complete text
                     const result = await targetTool.execute(toolArgs);
                     const toolDuration = Date.now() - toolStartTime;
                     toolExecutionCount++;
+                    anyToolExecutedSoFar = true;
                     OutputLogger.info('Agent:Chat', `Tool "${toolName}" executed in ${toolDuration}ms`);
                     OutputLogger.trace('Agent:Chat', `Tool "${toolName}" result:\n${result}`);
 
@@ -656,16 +666,22 @@ When you receive a tool result, either call another tool OR give a complete text
                     }
 
                     compositeResults.push(`TOOL RESULT (${toolName}): ${result}`);
+                    const tacticPrefix =
+                        toolName === 'try_tactic' && toolArgs?.tactic && !result.includes(`"${toolArgs.tactic}"`)
+                            ? `Tactic attempted: ${toolArgs.tactic}\n\n`
+                            : '';
                     emitTool({
                         kind: 'result',
                         toolName,
-                        detail: result,
+                        detail: tacticPrefix + result,
+                        toolArgs,
                     });
                 } catch (e) {
                     OutputLogger.error('Agent:Chat', `Tool "${toolName}" execution error: ${e}`);
                     emitTool({
                         kind: 'error',
                         detail: `Tool execution error: ${e}`,
+                        toolArgs,
                     });
                     compositeResults.push(`TOOL ERROR (${toolName}): ${e}`);
                     break;
@@ -695,7 +711,7 @@ When you receive a tool result, either call another tool OR give a complete text
             token,
             onUpdate,
             emitTool,
-            userGotSubstantialText,
+            userGotSubstantialPostToolText,
             currentConversationId
         );
     } catch (e) {
@@ -720,6 +736,7 @@ function condenseHistoryForNextTurn(
             if (msg.content.startsWith('TOOL RESULT (')) continue;
             if (msg.content === ANSWER_ONLY_AFTER_TOOLS_NUDGE) continue;
             if (msg.content.includes('To suggest an edit, please inspect')) continue;
+            if (msg.content.includes('You must call suggest_proof_state_edit now')) continue;
             if (msg.content.includes('Your tool call JSON was malformed')) continue;
             if (msg.content.includes('You did not give a sufficient text answer')) continue;
             condensed.push(msg);

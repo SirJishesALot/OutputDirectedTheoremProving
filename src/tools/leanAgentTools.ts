@@ -158,13 +158,13 @@ export function createLeanAutoformaliserTools(
                     return `error: ${execError instanceof Error ? execError.message : String(execError)}`;
                 }
                 if (goalState?.error) {
-                    return `error: Tactic failed: ${goalState.error}`;
+                    return `error: Tactic "${tactic}" failed: ${goalState.error}`;
                 }
                 const goals = goalState?.goals || [];
                 if (goals.length === 0) {
-                    return 'success: Tactic solved all remaining goals! (0 goals remaining)';
+                    return `success: Tactic "${tactic}" solved all remaining goals! (0 goals remaining)`;
                 }
-                return `success: Tactic succeeded. Resulting proof state (${goals.length} goal(s)):\n\n${goals.join('\n\n')}`;
+                return `success: Tactic "${tactic}" succeeded. Resulting proof state (${goals.length} goal(s)):\n\n${goals.join('\n\n')}`;
             }
         },
         {

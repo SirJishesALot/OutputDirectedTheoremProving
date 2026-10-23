@@ -916,6 +916,16 @@ export function activate(context: vscode.ExtensionContext) {
     );
     context.subscriptions.push(copyDiagnosticReportCmd);
 
+    const clearChatCmd = vscode.commands.registerCommand(
+        'outputdirectedtheoremproving.clearChat',
+        () => {
+            if (ProofStatePanel.currentPanel) {
+                ProofStatePanel.currentPanel.clearCurrentDocumentChat();
+            }
+        }
+    );
+    context.subscriptions.push(clearChatCmd);
+
     const disposable = vscode.commands.registerCommand('outputdirectedtheoremproving.helloWorld', () => {
         vscode.window.showInformationMessage('Hello World from OutputDirectedTheoremProving!');
     });

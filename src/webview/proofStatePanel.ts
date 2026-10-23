@@ -410,6 +410,33 @@ export class ProofStatePanel {
         }
     }
 
+    public clearCurrentDocumentChat(): void {
+        if (this.chatCancelSource) {
+            this.chatCancelSource.cancel();
+            this.chatCancelSource.dispose();
+            this.chatCancelSource = undefined;
+        }
+        this.conversationHistory = [];
+        this.currentChatHtml = '';
+        this.chatConversationId = undefined;
+        this.editHistory = { edits: [] };
+        if (this.currentDocumentUri) {
+            this.documentChatStates.delete(this.currentDocumentUri.toString());
+        }
+        this.panel.webview.postMessage({
+            type: 'setChatLogContent',
+            content: '',
+        });
+        this.chatPanel?.webview.postMessage({
+            type: 'setChatLogContent',
+            content: '',
+        });
+        OutputLogger.info(
+            'ProofState',
+            `Chat history cleared for document: ${this.currentDocumentUri?.toString() ?? 'unknown'}`
+        );
+    }
+
     public dispose() {
         if (this.selectionDebounceTimer !== undefined) {
             clearTimeout(this.selectionDebounceTimer);
@@ -506,6 +533,7 @@ export class ProofStatePanel {
       <input id="chatInput" type="text" placeholder="Consult the assistant." />
       <button id="chatSend">Send</button>
       <button id="chatStop" type="button">Stop</button>
+      <button id="chatClear" type="button" title="Clear conversation history for this document">Clear</button>
     </div>
   </div>
   <script src="${scriptUri}"></script>
@@ -551,6 +579,11 @@ export class ProofStatePanel {
             if (this.chatCancelSource) {
                 this.chatCancelSource.cancel();
             }
+            return;
+        }
+
+        if (cmd === 'clearChat') {
+            this.clearCurrentDocumentChat();
             return;
         }
 
@@ -1309,6 +1342,7 @@ export class ProofStatePanel {
             <input id="chatInput" type="text" placeholder="Consult the assistant." />
             <button id="chatSend">Send</button>
             <button id="chatStop" type="button">Stop</button>
+            <button id="chatClear" type="button" title="Clear conversation history for this document">Clear</button>
             <button id="popOutChat" type="button">Pop out chat</button>
         </div>
     </div>

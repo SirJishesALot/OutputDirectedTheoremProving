@@ -324,15 +324,15 @@ Use this to test tactics (e.g. "rewrite Nat.add_0_r.", "lia.", "ring.", "inducti
                             if (!goalsResult.ok) {
                                 const err = goalsResult.val;
                                 const msg = err instanceof Error ? err.message : String(err);
-                                result = `error: Tactic failed: ${msg}`;
+                                result = `error: Tactic "${command}" failed: ${msg}`;
                                 return;
                             }
                             const goalsWithMessages = goalsResult.val as GoalsWithMessages;
                             const goals = goalsWithMessages.goals;
                             if (!goals || goals.length === 0) {
-                                result = 'success: Tactic solved all remaining goals! (0 goals remaining)';
+                                result = `success: Tactic "${command}" solved all remaining goals! (0 goals remaining)`;
                             } else {
-                                result = `success: Tactic succeeded. Resulting proof state (${goals.length} goal(s)):\n\n${serializeGoalsToPanelFormat(goals)}`;
+                                result = `success: Tactic "${command}" succeeded. Resulting proof state (${goals.length} goal(s)):\n\n${serializeGoalsToPanelFormat(goals)}`;
                             }
                         }
                     );
