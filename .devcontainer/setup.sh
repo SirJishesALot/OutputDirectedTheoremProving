@@ -77,7 +77,7 @@ fi
 echo "=== Installing Node dependencies & building VS Code extension ==="
 npm install
 npm run compile
-npx --yes @vscode/vsce package
+npx --yes @vscode/vsce package --no-dependencies
 
 # Sideload the generated .vsix if the code CLI is present
 if command -v code >/dev/null 2>&1; then
