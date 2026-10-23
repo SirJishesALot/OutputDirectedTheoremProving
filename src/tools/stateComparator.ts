@@ -187,11 +187,18 @@ export function compareParsedGoals(actual: ParsedGoal, expected: ParsedGoal): bo
 }
 
 function getTypesafeApiKey(): string | undefined {
-    return (
-        process.env.TYPESAFE_API_KEY ||
-        vscode.workspace.getConfiguration().get<string>('myExtension.typesafeApiKey')?.trim() ||
-        undefined
-    );
+    let key = process.env.TYPESAFE_API_KEY;
+    if (!key) {
+        try {
+            const dotenv = require('dotenv');
+            dotenv.config();
+            key = process.env.TYPESAFE_API_KEY;
+        } catch {}
+    }
+    if (!key) {
+        key = vscode.workspace.getConfiguration().get<string>('myExtension.typesafeApiKey')?.trim();
+    }
+    return key || undefined;
 }
 
 /**
@@ -256,6 +263,8 @@ export async function evaluateSemanticMatchWithJev(
             },
         };
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         const res = await fetch('https://api.typesafe.ai/v1/systemone', {
             method: 'POST',
             headers: {
@@ -263,7 +272,9 @@ export async function evaluateSemanticMatchWithJev(
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(payload),
+            signal: controller.signal,
         });
+        clearTimeout(timeoutId);
 
         if (!res.ok) {
             OutputLogger.warn('Comparator:Jev', `Jev API returned HTTP error ${res.status}`);
@@ -280,7 +291,7 @@ export async function evaluateSemanticMatchWithJev(
             `Jev evaluation scores: overall=${overallScore}, goal=${goalScore}, hyps=${hypsScore}`
         );
 
-        const isMatch = overallScore >= 0.75 || (goalScore >= 0.70 && hypsScore >= 0.70);
+        const isMatch = (goalScore >= 0.70 && overallScore >= 0.70) || overallScore >= 0.85;
 
         if (isMatch) {
             return {
@@ -313,7 +324,7 @@ export async function evaluateSemanticMatchWithJev(
 
 /**
  * Compares an actual resulting compiler proof state against an expected target state.
- * Uses fast syntactic/AST matching (Tier 1) and falls back to TypeSafe Jev (Tier 2).
+ * Directs all semantic validation to TypeSafe Jev.
  */
 export async function compareStateWithTarget(
     resultingState: string,
@@ -323,51 +334,20 @@ export async function compareStateWithTarget(
 ): Promise<VerificationResult> {
     const normTarget = normalizeState(targetState);
     const normResult = normalizeState(resultingState);
-    const activeTarget = extractActiveGoalFromTarget(targetState);
-    const normActiveTarget = normalizeState(activeTarget);
-    const activeResult = extractActiveGoalFromTarget(resultingState);
-    const normActiveResult = normalizeState(activeResult);
 
-    if (isProofCompleteState(normTarget)) {
-        if (isComplete || isProofCompleteState(normResult)) {
-            return { success: true, resultingState: 'Proof completed (No subgoals).' };
-        }
-        return {
-            success: false,
-            error: 'Proof state did not reach completion.',
-            resultingState: resultingState.trim(),
-        };
+    // Fast-path: exact normalized string equality
+    if (normResult === normTarget) {
+        return { success: true, resultingState: targetState };
     }
 
+    // Fast-path: proof completed (no subgoals remaining)
     if (isComplete || isProofCompleteState(normResult)) {
-        return {
-            success: true,
-            resultingState: 'Proof completed (No subgoals).',
-        };
+        return { success: true, resultingState: 'Proof completed (No subgoals).' };
     }
 
-    // Direct normalized substring inclusion (Fast Tier 1)
-    if (
-        normResult === normTarget ||
-        normResult.includes(normTarget) ||
-        normTarget.includes(normResult) ||
-        normResult.includes(normActiveTarget) ||
-        normActiveTarget.includes(normResult) ||
-        normActiveResult.includes(normTarget) ||
-        normActiveResult.includes(normActiveTarget)
-    ) {
-        return { success: true, resultingState: targetState };
-    }
-
-    // Semantic parsed goal matching (Fast Tier 1 AST)
-    const parsedTarget = parseProofState(activeTarget || targetState);
-    const parsedResult = parseProofState(activeResult || resultingState);
-    if (compareParsedGoals(parsedResult, parsedTarget)) {
-        return { success: true, resultingState: targetState };
-    }
-
-    // Tier 2: TypeSafe Jev fallback (when fast checks fail)
-    if (getTypesafeApiKey()) {
+    // All semantic proof state validation is handled by TypeSafe Jev
+    const apiKey = getTypesafeApiKey();
+    if (apiKey) {
         const jevRes = await evaluateSemanticMatchWithJev(resultingState, targetState, context);
         if (jevRes.isMatch) {
             return { success: true, resultingState: targetState };
@@ -381,7 +361,7 @@ export async function compareStateWithTarget(
 
     return {
         success: false,
-        error: 'Resulting state does not match target state.',
+        error: 'Resulting state does not match target state (Jev semantic validation requires TYPESAFE_API_KEY).',
         resultingState: resultingState.trim(),
     };
 }

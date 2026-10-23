@@ -467,23 +467,14 @@ Args: originalValue (full proof state before the change), desiredValue (full pro
                                 // all remaining goals accomplishes the proof goal.
                                 return { verified: true, applied: true, state: stateStr };
                             }
-                            const parsedResult = proofGoalsToParsed(goals);
-                            const desiredHasHyps = parsedDesired?.some((g) => g.hyps.length > 0) ?? false;
-                            const exactMatch =
-                                parsedDesired !== null
-                                    ? desiredHasHyps
-                                        ? parsedGoalsEqual(parsedResult, parsedDesired)
-                                        : parsedGoalsEqualGoalOnly(parsedResult, parsedDesired)
-                                    : stateMatchesDesired(stateStr, desiredValue);
-                            const desiredInResult =
-                                parsedDesired !== null &&
-                                parsedDesired.length === 1 &&
-                                desiredGoalInResult(parsedResult, parsedDesired);
-                            let match = exactMatch || desiredInResult;
+                            // Fast-path: exact normalized match
+                            const normResult = normalizeProofState(stateStr);
+                            const normDesired = normalizeProofState(desiredValue);
+                            let match = normResult === normDesired;
 
                             let semanticError: string | undefined;
                             if (!match) {
-                                // Tier 2 fallback: Evaluate semantic match with Jev comparator (same as Task 3 benchmark)
+                                // Delegate all semantic evaluation to TypeSafe Jev
                                 const thmMatch = fullProofScript.match(/\b(?:Theorem|Lemma|Definition|Example|Fixpoint)\s+([a-zA-Z0-9_']+)/);
                                 const theoremName = thmMatch ? thmMatch[1] : undefined;
                                 const compResult = await compareStateWithTarget(stateStr, desiredValue, false, {
