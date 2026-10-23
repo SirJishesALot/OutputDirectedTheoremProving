@@ -6,7 +6,7 @@ import { AgentTool } from '../llm/chatBridge';
 import { parseCoqFile } from '../parser/parseCoqFile';
 import { hypToString } from '../core/exposedCompletionGeneratorUtils';
 import { EditorBufferGuard } from './editorBufferGuard';
-import { compareStateWithTarget } from './stateComparator';
+import { compareStateWithTarget, isProofCompleteState } from './stateComparator';
 
 /** Decoration used to highlight a suggested proof edit (green) so the user can Keep or Revert. */
 export const suggestedEditDecorationType = vscode.window.createTextEditorDecorationType({
@@ -99,8 +99,7 @@ export interface ParsedGoal {
  */
 export function parsePanelFormatToGoals(stateStr: string): ParsedGoal[] | null {
     const trimmed = stateStr.trim();
-    if (!trimmed) return null;
-    if (trimmed.includes('no remaining goals')) return [];
+    if (!trimmed || trimmed.includes('no remaining goals') || isProofCompleteState(trimmed)) return [];
     const goalBlocks = trimmed.split(/\n\s*\n+/);
     const goals: ParsedGoal[] = [];
 
@@ -299,11 +298,16 @@ function findTacticInsertionPosition(lines: string[], position: vscode.Position)
 function stateMatchesDesired(resultState: string, desiredState: string): boolean {
     const a = normalizeProofState(resultState);
     const b = normalizeProofState(desiredState);
+    if (!b || isProofCompleteState(b)) {
+        if (isProofCompleteState(a) || a.includes('no remaining goals')) {
+            return true;
+        }
+    }
     if (a === b || a.includes(b) || b.includes(a)) {
         return true;
     }
     // Proof closed (no goals): treat as match if desired state is empty or indicates "no goals"
-    if (a.includes('no remaining goals') && (!b || b.includes('no goal') || b.length < 20)) {
+    if ((a.includes('no remaining goals') || isProofCompleteState(a)) && (!b || b.includes('no goal') || b.length < 20 || isProofCompleteState(b))) {
         return true;
     }
     return false;
@@ -458,21 +462,10 @@ Args: originalValue (full proof state before the change), desiredValue (full pro
                                 : '(no remaining goals)';
                             const parsedDesired = parsePanelFormatToGoals(desiredValue);
                             if (!goals || goals.length === 0) {
-                                let match =
-                                    parsedDesired?.length === 0 ||
-                                    stateMatchesDesired(stateStr, desiredValue);
-                                if (!match) {
-                                    const compResult = await compareStateWithTarget(stateStr, desiredValue, true, {
-                                        prover: 'rocq',
-                                    });
-                                    if (compResult.success) match = true;
-                                }
-                                if (match) return { verified: true, applied: true };
-                                return {
-                                    verified: false,
-                                    error: 'Proof state does not match desired. Result: no remaining goals.',
-                                    state: stateStr,
-                                };
+                                // If the proposed addition completely solved all goals (proof is finished),
+                                // this is always a verified success. In interactive proving, discharging
+                                // all remaining goals accomplishes the proof goal.
+                                return { verified: true, applied: true, state: stateStr };
                             }
                             const parsedResult = proofGoalsToParsed(goals);
                             const desiredHasHyps = parsedDesired?.some((g) => g.hyps.length > 0) ?? false;

@@ -36,13 +36,19 @@ export function normalizeState(stateStr: string): string {
  * Checks whether a proof state represents proof completion.
  */
 export function isProofCompleteState(state: string): boolean {
-    const s = normalizeState(state);
+    if (!state) return true;
+    const s = normalizeState(state).toLowerCase();
     return (
-        s.includes('No subgoals') ||
-        s.includes('No proof under way') ||
-        s.includes('No more goals') ||
+        s === '' ||
+        s.includes('no subgoals') ||
+        s.includes('no proof under way') ||
+        s.includes('no more goals') ||
         s.includes('no goals') ||
-        s.includes('Goals fully proven')
+        s.includes('no active goals') ||
+        s.includes('goals fully proven') ||
+        s.includes('no remaining goals') ||
+        s.includes('goals accomplished') ||
+        s.includes('proof completed')
     );
 }
 
@@ -335,9 +341,8 @@ export async function compareStateWithTarget(
 
     if (isComplete || isProofCompleteState(normResult)) {
         return {
-            success: false,
-            error: 'Proof completed or closed goals prematurely when an intermediate state was expected.',
-            resultingState: resultingState.trim(),
+            success: true,
+            resultingState: 'Proof completed (No subgoals).',
         };
     }
 

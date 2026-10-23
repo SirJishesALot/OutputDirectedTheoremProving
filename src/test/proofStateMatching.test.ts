@@ -66,4 +66,12 @@ y = 1`;
         assert.strictEqual(normalizeProofState('(n) * 1 = (n)'), 'n * 1 = n');
         assert.strictEqual(normalizeProofState('(n + 0) * 1 = n'), '(n + 0) * 1 = n');
     });
+
+    test('parses empty and no remaining goals as empty goals array', () => {
+        assert.deepStrictEqual(parsePanelFormatToGoals(''), []);
+        assert.deepStrictEqual(parsePanelFormatToGoals('   '), []);
+        assert.deepStrictEqual(parsePanelFormatToGoals('(no remaining goals)'), []);
+        assert.deepStrictEqual(parsePanelFormatToGoals('No subgoals'), []);
+        assert.deepStrictEqual(parsePanelFormatToGoals('Goals accomplished 🎉'), []);
+    });
 });
