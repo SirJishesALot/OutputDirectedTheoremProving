@@ -69,12 +69,19 @@
 ## Section 3: Live Facilitator Demo (3 minutes)
 
 > [!IMPORTANT]
-> **Facilitator Action**: Execute this demo step-by-step in front of the participant using `demo_step` in `tutorial_warmup.v`:
+> **Facilitator Action**: Execute this demo step-by-step in front of the participant using `demo_step` in `tutorial_warmup.v` (or `tutorial_warmup.lean` for Lean):
+> In Coq (`tutorial_warmup.v`):
 > ```coq
 > Theorem demo_step : forall n : nat, (n + 0) * 1 = n.
 > Proof.
 >   intros n.
 >   (* Place cursor here: Goal is (n + 0) * 1 = n *)
+> ```
+> In Lean (`tutorial_warmup.lean`):
+> ```lean
+> theorem demo_step : ∀ n : Nat, (n + 0) * 1 = n := by
+>   intro n
+>   -- Place cursor here: Goal is (n + 0) * 1 = n
 > ```
 
 ### Step 1: Placing the cursor & viewing proof state
@@ -147,7 +154,7 @@
 
 > "Now it's your turn! Let's do a quick warm-up together. Please take the keyboard and mouse.
 >
-> In `tutorial_warmup.v`, let's look at `warmup_exercise`:
+> In `tutorial_warmup.v` (or `tutorial_warmup.lean`), let's look at `warmup_exercise`:
 > 1. Click on the empty line inside `warmup_exercise`.
 > 2. Look at the goal in the Proof State panel on the right.
 > 3. Click **`Enable Suggestions`**.

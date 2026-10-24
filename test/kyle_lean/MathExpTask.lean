@@ -16,7 +16,7 @@ theorem expand_thm (a b : R) :
   (a + b) ^ 2 = a ^ 2 + 2 * a * b + b ^ 2 := by
   sorry
 
-theorem quadratic_gt_zero (a b : R) : 
+theorem quadratic_gt_zero (a b : R) :
   0 ≤ a ^ 2 + 2 * a * b + b ^ 2 := by
   sorry
 
@@ -35,7 +35,7 @@ def sum_range (n : Nat) (f : Nat → Nat) : Nat :=
    ----------------------------------------------------------------- -/
 -- The notation sum_range (n + 1) f takes the sum of a function over {0, 1, ..., n}.
 -- In this case the function is f(i) = i.
-theorem sum_n : ∀ n : Nat, 
+theorem sum_n : ∀ n : Nat,
   sum_range (n + 1) (fun i => i) = (n * (n + 1)) / 2 := by
   intro n
   induction n with
@@ -68,7 +68,7 @@ theorem fact_le_succ (k : Nat) : fact k ≤ fact (k + 1) := by
   omega
 
 -- fact j denotes factorial; fact (n + 2) corresponds to Coq's fact (S n + 1)
-theorem fac_le (n : Nat) : 
+theorem fac_le (n : Nat) :
   sum_range (n + 1) (fun j => fact j) ≤ fact (n + 2) := by
   sorry
 
@@ -77,6 +77,6 @@ theorem fac_le (n : Nat) :
    ----------------------------------------------------------------- -/
 -- In Lean 4, `k ∣ y` denotes `Nat.dvd k y` (exists z, y = k * z),
 -- which directly corresponds to Coq's `Nat.divide k y`.
-theorem dvd_k (n k : Nat) : 
+theorem dvd_k (n k : Nat) :
   k ∣ (k + 1) ^ n - 1 := by
   sorry
