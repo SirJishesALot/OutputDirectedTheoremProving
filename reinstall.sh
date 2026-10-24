@@ -1,0 +1,4 @@
+git pull                                                                                                                                                                                                     
+npm run compile                                                                                                                                                                                              
+npx --yes @vscode/vsce package --no-dependencies                                                                                                                                                             
+code --install-extension outputdirectedtheoremproving-0.0.1.vsix
