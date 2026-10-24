@@ -230,6 +230,7 @@ One call = one edit.`,
 export interface LeanProverToolsOptions {
     onSuggestedEditApplied?: (editor: vscode.TextEditor, range: vscode.Range, oldText: string) => void;
     editorGuard?: EditorBufferGuard;
+    cursorPositionOverride?: { line: number; character: number };
 }
 
 function cleanLeanProposedAddition(raw: string): string {
@@ -274,7 +275,9 @@ export function createLeanProverTools(
                 }
 
                 const client = getCurrentClient(getClient);
-                const pos = editor.selection.active;
+                const pos = options.cursorPositionOverride
+                    ? new vscode.Position(options.cursorPositionOverride.line, options.cursorPositionOverride.character)
+                    : editor.selection.active;
 
                 // Indentation alignment: if addition starts at column 0, align it with the current or preceding line's indentation
                 let effectiveAddition = addition;

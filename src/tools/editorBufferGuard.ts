@@ -19,6 +19,7 @@ export class EditorBufferGuard {
     private expectedVersion: number;
     readonly initialPosition: { line: number; character: number };
     readonly targetLineText: string;
+    private initialContent: string;
 
     constructor(editor: vscode.TextEditor, cursorPositionOverride?: { line: number; character: number }) {
         this.documentUri = editor.document.uri.toString();
@@ -29,7 +30,8 @@ export class EditorBufferGuard {
         };
         this.initialPosition = { ...pos };
         const lineIndex = Math.min(pos.line, Math.max(0, editor.document.lineCount - 1));
-        this.targetLineText = editor.document.lineAt(lineIndex).text;
+        this.targetLineText = typeof editor.document.lineAt === 'function' ? editor.document.lineAt(lineIndex).text : '';
+        this.initialContent = typeof editor.document.getText === 'function' ? editor.document.getText() : '';
     }
 
     get initialVersion(): number {
@@ -37,12 +39,15 @@ export class EditorBufferGuard {
     }
 
     /**
-     * Synchronizes expectedVersion with editor.document.version after a speculative rollback
+     * Synchronizes expectedVersion and baseline content with editor after a speculative rollback
      * that restores the document buffer to its original content.
      */
     syncVersion(editor: vscode.TextEditor): void {
         if (editor.document.uri.toString() === this.documentUri) {
             this.expectedVersion = editor.document.version;
+            if (typeof editor.document.getText === 'function') {
+                this.initialContent = editor.document.getText();
+            }
         }
     }
 
@@ -53,7 +58,15 @@ export class EditorBufferGuard {
         if (editor.document.uri.toString() !== this.documentUri) {
             return true;
         }
-        return editor.document.version !== this.expectedVersion;
+        if (editor.document.version === this.expectedVersion) {
+            return false;
+        }
+        const currentText = typeof editor.document.getText === 'function' ? editor.document.getText() : '';
+        if (this.initialContent && (currentText === this.initialContent || currentText.trim() === this.initialContent.trim())) {
+            this.expectedVersion = editor.document.version;
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -65,8 +78,14 @@ export class EditorBufferGuard {
                 'Target document is no longer open or visible. Edit aborted.'
             );
         }
-        if (editor.document.version !== this.expectedVersion) {
-            throw new DocumentModifiedError();
+        if (editor.document.version === this.expectedVersion) {
+            return;
         }
+        const currentText = typeof editor.document.getText === 'function' ? editor.document.getText() : '';
+        if (this.initialContent && (currentText === this.initialContent || currentText.trim() === this.initialContent.trim())) {
+            this.expectedVersion = editor.document.version;
+            return;
+        }
+        throw new DocumentModifiedError();
     }
 }

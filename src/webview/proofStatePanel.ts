@@ -891,6 +891,7 @@ export class ProofStatePanel {
             ? createLeanProverTools(() => this.getActiveClient(), editor, {
                 onSuggestedEditApplied,
                 editorGuard: guard,
+                cursorPositionOverride: this.savedCursorPosition,
             })
             : createProverTools(this.clientReady, editor, {
                 sessionOriginalValue: originalValue,
