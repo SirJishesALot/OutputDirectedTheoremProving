@@ -140,12 +140,12 @@
         },
         "myExtension.defaultPortkeyModel": {
           "type": "string",
-          "default": "anthropic.claude-sonnet-5",
+          "default": "@gcp-public-dataset-integration-anthropic/anthropic.claude-sonnet-5",
           "description": "Default Portkey model slug used for AI assistant and theorem proving agent."
         },
         "myExtension.portkeyProviderSlug": {
           "type": "string",
-          "default": "@GCP-public-dataset-integration",
+          "default": "@gcp-public-dataset-integration-anthropic",
           "description": "Default provider slug in Portkey."
         },
         "myExtension.portkeyBaseUrl": {

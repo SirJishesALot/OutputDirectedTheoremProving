@@ -1,9 +1,30 @@
 import * as vscode from 'vscode';
 import { OutputLogger } from '../logging/logger';
 
-export const DEFAULT_PORTKEY_MODEL = '@GCP-public-dataset-integration/gemini-3.1-pro-preview';
-export const DEFAULT_PORTKEY_SLUG = '@GCP-public-dataset-integration';
+export const DEFAULT_PORTKEY_MODEL = '@gcp-public-dataset-integration-anthropic/anthropic.claude-sonnet-5';
+export const DEFAULT_PORTKEY_SLUG = '@gcp-public-dataset-integration-anthropic';
 export const DEFAULT_PORTKEY_BASE_URL = 'https://api.portkey.ai/v1';
+
+export function resolvePortkeyModel(rawModel: string, fallbackSlug: string): string {
+    const trimmed = (rawModel || '').trim();
+    if (!trimmed) {
+        return DEFAULT_PORTKEY_MODEL;
+    }
+    if (trimmed.startsWith('@')) {
+        return trimmed;
+    }
+    // Route by model family if no explicit @integration prefix was provided
+    if (/claude/i.test(trimmed)) {
+        return `@gcp-public-dataset-integration-anthropic/${trimmed.replace(/^\//, '')}`;
+    }
+    if (/gpt-|o1|o3/i.test(trimmed)) {
+        return `@aws-public-dataset-integration-openai/${trimmed.replace(/^\//, '')}`;
+    }
+    if (/deepseek/i.test(trimmed)) {
+        return `@azure-foundry-oss-public-dataset-integration/${trimmed.replace(/^\//, '')}`;
+    }
+    return `${fallbackSlug.replace(/\/$/, '')}/${trimmed.replace(/^\//, '')}`;
+}
 
 export function getConfiguredPortkeyModel(): string {
     return vscode.workspace
@@ -45,9 +66,7 @@ export async function createPortkeyAdapter(
     const slug = getConfiguredPortkeySlug();
     const rawModel = modelId || getConfiguredPortkeyModel() || DEFAULT_PORTKEY_MODEL;
 
-    const resolvedModel = rawModel.startsWith('@')
-        ? rawModel
-        : `${slug.replace(/\/$/, '')}/${rawModel.replace(/^\//, '')}`;
+    const resolvedModel = resolvePortkeyModel(rawModel, slug);
 
     const client = new OpenAI({
         apiKey: 'dummy',
@@ -72,7 +91,7 @@ export async function createPortkeyAdapter(
             });
 
             const targetModel = opts?.model
-                ? (opts.model.startsWith('@') ? opts.model : `${slug.replace(/\/$/, '')}/${opts.model.replace(/^\//, '')}`)
+                ? resolvePortkeyModel(opts.model, slug)
                 : resolvedModel;
 
             OutputLogger.info('LLM:Portkey', `Sending request to Portkey Gateway (model: ${targetModel})`);
