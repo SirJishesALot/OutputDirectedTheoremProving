@@ -14,8 +14,13 @@ function isLeanEditor(editor: vscode.TextEditor): boolean {
     return lang.includes('lean') || editor.document.uri.fsPath.endsWith('.lean');
 }
 
-function formatGoalState(client: ProverClient, editor: vscode.TextEditor): Promise<string> {
-    return client.getGoalState(editor.document, editor.selection.active).then((state) => {
+function formatGoalState(
+    client: ProverClient,
+    editor: vscode.TextEditor,
+    positionOverride?: vscode.Position
+): Promise<string> {
+    const targetPos = positionOverride ?? editor.selection.active;
+    return client.getGoalState(editor.document, targetPos).then((state) => {
         if (!state.goals || state.goals.length === 0) {
             let out = 'No active goals at this position.';
             if (state.error) out += `\n\n=== ERROR ===\n${state.error}`;
@@ -327,11 +332,12 @@ export function createLeanProverTools(
                     if (hasError) {
                         // Roll back the speculative edit immediately
                         await editor.edit((b) => b.delete(insertedRange));
+                        guard.syncVersion(editor);
                         const errMsg = goalState.error || goalState.messages.join('\n');
                         return `error: Proposed tactic produced Lean errors and was rolled back:\n${errMsg}`;
                     }
 
-                    const formatted = await formatGoalState(client, editor);
+                    const formatted = await formatGoalState(client, editor, endPos);
                     const desiredValue = args?.desiredValue?.trim();
                     if (desiredValue) {
                         const compResult = await compareStateWithTarget(formatted, desiredValue, false, {
@@ -339,6 +345,7 @@ export function createLeanProverTools(
                         });
                         if (!compResult.success) {
                             await editor.edit((b) => b.delete(insertedRange));
+                            guard.syncVersion(editor);
                             return `error: Proposed tactic compiled, but ${compResult.error || 'resulting state does not match desired state.'}\n\nCurrent state after proposed addition:\n${formatted}`;
                         }
                     }
@@ -350,6 +357,7 @@ export function createLeanProverTools(
                 } catch (e) {
                     // Ensure rollback if goal state query threw
                     await editor.edit((b) => b.delete(insertedRange));
+                    guard.syncVersion(editor);
                     return `error: Speculative Lean check failed: ${e instanceof Error ? e.message : String(e)}`;
                 }
             }

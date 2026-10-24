@@ -16,13 +16,13 @@ export class DocumentModifiedError extends Error {
  */
 export class EditorBufferGuard {
     readonly documentUri: string;
-    readonly initialVersion: number;
+    private expectedVersion: number;
     readonly initialPosition: { line: number; character: number };
     readonly targetLineText: string;
 
     constructor(editor: vscode.TextEditor, cursorPositionOverride?: { line: number; character: number }) {
         this.documentUri = editor.document.uri.toString();
-        this.initialVersion = editor.document.version;
+        this.expectedVersion = editor.document.version;
         const pos = cursorPositionOverride ?? {
             line: editor.selection.active.line,
             character: editor.selection.active.character,
@@ -32,14 +32,28 @@ export class EditorBufferGuard {
         this.targetLineText = editor.document.lineAt(lineIndex).text;
     }
 
+    get initialVersion(): number {
+        return this.expectedVersion;
+    }
+
     /**
-     * Checks whether the document has been modified since this guard was created.
+     * Synchronizes expectedVersion with editor.document.version after a speculative rollback
+     * that restores the document buffer to its original content.
+     */
+    syncVersion(editor: vscode.TextEditor): void {
+        if (editor.document.uri.toString() === this.documentUri) {
+            this.expectedVersion = editor.document.version;
+        }
+    }
+
+    /**
+     * Checks whether the document has been modified since this guard was created or synced.
      */
     isDocumentModified(editor: vscode.TextEditor): boolean {
         if (editor.document.uri.toString() !== this.documentUri) {
             return true;
         }
-        return editor.document.version !== this.initialVersion;
+        return editor.document.version !== this.expectedVersion;
     }
 
     /**
@@ -51,7 +65,7 @@ export class EditorBufferGuard {
                 'Target document is no longer open or visible. Edit aborted.'
             );
         }
-        if (editor.document.version !== this.initialVersion) {
+        if (editor.document.version !== this.expectedVersion) {
             throw new DocumentModifiedError();
         }
     }

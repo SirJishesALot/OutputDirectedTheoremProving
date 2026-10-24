@@ -74,6 +74,8 @@ export class ProofStatePanel {
     private proofStateUpdateInFlight = false;
     private pendingProofStateUpdate = false;
     private selectionDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+    private lastProcessedQueryKey: string | undefined;
+    private lastUpdateSource: 'edit' | 'selection' | 'manual' = 'selection';
     private static readonly DEBOUNCE_EDIT_MS = 500;
     private static readonly DEBOUNCE_SELECTION_MS = 250;
 
@@ -168,7 +170,19 @@ export class ProofStatePanel {
         );
 
         vscode.window.onDidChangeTextEditorSelection(
-            () => {
+            (e) => {
+                const editor = e.textEditor;
+                if (!this.isEditorForActiveProver(editor, this.getActiveProver())) {
+                    return;
+                }
+                const active = e.selections[0]?.active;
+                if (!active) {
+                    return;
+                }
+                const queryKey = `${editor.document.uri.toString()}:${editor.document.version}:${active.line}:${active.character}`;
+                if (this.lastProcessedQueryKey === queryKey) {
+                    return;
+                }
                 this.scheduleProofStateUpdate('selection');
             },
             null,
@@ -197,6 +211,7 @@ export class ProofStatePanel {
                         return;
                     }
                 }
+                this.lastProcessedQueryKey = undefined;
                 this.scheduleProofStateUpdate('edit');
             },
             null,
@@ -297,6 +312,10 @@ export class ProofStatePanel {
     }
 
     private scheduleProofStateUpdate(source: 'edit' | 'selection' | 'manual' = 'selection'): void {
+        this.lastUpdateSource = source;
+        if (source === 'manual') {
+            this.lastProcessedQueryKey = undefined;
+        }
         if (this.proofStateMode === 'manual' && source !== 'manual') {
             return;
         }
@@ -1234,6 +1253,13 @@ export class ProofStatePanel {
                     ? new vscode.Position(this.savedCursorPosition.line, this.savedCursorPosition.character)
                     : editor.selection.active;
             this.savedCursorPosition = { line: position.line, character: position.character };
+
+            const queryKey = `${editor.document.uri.toString()}:${editor.document.version}:${position.line}:${position.character}`;
+            if (this.lastUpdateSource === 'selection' && this.lastProcessedQueryKey === queryKey) {
+                proofStateLog(`update #${generation} skipped (identical cursor and document version)`);
+                return;
+            }
+            this.lastProcessedQueryKey = queryKey;
 
             proofStateLog(
                 `update #${generation} start ${formatUri(editor.document.uri.toString())} ${formatPos(position.line, position.character)} prover=${activeProver} mode=${this.proofStateMode}`

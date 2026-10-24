@@ -34,5 +34,10 @@ suite('Editor Buffer Guard Tests', () => {
             () => guard.assertNotModified(driftedEditor),
             (err: any) => err instanceof DocumentModifiedError
         );
+
+        // When version is synchronized (e.g. after internal speculative edit rollback)
+        guard.syncVersion(driftedEditor);
+        assert.strictEqual(guard.isDocumentModified(driftedEditor), false);
+        assert.doesNotThrow(() => guard.assertNotModified(driftedEditor));
     });
 });
