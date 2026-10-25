@@ -37,6 +37,7 @@ import {
     DEFAULT_PORTKEY_MODEL,
     DEFAULT_PORTKEY_SLUG,
     DEFAULT_PORTKEY_BASE_URL,
+    isPortkeyCacheDisabled,
 } from './llm/portkeyAdapter';
 import {
     createAntigravityCliAdapter,
@@ -931,6 +932,7 @@ export function activate(context: vscode.ExtensionContext) {
                 report += `- **Portkey API Key Set:** ${portkeyConfigured ? 'Yes' : 'No'}\n`;
                 report += `- **Active Portkey Model:** \`${portkeyModel}\`\n`;
                 report += `- **Portkey Provider Slug:** \`${portkeySlug}\`\n`;
+                report += `- **Portkey Cache Disabled:** ${isPortkeyCacheDisabled()}\n`;
                 report += `- **OpenAI Key Set:** ${openAiConfigured ? 'Yes' : 'No'}\n`;
                 report += `- **Gemini Project ID Set:** ${geminiProject ? 'Yes' : 'No'}\n`;
                 report += `- **Default Gemini Model:** \`${geminiModel}\`\n`;

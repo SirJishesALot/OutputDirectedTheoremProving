@@ -153,6 +153,11 @@
           "default": "https://api.portkey.ai/v1",
           "description": "Base URL for the Portkey AI Gateway."
         },
+        "myExtension.portkeyDisableCache": {
+          "type": "boolean",
+          "default": true,
+          "description": "Disable caching for Portkey API requests (forces fresh live LLM generations)."
+        },
         "myExtension.defaultGeminiModel": {
           "type": "string",
           "default": "gemini-3.1-pro-preview",

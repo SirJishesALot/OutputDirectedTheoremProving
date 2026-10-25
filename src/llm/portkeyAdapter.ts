@@ -47,6 +47,12 @@ export function getConfiguredPortkeyBaseUrl(): string {
     );
 }
 
+export function isPortkeyCacheDisabled(): boolean {
+    return vscode.workspace
+        .getConfiguration()
+        .get<boolean>('myExtension.portkeyDisableCache', true);
+}
+
 export interface PortkeyAdapter {
     backend: 'portkey';
     model: string;
@@ -68,12 +74,18 @@ export async function createPortkeyAdapter(
 
     const resolvedModel = resolvePortkeyModel(rawModel, slug);
 
+    const disableCache = isPortkeyCacheDisabled();
+    const defaultHeaders: Record<string, string> = {
+        'x-portkey-api-key': apiKey,
+    };
+    if (disableCache) {
+        defaultHeaders['x-portkey-cache-force-refresh'] = 'true';
+    }
+
     const client = new OpenAI({
         apiKey: 'dummy',
         baseURL,
-        defaultHeaders: {
-            'x-portkey-api-key': apiKey,
-        },
+        defaultHeaders,
     });
 
     return {
@@ -94,7 +106,12 @@ export async function createPortkeyAdapter(
                 ? resolvePortkeyModel(opts.model, slug)
                 : resolvedModel;
 
-            OutputLogger.info('LLM:Portkey', `Sending request to Portkey Gateway (model: ${targetModel})`);
+            const bypassCache = isPortkeyCacheDisabled();
+            const requestHeaders: Record<string, string> = bypassCache
+                ? { 'x-portkey-cache-force-refresh': 'true' }
+                : {};
+
+            OutputLogger.info('LLM:Portkey', `Sending request to Portkey Gateway (model: ${targetModel}, cacheBypass: ${bypassCache})`);
 
             const requestPayload: any = {
                 model: targetModel,
@@ -111,17 +128,17 @@ export async function createPortkeyAdapter(
             try {
                 let stream;
                 try {
-                    stream = await client.chat.completions.create(requestPayload);
+                    stream = await client.chat.completions.create(requestPayload, { headers: requestHeaders });
                 } catch (firstErr: any) {
                     const msg = (firstErr && firstErr.message) ? String(firstErr.message).toLowerCase() : '';
                     if (msg.includes('temperature') && (msg.includes('deprecated') || msg.includes('not supported') || msg.includes('unsupported'))) {
                         delete requestPayload.temperature;
-                        stream = await client.chat.completions.create(requestPayload);
+                        stream = await client.chat.completions.create(requestPayload, { headers: requestHeaders });
                     } else if (msg.includes('max_tokens') && msg.includes('max_completion_tokens')) {
                         requestPayload.max_completion_tokens = requestPayload.max_tokens;
                         delete requestPayload.max_tokens;
                         delete requestPayload.temperature;
-                        stream = await client.chat.completions.create(requestPayload);
+                        stream = await client.chat.completions.create(requestPayload, { headers: requestHeaders });
                     } else {
                         throw firstErr;
                     }
