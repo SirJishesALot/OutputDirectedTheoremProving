@@ -25,6 +25,7 @@
     "onCommand:outputdirectedtheoremproving.helloWorld",
     "onCommand:outputdirectedtheoremproving.setOpenAiApiKey",
     "onCommand:outputdirectedtheoremproving.setPortkeyApiKey",
+    "onCommand:outputdirectedtheoremproving.setTypesafeApiKey",
     "onCommand:outputdirectedtheoremproving.switchLlmBackend",
     "onCommand:outputdirectedtheoremproving.getDefaultChatModel",
     "onCommand:outputdirectedtheoremproving.changeLLMModel",
@@ -90,6 +91,10 @@
       {
         "command": "outputdirectedtheoremproving.setPortkeyApiKey",
         "title": "Set Portkey API Key"
+      },
+      {
+        "command": "outputdirectedtheoremproving.setTypesafeApiKey",
+        "title": "Set TypeSafe AI API Key"
       },
       {
         "command": "outputdirectedtheoremproving.switchLlmBackend",

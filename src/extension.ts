@@ -20,6 +20,11 @@ const envLoadResult = dotenv.config({ path: path.resolve(__dirname, '..', '.env'
 // and the file containing your Prover Tools / clearSuggestedEditDecoration function.
 import { SuggestionManager } from './suggestionManager';
 import { clearSuggestedEditDecoration } from './tools/proverTools';
+import {
+    setComparatorExtensionContext,
+    getTypesafeApiKey,
+    TYPESAFE_SECRET_KEY,
+} from './tools/stateComparator';
 // ------------------------------------------
 
 let coqLspClientReady: Promise<CoqLspClient> | undefined = undefined;
@@ -266,6 +271,7 @@ function resolveCoqLspPath(): string {
 
 export function activate(context: vscode.ExtensionContext) {
     extensionContext = context;
+    setComparatorExtensionContext(context);
     initProofStateLogger(context);
     OutputLogger.info('Config', 'Congratulations, your extension "outputdirectedtheoremproving" is now active!');
 
@@ -586,6 +592,22 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage('Portkey API key saved securely and adapter initialized.');
     });
     context.subscriptions.push(setPortkeyApiKeyCmd);
+
+    const setTypesafeApiKeyCmd = vscode.commands.registerCommand('outputdirectedtheoremproving.setTypesafeApiKey', async () => {
+        const key = await vscode.window.showInputBox({
+            prompt: 'Enter your TypeSafe AI (Jev) API Key',
+            password: true,
+            ignoreFocusOut: true,
+        });
+        if (!key) { return; }
+        if (!extensionContext) {
+            vscode.window.showErrorMessage('Extension context not available.');
+            return;
+        }
+        await extensionContext.secrets.store(TYPESAFE_SECRET_KEY, key.trim());
+        vscode.window.showInformationMessage('TypeSafe AI API key saved securely.');
+    });
+    context.subscriptions.push(setTypesafeApiKeyCmd);
 
     const getModelCmd = vscode.commands.registerCommand('outputdirectedtheoremproving.getDefaultChatModel', async (args?: { useCache?: boolean }) => {
         // If useCache is true (programmatic call), return cached adapter if available
@@ -915,6 +937,7 @@ export function activate(context: vscode.ExtensionContext) {
                 const portkeyModel = getConfiguredPortkeyModel();
                 const portkeySlug = getConfiguredPortkeySlug();
                 const openAiConfigured = extensionContext ? !!(await extensionContext.secrets.get(OPENAI_SECRET_KEY)) : false;
+                const typesafeConfigured = !!(await getTypesafeApiKey());
                 const geminiProject = await getStoredGeminiProjectId();
                 const geminiModel = getConfiguredGeminiModel();
                 const coqLspPath = resolveCoqLspPath();
@@ -933,6 +956,7 @@ export function activate(context: vscode.ExtensionContext) {
                 report += `- **Active Portkey Model:** \`${portkeyModel}\`\n`;
                 report += `- **Portkey Provider Slug:** \`${portkeySlug}\`\n`;
                 report += `- **Portkey Cache Disabled:** ${isPortkeyCacheDisabled()}\n`;
+                report += `- **TypeSafe AI Key Set:** ${typesafeConfigured ? 'Yes' : 'No'}\n`;
                 report += `- **OpenAI Key Set:** ${openAiConfigured ? 'Yes' : 'No'}\n`;
                 report += `- **Gemini Project ID Set:** ${geminiProject ? 'Yes' : 'No'}\n`;
                 report += `- **Default Gemini Model:** \`${geminiModel}\`\n`;

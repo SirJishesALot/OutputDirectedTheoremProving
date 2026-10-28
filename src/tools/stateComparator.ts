@@ -186,13 +186,29 @@ export function compareParsedGoals(actual: ParsedGoal, expected: ParsedGoal): bo
     return true;
 }
 
-function getTypesafeApiKey(): string | undefined {
-    let key = process.env.TYPESAFE_API_KEY;
+export const TYPESAFE_SECRET_KEY = 'outputdirectedtheoremproving.typesafeApiKey';
+
+let comparatorExtensionContext: vscode.ExtensionContext | undefined;
+
+export function setComparatorExtensionContext(context: vscode.ExtensionContext): void {
+    comparatorExtensionContext = context;
+}
+
+export async function getTypesafeApiKey(): Promise<string | undefined> {
+    if (comparatorExtensionContext) {
+        try {
+            const secret = await comparatorExtensionContext.secrets.get(TYPESAFE_SECRET_KEY);
+            if (secret && secret.trim()) {
+                return secret.trim();
+            }
+        } catch {}
+    }
+    let key = process.env.TYPESAFE_API_KEY || process.env.JEV_API_KEY;
     if (!key) {
         try {
             const dotenv = require('dotenv');
             dotenv.config();
-            key = process.env.TYPESAFE_API_KEY;
+            key = process.env.TYPESAFE_API_KEY || process.env.JEV_API_KEY;
         } catch {}
     }
     if (!key) {
@@ -209,7 +225,7 @@ export async function evaluateSemanticMatchWithJev(
     targetState: string,
     context?: StateComparisonContext
 ): Promise<{ isMatch: boolean; error?: string; noulScores?: Record<string, number> }> {
-    const apiKey = getTypesafeApiKey();
+    const apiKey = await getTypesafeApiKey();
     if (!apiKey) {
         return {
             isMatch: false,
@@ -346,7 +362,7 @@ export async function compareStateWithTarget(
     }
 
     // All semantic proof state validation is handled by TypeSafe Jev
-    const apiKey = getTypesafeApiKey();
+    const apiKey = await getTypesafeApiKey();
     if (apiKey) {
         const jevRes = await evaluateSemanticMatchWithJev(resultingState, targetState, context);
         if (jevRes.isMatch) {
