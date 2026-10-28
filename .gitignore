@@ -16,3 +16,7 @@ benchmark_results
 *.vok
 
 .lake/
+
+survey/
+scripts/generate_redcap_survey.py
+
