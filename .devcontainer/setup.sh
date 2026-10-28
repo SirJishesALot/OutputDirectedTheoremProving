@@ -60,6 +60,11 @@ source "$HOME/.elan/env"
 elan toolchain install leanprover/lean4:v4.30.0
 elan default leanprover/lean4:v4.30.0
 
+# 4b. Fetch Mathlib dependencies and precompiled binary cache
+echo "=== Setting up Lake and precompiled Mathlib cache ==="
+lake update || echo "Warning: lake update encountered an issue, proceeding..."
+lake exe cache get || echo "Warning: lake exe cache get encountered an issue, proceeding..."
+
 # 5. Persist environment for shells
 echo "=== Configuring environment persistence ==="
 echo 'eval $(opam env --switch=rocq-9.0 --set-switch)' >> ~/.bashrc

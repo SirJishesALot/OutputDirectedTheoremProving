@@ -941,6 +941,8 @@ export function activate(context: vscode.ExtensionContext) {
                 const geminiProject = await getStoredGeminiProjectId();
                 const geminiModel = getConfiguredGeminiModel();
                 const coqLspPath = resolveCoqLspPath();
+                const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                const hasLakefile = workspaceRoot ? fs.existsSync(path.join(workspaceRoot, 'lakefile.lean')) : false;
                 
                 let report = `### Output Directed Theorem Proving - Diagnostic Report\n\n`;
                 report += `- **Timestamp:** ${new Date().toISOString()}\n`;
@@ -949,6 +951,7 @@ export function activate(context: vscode.ExtensionContext) {
                 report += `- **Active Prover:** ${activeKind}\n`;
                 report += `- **Auto Switch Prover:** ${vscode.workspace.getConfiguration().get('myExtension.autoSwitchProver', true)}\n`;
                 report += `- **Coq LSP Path:** \`${coqLspPath}\`\n`;
+                report += `- **Lakefile Present:** ${hasLakefile ? 'Yes (Mathlib-enabled)' : 'No'}\n`;
                 report += `- **Active LLM Backend:** \`${activeBackend}\`\n`;
                 report += `- **Antigravity CLI Binary:** \`${agyBinary}\`\n`;
                 report += `- **Active Antigravity Model:** \`${agyModel}\`\n`;

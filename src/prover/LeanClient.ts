@@ -156,25 +156,40 @@ export class LeanClient implements ProverClient {
             let cwd: string | undefined = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
             const elanBin = getElanBinPath();
             const leanPath = path.join(elanBin, process.platform === "win32" ? "lean.exe" : "lean");
+            const lakePath = path.join(elanBin, process.platform === "win32" ? "lake.exe" : "lake");
             const leanEnv = getLeanEnv();
 
-            OutputLogger.info("Prover:Lean", `[Init] Checking Lean at: ${leanPath}`);
+            const hasLakefile = cwd ? (
+                fs.existsSync(path.join(cwd, "lakefile.lean")) ||
+                fs.existsSync(path.join(cwd, "lakefile.toml"))
+            ) : false;
 
-            // 1. PRE-FLIGHT CHECK: Can we even run 'lean --version'?
+            OutputLogger.info("Prover:Lean", `[Init] Checking Lean at: ${leanPath} (hasLakefile: ${hasLakefile})`);
+
+            // 1. PRE-FLIGHT CHECK: Can we even run 'lean --version' / 'lake --version'?
             // This captures errors that usually crash the LSP silently.
             try {
-                const version = cp.execSync(`"${leanPath}" --version`, { env: leanEnv, cwd }).toString();
-                OutputLogger.info("Prover:Lean", `[Init] Lean version check: ${version.trim()}`);
+                const checkCmd = hasLakefile && fs.existsSync(lakePath) ? `"${lakePath}" --version` : `"${leanPath}" --version`;
+                const version = cp.execSync(checkCmd, { env: leanEnv, cwd }).toString();
+                OutputLogger.info("Prover:Lean", `[Init] Pre-flight tool check (${checkCmd}): ${version.trim()}`);
             } catch (e: any) {
-                OutputLogger.error("Prover:Lean", `[ERROR] Pre-flight check failed. Lean is not runnable: ${e.message}`);
+                OutputLogger.error("Prover:Lean", `[ERROR] Pre-flight check failed: ${e.message}`);
                 this.isInitializing = false;
                 return;
             }
 
-            // 2. Setup LSP Client
+            // 2. Setup LSP Client:
+            // When a Lakefile is present, use `lake serve` so Lean LSP inherits
+            // package dependencies (like Mathlib) and configured LEAN_PATH automatically.
+            const useLakeServe = hasLakefile && fs.existsSync(lakePath);
+            const serverCommand = useLakeServe ? lakePath : leanPath;
+            const serverArgs = useLakeServe ? ["serve"] : ["--server"];
+
+            OutputLogger.info("Prover:Lean", `[Init] Launching LSP using: ${serverCommand} ${serverArgs.join(" ")}`);
+
             const serverOptions: Executable = {
-                command: leanPath,
-                args: ["--server"],
+                command: serverCommand,
+                args: serverArgs,
                 // transport: TransportKind.stdio,
                 options: { cwd, env: leanEnv }
             };
