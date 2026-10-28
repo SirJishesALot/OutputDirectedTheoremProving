@@ -19,4 +19,6 @@ benchmark_results
 
 survey/
 scripts/generate_redcap_survey.py
+scripts/generate_survey_docs.py
+
 
