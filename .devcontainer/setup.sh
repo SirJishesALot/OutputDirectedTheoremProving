@@ -81,12 +81,13 @@ fi
 # 6. Install project dependencies, compile, and package extension
 echo "=== Installing Node dependencies & building VS Code extension ==="
 npm install
-npm run compile
+npm run package
+rm -f outputdirectedtheoremproving-*.vsix
 npx --yes @vscode/vsce package --no-dependencies
 
 # Sideload the generated .vsix if the code CLI is present
 if command -v code >/dev/null 2>&1; then
-    code --install-extension outputdirectedtheoremproving-*.vsix || true
+    code --install-extension outputdirectedtheoremproving-*.vsix --force || true
 fi
 
 echo "=== Devcontainer Setup complete ==="

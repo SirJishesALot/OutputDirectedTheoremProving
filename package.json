@@ -2,7 +2,7 @@
   "name": "outputdirectedtheoremproving",
   "displayName": "OutputDirectedTheoremProving",
   "description": "AI Agent that helps with output directed theorem proving in Coq. ",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "extensionKind": [
     "ui",
     "workspace"
@@ -107,7 +107,8 @@
       },
       {
         "command": "outputdirectedtheoremproving.startTutorialWalkthrough",
-        "title": "Start Interactive Tutorial Walkthrough"
+        "title": "Start Interactive Tutorial Walkthrough",
+        "category": "Output Directed Prover"
       }
     ],
     "configuration": {
