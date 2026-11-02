@@ -14,6 +14,8 @@ import {
     resetChatStream,
 } from './chatStreamUi.js'; 
 import { getHighlighter, tokenizeCode } from './syntaxHighlighter.js';
+import { TourEngine } from './tour/tourEngine.js';
+import { createTourSteps } from './tour/tourSteps.js';
 
 import {
     addSuggestionMarks,
@@ -314,6 +316,8 @@ function escapeHtml(s) {
 const suggestChangesViewPlugin = new Plugin({
     view(view) {
         const toggleButton = document.createElement('button');
+        toggleButton.id = 'btn-toggle-suggestions';
+        toggleButton.classList.add('toggle-suggestions-button');
         toggleButton.textContent = 'Enable Suggestions'; 
         toggleButton.addEventListener('click', () => {
             toggleSuggestChanges(view.state, view.dispatch);
@@ -497,6 +501,24 @@ const editHistoryTrackingPlugin = new Plugin({
     }
 });
 
+let tourEngine = null;
+
+const tourObserverPlugin = new Plugin({
+    view() {
+        return {
+            update(editorView, prevState) {
+                if (!tourEngine) return;
+                if (
+                    !editorView.state.doc.eq(prevState.doc) ||
+                    isSuggestChangesEnabled(editorView.state) !== isSuggestChangesEnabled(prevState)
+                ) {
+                    tourEngine.onProseMirrorDocChanged(editorView.state.doc, editorView.state);
+                }
+            }
+        };
+    }
+});
+
 const plugins = [
     keymap(baseKeymap),
     history(),
@@ -506,7 +528,8 @@ const plugins = [
     suggestChangesViewPlugin, 
     readOnlyGoalsPlugin,
     suggestionNewValuePlugin,
-    editHistoryTrackingPlugin
+    editHistoryTrackingPlugin,
+    tourObserverPlugin
 ];
 
 
@@ -520,6 +543,20 @@ const view = new EditorView(document.getElementById('editor'), {
     state: initialState,
     dispatchTransaction: withSuggestChanges(),
 });
+
+tourEngine = new TourEngine({
+    vscode,
+    getProseMirrorState: () => (view ? view.state : null),
+});
+tourEngine.setSteps(
+    createTourSteps({
+        vscode,
+        isSuggestionsEnabled: () => (view ? Boolean(isSuggestChangesEnabled(view.state)) : false),
+        getDiffFromNode,
+        getFullStateBeforeAfter,
+        updateWebviewStatus,
+    })
+);
 
 // Initialize Shiki highlighter and re-render decorations when ready
 getHighlighter().then(() => {
@@ -542,7 +579,15 @@ if (typeof MutationObserver !== 'undefined' && document.body) {
 
 window.addEventListener('message', (event) => {
     const msg = event.data;
-    if (msg && msg.type) updateWebviewStatus('Got: ' + msg.type);
+    if (!msg) return;
+
+    const tourEvent = msg.command || msg.type;
+    if (typeof tourEvent === 'string' && tourEvent.startsWith('tour:')) {
+        tourEngine?.onExtensionMessage(msg);
+        return;
+    }
+
+    if (msg.type) updateWebviewStatus('Got: ' + msg.type);
     let html;
 
     switch (msg.type) {
@@ -563,6 +608,7 @@ window.addEventListener('message', (event) => {
         case 'setChatVisible':
             const chatEl = document.getElementById('chat');
             if (chatEl) chatEl.style.display = msg.visible !== false ? '' : 'none';
+            tourEngine?.scheduleReposition();
             return;
         case 'activeProverChanged':
             activeProverLabel = msg.prover || 'Coq';
@@ -605,17 +651,21 @@ window.addEventListener('message', (event) => {
         case 'proverAgentStarted':
             updateWebviewStatus('Synthesizing proof…');
             setSynthesizingIndicator(true);
+            tourEngine?.onExtensionMessage(msg);
             return;
         case 'proverAgentDone':
             updateWebviewStatus('');
             setSynthesizingIndicator(false);
+            tourEngine?.onExtensionMessage(msg);
             return;
         case 'proofSuggestionApplied':
             updateWebviewStatus('');
             setSynthesizingIndicator(false);
+            tourEngine?.onExtensionMessage(msg);
             return;
         case 'suggestion':
             handleSuggestion(msg.suggestion);
+            tourEngine?.onExtensionMessage(msg);
             return;
         default:
             console.warn("Unknown message type:", msg.type);
@@ -632,6 +682,7 @@ window.addEventListener('message', (event) => {
         plugins: view.state.plugins 
     });
     view.updateState(newState);
+    tourEngine?.onExtensionMessage(msg);
 });
 
 // Handle suggestions from the agent: show as a visible edit (strikethrough + suggested value) in the proof state panel.
@@ -953,6 +1004,14 @@ if (btnRefresh) {
     });
 }
 
+const btnStartTutorial = document.getElementById('btn-start-tutorial');
+if (btnStartTutorial) {
+    btnStartTutorial.addEventListener('click', () => {
+        vscode.postMessage({ command: 'tour:requestStart' });
+    });
+}
+
 updateActiveProverLabel();
 
 vscode.postMessage({ command: 'requestUpdate' });
+vscode.postMessage({ command: 'tour:ready' });

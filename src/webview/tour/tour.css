@@ -1,0 +1,533 @@
+/* ==========================================================================
+   ODTP Interactive Walkthrough Tutorial Engine Styles
+   Native VS Code design tokens (--vscode-*) for dark, light, and HC themes
+   ========================================================================== */
+
+.odtp-tour-root {
+    position: fixed;
+    inset: 0;
+    z-index: 99990;
+    pointer-events: none;
+    font-family: var(--vscode-font-family, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+}
+
+/* 1. SVG Spotlight & Dimming Backdrop */
+.odtp-tour-backdrop {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 99990;
+    pointer-events: none;
+    display: block;
+}
+
+.odtp-tour-backdrop-dim {
+    fill: rgba(0, 0, 0, 0.74);
+    transition: fill 0.3s ease;
+}
+
+body.vscode-light .odtp-tour-backdrop-dim {
+    fill: rgba(0, 0, 0, 0.60);
+}
+
+.odtp-tour-backdrop.is-editor-focus .odtp-tour-backdrop-dim {
+    fill: rgba(0, 0, 0, 0.45);
+}
+
+body.vscode-light .odtp-tour-backdrop.is-editor-focus .odtp-tour-backdrop-dim {
+    fill: rgba(0, 0, 0, 0.35);
+}
+
+#odtp-spotlight-cutout {
+    transition:
+        x 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+        y 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+        width 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+        height 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* 2. Pulsing Attention Beacon & Focus Ring */
+.odtp-tour-focus-ring {
+    position: fixed;
+    z-index: 99992;
+    pointer-events: none;
+    border-radius: 8px;
+    border: 2px solid var(--vscode-focusBorder, #007fd4);
+    box-sizing: border-box;
+    opacity: 0;
+    transition:
+        top 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+        left 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+        width 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+        height 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+        opacity 0.22s ease;
+    animation: odtpTourBeaconPulse 1.6s infinite cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.odtp-tour-focus-ring.is-visible {
+    opacity: 1;
+}
+
+@keyframes odtpTourBeaconPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(0, 127, 212, 0.52);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(0, 127, 212, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(0, 127, 212, 0);
+    }
+}
+
+/* 3. Floating Popover Card */
+.odtp-tour-card {
+    position: fixed;
+    z-index: 99995;
+    pointer-events: auto;
+    width: 344px;
+    max-width: calc(100vw - 24px);
+    background: var(--vscode-editorWidget-background, #252526);
+    color: var(--vscode-editorWidget-foreground, var(--vscode-foreground, #cccccc));
+    border: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border, #454545));
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.38), 0 2px 8px rgba(0, 0, 0, 0.20);
+    padding: 15px 16px 14px 16px;
+    box-sizing: border-box;
+    transition:
+        top 0.32s cubic-bezier(0.25, 1, 0.5, 1),
+        left 0.32s cubic-bezier(0.25, 1, 0.5, 1),
+        opacity 0.2s ease;
+}
+
+body.vscode-light .odtp-tour-card {
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.10);
+}
+
+/* Directional Arrow */
+.odtp-tour-arrow {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: var(--vscode-editorWidget-background, #252526);
+    transform: rotate(45deg);
+    pointer-events: none;
+    z-index: -1;
+}
+
+.odtp-tour-arrow.is-hidden {
+    display: none;
+}
+
+/* Card is BELOW target -> arrow on TOP edge pointing up */
+.odtp-tour-card[data-placement="bottom"] .odtp-tour-arrow {
+    top: -7px;
+    border-top: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border, #454545));
+    border-left: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border, #454545));
+}
+
+/* Card is ABOVE target -> arrow on BOTTOM edge pointing down */
+.odtp-tour-card[data-placement="top"] .odtp-tour-arrow {
+    bottom: -7px;
+    border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border, #454545));
+    border-right: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border, #454545));
+}
+
+/* Card is LEFT of target -> arrow on RIGHT edge pointing right */
+.odtp-tour-card[data-placement="left"] .odtp-tour-arrow {
+    right: -7px;
+    border-top: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border, #454545));
+    border-right: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border, #454545));
+}
+
+/* Card is RIGHT of target (or pointing left toward text editor) -> arrow on LEFT edge pointing left */
+.odtp-tour-card[data-placement="right"] .odtp-tour-arrow,
+.odtp-tour-card[data-placement="left-editor"] .odtp-tour-arrow {
+    left: -7px;
+    border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border, #454545));
+    border-left: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border, #454545));
+}
+
+/* 4. Centered Modal Variant (Step 1 Welcome & Step 14 Celebration) */
+.odtp-tour-card.odtp-tour-modal {
+    width: 440px;
+    max-width: calc(100vw - 28px);
+    max-height: calc(100vh - 28px);
+    overflow-y: auto;
+    padding: 24px 26px 22px 26px;
+    border-radius: 14px;
+    text-align: left;
+    transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 5. Header */
+.odtp-tour-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.odtp-tour-header-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.odtp-tour-step-badge-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.odtp-tour-step-counter {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.odtp-tour-phase-pill {
+    font-size: 9.5px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--vscode-badge-background, rgba(0, 127, 212, 0.18));
+    color: var(--vscode-badge-foreground, var(--vscode-foreground));
+    letter-spacing: 0.03em;
+}
+
+.odtp-tour-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--vscode-foreground);
+}
+
+.odtp-tour-modal .odtp-tour-title {
+    font-size: 17px;
+    line-height: 1.3;
+}
+
+.odtp-tour-close-btn {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--vscode-descriptionForeground);
+    font-size: 16px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.odtp-tour-close-btn:hover {
+    background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.22));
+    color: var(--vscode-foreground);
+}
+
+/* Hero Banner for Welcome & Celebration Modals */
+.odtp-tour-hero-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 21px;
+    margin-bottom: 10px;
+    background: rgba(0, 127, 212, 0.16);
+    border: 1px solid rgba(0, 127, 212, 0.35);
+}
+
+.odtp-tour-hero-icon.is-celebration {
+    background: rgba(45, 164, 78, 0.16);
+    border-color: rgba(45, 164, 78, 0.4);
+}
+
+/* 6. Body & Instruction Callout */
+.odtp-tour-body {
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--vscode-foreground);
+    margin-bottom: 12px;
+}
+
+.odtp-tour-body p {
+    margin: 0 0 8px 0;
+}
+
+.odtp-tour-body p:last-child {
+    margin-bottom: 0;
+}
+
+.odtp-tour-body ul,
+.odtp-tour-body ol {
+    margin: 6px 0 8px 0;
+    padding-left: 18px;
+}
+
+.odtp-tour-body li {
+    margin-bottom: 4px;
+}
+
+.odtp-tour-body code,
+.odtp-tour-instruction code {
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 11.5px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--vscode-textCodeBlock-background, rgba(127, 127, 127, 0.18));
+    border: 1px solid var(--vscode-editorWidget-border, rgba(127, 127, 127, 0.22));
+}
+
+.odtp-tour-instruction {
+    margin: 10px 0 12px 0;
+    padding: 8px 10px;
+    border-left: 3px solid var(--vscode-textLink-foreground, #3794ff);
+    background: var(--vscode-textBlockQuote-background, rgba(127, 127, 127, 0.12));
+    border-radius: 0 6px 6px 0;
+    font-size: 12px;
+    line-height: 1.45;
+    font-style: italic;
+    color: var(--vscode-foreground);
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.odtp-tour-instruction-icon {
+    flex: 0 0 auto;
+    font-style: normal;
+    font-weight: 700;
+    color: var(--vscode-textLink-foreground, #3794ff);
+}
+
+.odtp-tour-instruction.is-completed {
+    border-left-color: var(--vscode-testing-iconPassed, #2da44e);
+    background: rgba(45, 164, 78, 0.13);
+    font-style: normal;
+    font-weight: 500;
+}
+
+.odtp-tour-instruction.is-completed .odtp-tour-instruction-icon {
+    color: var(--vscode-testing-iconPassed, #2da44e);
+}
+
+/* Quick Action Chips inside Card */
+.odtp-tour-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.odtp-tour-quick-action-btn {
+    border: 1px solid var(--vscode-focusBorder, rgba(0, 127, 212, 0.55));
+    background: var(--vscode-button-secondaryBackground, rgba(0, 127, 212, 0.12));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+    border-radius: 5px;
+    padding: 5px 9px;
+    font-size: 11.5px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+    text-align: left;
+}
+
+.odtp-tour-quick-action-btn:hover {
+    background: var(--vscode-button-secondaryHoverBackground, rgba(0, 127, 212, 0.22));
+    border-color: var(--vscode-textLink-foreground, #3794ff);
+}
+
+/* Celebration Recap & Cheatsheet */
+.odtp-tour-recap-steps {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin: 10px 0 12px 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--vscode-textBlockQuote-background, rgba(127, 127, 127, 0.1));
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+.odtp-tour-recap-arrow {
+    color: var(--vscode-descriptionForeground);
+    font-weight: 400;
+}
+
+.odtp-tour-cheatsheet {
+    margin-top: 10px;
+    border: 1px solid var(--vscode-editorWidget-border, rgba(127, 127, 127, 0.25));
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: var(--vscode-editor-background, rgba(0, 0, 0, 0.12));
+}
+
+.odtp-tour-cheatsheet-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--vscode-descriptionForeground);
+    margin-bottom: 7px;
+}
+
+.odtp-tour-cheatsheet-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 5px 10px;
+    align-items: center;
+    font-size: 11.5px;
+}
+
+.odtp-tour-kbd {
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 10.5px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--vscode-badge-background, rgba(128, 128, 128, 0.2));
+    color: var(--vscode-foreground);
+    border: 1px solid var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.3));
+    white-space: nowrap;
+}
+
+/* 7. Footer, Progress Dots & Navigation Buttons */
+.odtp-tour-progress {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 11px;
+}
+
+.odtp-tour-progress-dot {
+    flex: 1 1 0;
+    height: 3.5px;
+    border-radius: 999px;
+    background: var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.3));
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.odtp-tour-progress-dot.is-done {
+    background: var(--vscode-focusBorder, rgba(0, 127, 212, 0.65));
+}
+
+.odtp-tour-progress-dot.is-active {
+    background: var(--vscode-button-background, #007fd4);
+    height: 4.5px;
+}
+
+.odtp-tour-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.odtp-tour-footer.is-full-cta {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+}
+
+.odtp-tour-skip-btn {
+    border: none;
+    background: transparent;
+    color: var(--vscode-descriptionForeground);
+    font-size: 11.5px;
+    padding: 4px 2px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+
+.odtp-tour-skip-btn:hover {
+    color: var(--vscode-foreground);
+    text-decoration: underline;
+}
+
+.odtp-tour-nav-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.odtp-tour-btn-secondary {
+    border: 1px solid var(--vscode-button-border, var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.35)));
+    background: var(--vscode-button-secondaryBackground, rgba(128, 128, 128, 0.16));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+    border-radius: 5px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.odtp-tour-btn-secondary:hover:not(:disabled) {
+    background: var(--vscode-button-secondaryHoverBackground, rgba(128, 128, 128, 0.28));
+}
+
+.odtp-tour-btn-secondary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.odtp-tour-btn-primary {
+    border: 1px solid var(--vscode-button-border, transparent);
+    background: var(--vscode-button-background, #007fd4);
+    color: var(--vscode-button-foreground, #ffffff);
+    border-radius: 5px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.odtp-tour-btn-primary:hover:not(:disabled) {
+    background: var(--vscode-button-hoverBackground, #026ec1);
+}
+
+.odtp-tour-btn-primary:disabled {
+    opacity: 0.52;
+    cursor: not-allowed;
+}
+
+.odtp-tour-modal .odtp-tour-btn-primary.is-celebration-cta {
+    width: 100%;
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 7px;
+}
+
+.odtp-tour-modal-subfooter {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}

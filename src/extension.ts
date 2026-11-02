@@ -301,12 +301,25 @@ export function activate(context: vscode.ExtensionContext) {
     // 2. Register the Accept Command
     context.subscriptions.push(vscode.commands.registerCommand('outputdirectedtheoremproving.acceptSuggestion', () => {
         if (!suggestionManager.activeSuggestion) return;
-        
-        const editor = vscode.window.activeTextEditor;
-        if (editor) clearSuggestedEditDecoration(editor);
-        
+        const { uri, range } = suggestionManager.activeSuggestion;
+
+        const editor =
+            vscode.window.activeTextEditor?.document.uri.toString() === uri.toString()
+                ? vscode.window.activeTextEditor
+                : vscode.window.visibleTextEditors.find((e) => e.document.uri.toString() === uri.toString());
+
+        if (editor) {
+            clearSuggestedEditDecoration(editor);
+            if (
+                editor.selection.active.isBefore(range.end) &&
+                editor.selection.active.isAfterOrEqual(range.start)
+            ) {
+                editor.selection = new vscode.Selection(range.end, range.end);
+            }
+        }
+
         suggestionManager.clearSuggestion();
-        ProofStatePanel.currentPanel?.onSuggestionResolved();
+        ProofStatePanel.currentPanel?.onSuggestionResolved('accepted', range.end);
     }));
 
     // 3. Register the Reject Command
@@ -314,19 +327,22 @@ export function activate(context: vscode.ExtensionContext) {
         if (!suggestionManager.activeSuggestion) return;
         
         const { uri, range, oldText } = suggestionManager.activeSuggestion;
-        const editor = vscode.window.activeTextEditor;
-        
-        if (editor && editor.document.uri.toString() === uri.toString()) {
-            // Revert the document to its original state
-            const edit = new vscode.WorkspaceEdit();
-            edit.replace(uri, range, oldText);
-            await vscode.workspace.applyEdit(edit);
-            
+        const editor =
+            vscode.window.activeTextEditor?.document.uri.toString() === uri.toString()
+                ? vscode.window.activeTextEditor
+                : vscode.window.visibleTextEditors.find((e) => e.document.uri.toString() === uri.toString());
+
+        // Revert the document to its original state
+        const edit = new vscode.WorkspaceEdit();
+        edit.replace(uri, range, oldText);
+        await vscode.workspace.applyEdit(edit);
+
+        if (editor) {
             clearSuggestedEditDecoration(editor);
         }
         
         suggestionManager.clearSuggestion();
-        ProofStatePanel.currentPanel?.onSuggestionResolved();
+        ProofStatePanel.currentPanel?.onSuggestionResolved('rejected', range.start);
     }));
     // -----------------------------------------------
 
@@ -985,6 +1001,47 @@ export function activate(context: vscode.ExtensionContext) {
         }
     );
     context.subscriptions.push(clearChatCmd);
+
+    const startTutorialCmd = vscode.commands.registerCommand(
+        'outputdirectedtheoremproving.startTutorialWalkthrough',
+        async () => {
+            // 1. Locate tutorial/tutorial_warmup.lean in workspace or extension directory
+            let tutorialUri: vscode.Uri | undefined;
+            for (const folder of vscode.workspace.workspaceFolders ?? []) {
+                const candidate = path.join(folder.uri.fsPath, 'tutorial', 'tutorial_warmup.lean');
+                if (fs.existsSync(candidate)) {
+                    tutorialUri = vscode.Uri.file(candidate);
+                    break;
+                }
+            }
+            if (!tutorialUri) {
+                const extCandidate = path.join(context.extensionPath, 'tutorial', 'tutorial_warmup.lean');
+                if (fs.existsSync(extCandidate)) {
+                    tutorialUri = vscode.Uri.file(extCandidate);
+                }
+            }
+            if (!tutorialUri) {
+                vscode.window.showErrorMessage(
+                    'Could not locate tutorial/tutorial_warmup.lean in the current workspace.'
+                );
+                return;
+            }
+
+            // 2. Open tutorial_warmup.lean in the left editor column
+            const doc = await vscode.workspace.openTextDocument(tutorialUri);
+            await vscode.window.showTextDocument(doc, {
+                viewColumn: vscode.ViewColumn.One,
+                preserveFocus: false,
+            });
+
+            // 3. Open or reveal the Proof State panel beside it (ViewColumn.Beside)
+            await vscode.commands.executeCommand('outputdirectedtheoremproving.openProofState');
+
+            // 4. Start the interactive walkthrough tour
+            ProofStatePanel.currentPanel?.postMessage({ command: 'tour:start' });
+        }
+    );
+    context.subscriptions.push(startTutorialCmd);
 
     const disposable = vscode.commands.registerCommand('outputdirectedtheoremproving.helloWorld', () => {
         vscode.window.showInformationMessage('Hello World from OutputDirectedTheoremProving!');

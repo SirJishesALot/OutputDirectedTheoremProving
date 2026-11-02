@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { CoqLspClient } from '../lsp/coqLspClient';
 import { Uri } from '../utils/uri';
 import { runCoqAgent, AgentTool, streamCoqChat, SuggestionCallback, ConversationHistoryCallback } from '../llm/chatBridge';
@@ -20,6 +22,11 @@ import { CoqClient } from '../prover/CoqClient';
 
 import { EditorBufferGuard } from '../tools/editorBufferGuard';
 import { globalSuggestionManager } from '../extension';
+import {
+    detectTheoremCursorContext,
+    findTheoremJumpPosition,
+    isTutorialWarmupPath,
+} from '../utils/tutorialUtils';
 
 type ClientReadyPromise = Promise<CoqLspClient>;
 type ActiveProverKind = 'Coq' | 'Lean';
@@ -76,6 +83,8 @@ export class ProofStatePanel {
     private selectionDebounceTimer: ReturnType<typeof setTimeout> | undefined;
     private lastProcessedQueryKey: string | undefined;
     private lastUpdateSource: 'edit' | 'selection' | 'manual' = 'selection';
+    private isWebviewTourReady = false;
+    private pendingTourStartStep: number | undefined = undefined;
     private static readonly DEBOUNCE_EDIT_MS = 500;
     private static readonly DEBOUNCE_SELECTION_MS = 250;
 
@@ -172,6 +181,9 @@ export class ProofStatePanel {
         vscode.window.onDidChangeTextEditorSelection(
             (e) => {
                 const editor = e.textEditor;
+                if (isTutorialWarmupPath(editor.document.uri.fsPath)) {
+                    this.emitTourCursorContext(false, editor);
+                }
                 if (!this.isEditorForActiveProver(editor, this.getActiveProver())) {
                     return;
                 }
@@ -190,7 +202,10 @@ export class ProofStatePanel {
         );
 
         vscode.window.onDidChangeActiveTextEditor(
-            () => {
+            (editor) => {
+                if (editor && isTutorialWarmupPath(editor.document.uri.fsPath)) {
+                    this.emitTourCursorContext(true, editor);
+                }
                 this.scheduleProofStateUpdate('selection');
             },
             null,
@@ -417,16 +432,162 @@ export class ProofStatePanel {
         this.scheduleProofStateUpdate('manual');
     }
 
-    public onSuggestionResolved(): void {
+    public postMessage(message: Record<string, unknown>): void {
+        const cmd = (message.command ?? message.type) as string | undefined;
+        if (cmd === 'tour:start') {
+            const stepIndex = typeof message.stepIndex === 'number' ? message.stepIndex : 0;
+            this.startTutorialWalkthrough(stepIndex);
+            return;
+        }
+        void this.panel.webview.postMessage(message);
+    }
+
+    public startTutorialWalkthrough(stepIndex: number = 0): void {
+        if (this.proofStateMode !== 'auto') {
+            void this.setProofStateMode('auto');
+        }
+        if (this.isWebviewTourReady) {
+            this.emitTourCursorContext(true);
+            void this.panel.webview.postMessage({
+                type: 'tour:start',
+                command: 'tour:start',
+                stepIndex,
+            });
+        } else {
+            this.pendingTourStartStep = stepIndex;
+        }
+    }
+
+    public resolveTutorialWarmupUri(): vscode.Uri | undefined {
+        const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
+        for (const folder of workspaceFolders) {
+            const candidate = path.join(folder.uri.fsPath, 'tutorial', 'tutorial_warmup.lean');
+            if (fs.existsSync(candidate)) {
+                return vscode.Uri.file(candidate);
+            }
+        }
+        const extCandidate = path.join(this.context.extensionPath, 'tutorial', 'tutorial_warmup.lean');
+        if (fs.existsSync(extCandidate)) {
+            return vscode.Uri.file(extCandidate);
+        }
+        return undefined;
+    }
+
+    private findTutorialEditor(): vscode.TextEditor | undefined {
+        const active = vscode.window.activeTextEditor;
+        if (active && isTutorialWarmupPath(active.document.uri.fsPath)) {
+            return active;
+        }
+        return vscode.window.visibleTextEditors.find((e) =>
+            isTutorialWarmupPath(e.document.uri.fsPath)
+        );
+    }
+
+    private async ensureTutorialWarmupOpen(preserveFocus: boolean = true): Promise<vscode.TextEditor | undefined> {
+        const existing = this.findTutorialEditor();
+        if (existing && preserveFocus) {
+            return existing;
+        }
+        const tutorialUri = existing?.document.uri ?? this.resolveTutorialWarmupUri();
+        if (!tutorialUri) {
+            return undefined;
+        }
+        const doc = await vscode.workspace.openTextDocument(tutorialUri);
+        return await vscode.window.showTextDocument(doc, {
+            viewColumn: existing?.viewColumn ?? vscode.ViewColumn.One,
+            preserveFocus,
+        });
+    }
+
+    private emitTourCursorContext(isQueryResponse: boolean = false, editorOverride?: vscode.TextEditor): void {
+        const editor = editorOverride ?? this.findTutorialEditor();
+        if (!editor) {
+            return;
+        }
+        const ctx = detectTheoremCursorContext(
+            editor.document.getText(),
+            editor.selection.active.line
+        );
+        void this.panel.webview.postMessage({
+            type: 'tour:cursorMoved',
+            command: 'tour:cursorMoved',
+            theorem: ctx.theorem ?? '',
+            line: ctx.oneBasedLine,
+            isInProofZone: ctx.isInProofZone,
+            isQueryResponse,
+        });
+    }
+
+    private async handleTourJumpToLocation(message: {
+        file?: string;
+        theorem?: string;
+        line?: number;
+    }): Promise<void> {
+        const editor = await this.ensureTutorialWarmupOpen(false);
+        if (!editor) {
+            vscode.window.showWarningMessage(
+                'Could not find tutorial/tutorial_warmup.lean in the current workspace.'
+            );
+            return;
+        }
+        let targetPos: vscode.Position | undefined;
+        if (message.theorem) {
+            const found = findTheoremJumpPosition(editor.document.getText(), message.theorem);
+            if (found) {
+                targetPos = new vscode.Position(found.line, found.character);
+            }
+        }
+        if (!targetPos) {
+            const zeroBasedLine = Math.max(
+                0,
+                Math.min((message.line ?? 1) - 1, editor.document.lineCount - 1)
+            );
+            targetPos = new vscode.Position(zeroBasedLine, 0);
+        }
+
+        const selection = new vscode.Selection(targetPos, targetPos);
+        editor.selection = selection;
+        editor.revealRange(
+            new vscode.Range(targetPos, targetPos),
+            vscode.TextEditorRevealType.InCenterIfOutsideViewport
+        );
+        this.currentDocumentUri = editor.document.uri;
+        this.savedCursorPosition = { line: targetPos.line, character: targetPos.character };
+        this.emitTourCursorContext(false, editor);
+        await this.updateProofStateForSuggestion();
+    }
+
+    public onSuggestionResolved(
+        outcome?: 'accepted' | 'rejected',
+        resolvedPosition?: vscode.Position
+    ): void {
+        if (resolvedPosition) {
+            this.savedCursorPosition = {
+                line: resolvedPosition.line,
+                character: resolvedPosition.character,
+            };
+        }
         this.panel.webview.postMessage({ type: 'proverAgentDone' });
         if (this.chatPanel) {
             this.chatPanel.webview.postMessage({ type: 'proverAgentDone' });
+        }
+        if (outcome === 'accepted') {
+            void this.panel.webview.postMessage({
+                type: 'tour:suggestionAccepted',
+                command: 'tour:suggestionAccepted',
+            });
+        } else if (outcome === 'rejected') {
+            void this.panel.webview.postMessage({
+                type: 'tour:suggestionRejected',
+                command: 'tour:suggestionRejected',
+            });
         }
         if (this.chatCancelSource) {
             this.chatCancelSource.cancel();
             this.chatCancelSource.dispose();
             this.chatCancelSource = undefined;
         }
+        void this.updateProofStateForSuggestion();
     }
 
     public clearCurrentDocumentChat(): void {
@@ -789,6 +950,41 @@ export class ProofStatePanel {
                     OutputLogger.debug('ProofState', `Edit history updated: ${this.editHistory.edits.length} edits`);
                 }
             }
+        } else if (cmd === 'tour:ready') {
+            if (!isMain) return;
+            this.isWebviewTourReady = true;
+            this.emitTourCursorContext(true);
+            if (this.pendingTourStartStep !== undefined) {
+                const stepIndex = this.pendingTourStartStep;
+                this.pendingTourStartStep = undefined;
+                void this.panel.webview.postMessage({
+                    type: 'tour:start',
+                    command: 'tour:start',
+                    stepIndex,
+                });
+            }
+        } else if (cmd === 'tour:requestStart') {
+            await vscode.commands.executeCommand(
+                'outputdirectedtheoremproving.startTutorialWalkthrough'
+            );
+        } else if (cmd === 'tour:ensureTutorialFile') {
+            if (!isMain) return;
+            await this.ensureTutorialWarmupOpen(true);
+            this.emitTourCursorContext(true);
+        } else if (cmd === 'tour:queryCursor') {
+            if (!isMain) return;
+            this.emitTourCursorContext(true);
+        } else if (cmd === 'tour:jumpToLocation') {
+            if (!isMain) return;
+            await this.handleTourJumpToLocation(message);
+        } else if (cmd === 'tour:completed') {
+            await this.context.globalState.update('odtp.tutorialCompleted', true);
+            OutputLogger.info('ProofState', 'Interactive tutorial walkthrough completed.');
+        } else if (cmd === 'tour:dismissed') {
+            OutputLogger.info(
+                'ProofState',
+                `Interactive tutorial walkthrough dismissed at step ${message.stepIndex ?? 'unknown'}.`
+            );
         } else if (cmd === 'log') {
             const level = message.level === 'error' ? 'error' : (message.level === 'warn' ? 'warn' : 'info');
             OutputLogger[level]('Webview', message.message || message.text || '');
@@ -878,6 +1074,11 @@ export class ProofStatePanel {
                 this.chatPanel.webview.postMessage({ type: 'proofSuggestionApplied' });
             }
             const tacticText = ed.document.getText(range).trim();
+            this.panel.webview.postMessage({
+                type: 'tour:tacticSuggested',
+                command: 'tour:tacticSuggested',
+                tactic: tacticText,
+            });
             if (tacticText) {
                 this.conversationHistory.push({
                     role: 'assistant',
@@ -1161,6 +1362,12 @@ export class ProofStatePanel {
                 messages: state.messages ?? [],
                 error: state.error,
             });
+            this.panel.webview.postMessage({
+                type: 'tour:proofStateUpdated',
+                command: 'tour:proofStateUpdated',
+                goalCount: state.goals.length,
+                isComplete: state.goals.length === 0 && !state.error,
+            });
         } catch (e) {
             if (generation !== this.proofStateUpdateGeneration) {
                 return;
@@ -1282,6 +1489,12 @@ export class ProofStatePanel {
                 messages: state.messages ?? [],
                 error: state.error,
             });
+            this.panel.webview.postMessage({
+                type: 'tour:proofStateUpdated',
+                command: 'tour:proofStateUpdated',
+                goalCount: state.goals.length,
+                isComplete: state.goals.length === 0 && !state.error,
+            });
         } catch (e) {
             if (generation !== this.proofStateUpdateGeneration || abortController.signal.aborted) {
                 proofStateLog(
@@ -1320,6 +1533,10 @@ export class ProofStatePanel {
             this.extensionUri, 'src', 'webview', 'katex.min.css'
         ));
 
+        const tourCssUri = webview.asWebviewUri(vscode.Uri.joinPath(
+            this.extensionUri, 'src', 'webview', 'tour', 'tour.css'
+        ));
+
         const info = this.getActiveModelInfo();
         const initialModelLabel = `${info.model} (${info.provider})`;
 
@@ -1338,6 +1555,7 @@ export class ProofStatePanel {
   <link rel="stylesheet" type="text/css" href="${proseMirrorCssUri}">
   <link rel="stylesheet" type="text/css" href="${cssUri}">
   <link rel="stylesheet" type="text/css" href="${katexCssUri}">
+  <link rel="stylesheet" type="text/css" href="${tourCssUri}">
   
 <title>Output Directed Prover AI</title>
 </head>
@@ -1358,6 +1576,7 @@ export class ProofStatePanel {
         <button id="btn-mode-manual" class="mode-btn ${this.proofStateMode === 'manual' ? 'active' : ''}" type="button" title="Manual Mode: only updates when Refresh or Cmd+Enter is pressed">Manual</button>
       </div>
       <button id="btn-refresh" class="refresh-btn" type="button" title="Refresh Proof State (⌘↵ / Ctrl+Enter)">↻ Refresh</button>
+      <button id="btn-start-tutorial" class="refresh-btn tutorial-btn" type="button" title="Start Interactive Tutorial Walkthrough">? Tutorial</button>
     </div>
   </div>
   <div id="webviewStatus" class="webview-status" aria-live="polite"></div>

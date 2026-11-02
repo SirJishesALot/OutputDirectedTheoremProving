@@ -135,6 +135,11 @@ h2 {
     background-color: var(--vscode-button-secondaryHoverBackground, rgba(128, 128, 128, 0.25));
 }
 
+.tutorial-btn {
+    margin-left: auto;
+    border-color: var(--vscode-focusBorder, rgba(0, 122, 204, 0.45));
+}
+
 /* This is the main ProseMirror editor container */
 #editor {
     flex: 0 0 auto;

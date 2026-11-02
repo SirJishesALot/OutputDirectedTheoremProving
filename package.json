@@ -36,6 +36,7 @@
     "onCommand:outputdirectedtheoremproving.acceptSuggestion",
     "onCommand:outputdirectedtheoremproving.rejectSuggestion",
     "onCommand:outputdirectedtheoremproving.clearChat",
+    "onCommand:outputdirectedtheoremproving.startTutorialWalkthrough",
     "onLanguage:coq",
     "onLanguage:rocq",
     "onLanguage:lean",
@@ -103,6 +104,10 @@
       {
         "command": "outputdirectedtheoremproving.clearChat",
         "title": "Clear Chat History for Current Document"
+      },
+      {
+        "command": "outputdirectedtheoremproving.startTutorialWalkthrough",
+        "title": "Start Interactive Tutorial Walkthrough"
       }
     ],
     "configuration": {

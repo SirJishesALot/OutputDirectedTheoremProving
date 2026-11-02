@@ -9,6 +9,8 @@ src/webview/main.js
 src/webview/chatPanel.js
 src/webview/chatStreamUi.js
 src/webview/syntaxHighlighter.js
+src/webview/tour/*.js
+*.mov
 .gitignore
 .yarnrc
 esbuild.js
