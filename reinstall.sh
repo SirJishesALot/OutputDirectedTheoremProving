@@ -4,9 +4,8 @@ set -e
 echo "=== Pulling latest changes from git ==="
 git pull
 
-echo "=== Installing dependencies & compiling extension ==="
+echo "=== Installing dependencies ==="
 npm install
-npm run package
 
 echo "=== Packaging updated VSIX ==="
 rm -f outputdirectedtheoremproving-*.vsix

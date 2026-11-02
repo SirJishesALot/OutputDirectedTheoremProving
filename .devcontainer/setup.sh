@@ -81,7 +81,6 @@ fi
 # 6. Install project dependencies, compile, and package extension
 echo "=== Installing Node dependencies & building VS Code extension ==="
 npm install
-npm run package
 rm -f outputdirectedtheoremproving-*.vsix
 npx --yes @vscode/vsce package --no-dependencies
 

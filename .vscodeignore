@@ -2,6 +2,15 @@
 .vscode-test/**
 out/**
 node_modules/**
+.lake/**
+.agents/**
+scripts/**
+test/**
+survey/**
+implementation_spec.md
+req.json
+*.mov
+*.vsix
 src/**
 !src/webview/**
 src/webview/*.ts
@@ -10,7 +19,6 @@ src/webview/chatPanel.js
 src/webview/chatStreamUi.js
 src/webview/syntaxHighlighter.js
 src/webview/tour/*.js
-*.mov
 .gitignore
 .yarnrc
 esbuild.js
