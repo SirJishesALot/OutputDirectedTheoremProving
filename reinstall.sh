@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 set -e
 
+echo "=== Terminating any hanging Lean / Lake LSP processes ==="
+killall -9 lean lake 2>/dev/null || true
+
+# If a heavy .lake directory exists from Mathlib, move it out immediately (atomic rename)
+# and clean it up in the background so it doesn't freeze the shell
+if [ -d ".lake" ]; then
+    echo "=== Moving legacy .lake cache for background deletion ==="
+    TRASH_DIR="/tmp/lake_trash_$$"
+    mv .lake "$TRASH_DIR" 2>/dev/null && rm -rf "$TRASH_DIR" &
+fi
+
 echo "=== Pulling latest changes from git ==="
 git pull
 
