@@ -93,7 +93,7 @@ export function createTourSteps(helpers) {
 
     return [
         // =====================================================================
-        // PHASE 1: Orientation & Layout (Steps 1 - 3)
+        // PHASE 1: Orientation & Layout (Steps 1 - 5)
         // =====================================================================
         {
             id: 'WELCOME',
@@ -116,17 +116,49 @@ export function createTourSteps(helpers) {
             },
         },
         {
-            id: 'HEADER_CONTROLS',
+            id: 'HEADER_PROVER_BADGE',
             phase: 1,
-            title: 'Prover & Automation Controls',
-            targetSelector: '.panel-header',
+            title: 'Prover: Lean Badge',
+            targetSelector: '#activeProverLabel',
+            fallbackSelector: '.active-prover-label, .panel-header',
             placement: 'bottom',
             bodyHtml: `
-                <p>Notice the header badges and mode controls above:</p>
+                <p>The <strong>Prover: Lean</strong> badge confirms that Lean 4 is active and formally verifying every step in real time.</p>
+                <p>Every tactic synthesized by the AI must pass Lean's kernel before it is suggested to you.</p>
+            `,
+            primaryButtonLabel: 'Next >',
+            trigger: {
+                type: 'MANUAL_NEXT',
+            },
+        },
+        {
+            id: 'HEADER_MODEL_BADGE',
+            phase: 1,
+            title: 'AI Model Badge',
+            targetSelector: '#activeModelBadge',
+            fallbackSelector: '.active-model-badge, .panel-header',
+            placement: 'bottom',
+            bodyHtml: `
+                <p>The <strong>Model Badge</strong> shows the AI model currently backing tactic synthesis and the chat assistant.</p>
+                <p>You can click this badge anytime to switch models or providers.</p>
+            `,
+            primaryButtonLabel: 'Next >',
+            trigger: {
+                type: 'MANUAL_NEXT',
+            },
+        },
+        {
+            id: 'HEADER_MODE_TOGGLE',
+            phase: 1,
+            title: 'Auto / Manual Refresh Mode',
+            targetSelector: '.mode-toggle-group',
+            fallbackSelector: '#btn-mode-auto, .header-controls',
+            placement: 'bottom',
+            bodyHtml: `
+                <p>The <strong>Auto / Manual</strong> button controls when the proof state updates:</p>
                 <ul>
-                    <li><strong>Prover: Lean</strong> — Confirms Lean 4 is active and verifying every step.</li>
-                    <li><strong>Model Badge</strong> — Shows the AI model backing tactic synthesis (click anytime to switch).</li>
-                    <li><strong>Auto / Manual</strong> — <code>Auto</code> mode refreshes proof goals automatically as you move your cursor in the code.</li>
+                    <li><strong>Auto</strong> — Refreshes proof goals automatically as you move your cursor or edit code.</li>
+                    <li><strong>Manual</strong> — Only refreshes when you click <strong>↻ Refresh</strong> or press <code>${modKey}+Enter</code>.</li>
                 </ul>
             `,
             primaryButtonLabel: 'Next >',
@@ -154,7 +186,7 @@ export function createTourSteps(helpers) {
                     action: () => {
                         vscode.postMessage({
                             command: 'tour:jumpToLocation',
-                            file: 'tutorial/tutorial_warmup.lean',
+                            file: 'pilot/lean/tutorial_warmup.lean',
                             theorem: 'demo_step',
                             line: 9,
                         });
@@ -271,19 +303,20 @@ export function createTourSteps(helpers) {
         },
 
         // =====================================================================
-        // PHASE 3: Agent Tactics & CodeLens (Steps 7 - 9)
+        // PHASE 3: Agent Tactics & CodeLens (Steps 9 - 11)
         // =====================================================================
         {
             id: 'IMPLEMENT_CHANGES',
             phase: 3,
-            title: 'Ask the Prover Agent',
+            title: 'Ask the Prover Agent to Synthesize Proof',
             targetSelector: '.synthesize-button',
             fallbackSelector: '.menu',
             placement: 'bottom',
             bodyHtml: `
-                <p>Now let the agent find and verify the exact Lean 4 tactic that achieves your target proof state!</p>
+                <p>Now let the AI model synthesize and formally verify the exact Lean 4 tactic that achieves your target proof state!</p>
+                <p>Once you click <strong>Implement Changes</strong>, the model will search for candidate tactics and test them against Lean 4 in real time.</p>
             `,
-            instructionPrompt: 'Click <strong>Implement Changes</strong>.',
+            instructionPrompt: 'Click <strong>Implement Changes</strong> to start proof synthesis.',
             waitingButtonLabel: 'Click Implement Changes…',
             unlockedButtonLabel: 'Continue >',
             trigger: {
@@ -293,13 +326,15 @@ export function createTourSteps(helpers) {
                 onValidatedClick: (_ev, engine) => {
                     engine._synthesisStartedOnStep7 = true;
                     engine._tacticAppliedOnStep7 = false;
+                    engine.setDynamicTarget('#chat', 'top');
                     engine.setInstructionStatus(
-                        'Synthesizing proof &amp; checking against Lean 4…',
-                        false
+                        '<strong>Model is synthesizing proof…</strong><br>Generating and verifying candidate Lean 4 tactics. Watch the live synthesis progress below!',
+                        false,
+                        {
+                            isLoading: true,
+                            buttonLabel: 'Model is synthesizing proof…',
+                        }
                     );
-                    if (engine.primaryBtnEl) {
-                        engine.primaryBtnEl.textContent = 'Synthesizing…';
-                    }
                 },
             },
             onEnter: (engine) => {
@@ -310,17 +345,20 @@ export function createTourSteps(helpers) {
                 const evt = msg.command || msg.type;
                 if (evt === 'proverAgentStarted') {
                     engine._synthesisStartedOnStep7 = true;
+                    engine.setDynamicTarget('#chat', 'top');
                     engine.setInstructionStatus(
-                        'Synthesizing proof &amp; checking against Lean 4…',
-                        false
+                        '<strong>Model is synthesizing proof…</strong><br>Generating and verifying candidate Lean 4 tactics. Watch the live synthesis progress below!',
+                        false,
+                        {
+                            isLoading: true,
+                            buttonLabel: 'Model is synthesizing proof…',
+                        }
                     );
-                    if (engine.primaryBtnEl) {
-                        engine.primaryBtnEl.textContent = 'Synthesizing…';
-                    }
                 } else if (evt === 'proofSuggestionApplied' || evt === 'tour:tacticSuggested') {
                     engine._tacticAppliedOnStep7 = true;
                     engine.next();
                 } else if (evt === 'proverAgentDone' && engine._synthesisStartedOnStep7 && !engine._tacticAppliedOnStep7) {
+                    engine.setDynamicTarget(null);
                     engine.unlockCurrentStep(
                         'Synthesis finished without inserting a tactic (check your LLM model badge if needed). Try <strong>Implement Changes</strong> again, or click <strong>Continue &gt;</strong>.',
                         'Continue >'
@@ -447,7 +485,7 @@ export function createTourSteps(helpers) {
                     action: () => {
                         vscode.postMessage({
                             command: 'tour:jumpToLocation',
-                            file: 'tutorial/tutorial_warmup.lean',
+                            file: 'pilot/lean/tutorial_warmup.lean',
                             theorem: 'warmup_exercise',
                             line: 17,
                         });
@@ -499,8 +537,12 @@ export function createTourSteps(helpers) {
                 const evt = msg.command || msg.type;
                 if (evt === 'proverAgentStarted') {
                     engine.setInstructionStatus(
-                        'Synthesizing your warmup tactic in Lean 4…',
-                        false
+                        '<strong>Model is synthesizing proof…</strong><br>Verifying your warmup tactic in Lean 4…',
+                        false,
+                        {
+                            isLoading: true,
+                            buttonLabel: 'Model is synthesizing proof…',
+                        }
                     );
                 } else if (evt === 'proofSuggestionApplied' || evt === 'tour:tacticSuggested') {
                     engine.setInstructionStatus(

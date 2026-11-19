@@ -649,7 +649,7 @@ window.addEventListener('message', (event) => {
             vscode.postMessage({ type: 'chatLogContent', content: (document.getElementById('chatLog') || {}).innerHTML || '' });
             return;
         case 'proverAgentStarted':
-            updateWebviewStatus('Synthesizing proof…');
+            updateWebviewStatus('Model is synthesizing proof…');
             setSynthesizingIndicator(true);
             tourEngine?.onExtensionMessage(msg);
             return;
@@ -925,6 +925,14 @@ function setSynthesizingIndicator(visible) {
         synthesizingIndicator.classList.toggle('visible', !!visible);
         synthesizingIndicator.setAttribute('aria-hidden', !visible);
     }
+    const synthBtns = document.querySelectorAll('.synthesize-button');
+    synthBtns.forEach((btn) => {
+        if (btn instanceof HTMLButtonElement) {
+            btn.classList.toggle('is-synthesizing', !!visible);
+            btn.disabled = !!visible;
+            btn.textContent = visible ? 'Synthesizing Proof…' : 'Implement Changes';
+        }
+    });
 }
 
 

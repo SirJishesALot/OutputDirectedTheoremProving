@@ -6,6 +6,7 @@ set_option maxHeartbeats 10000000
 theorem demo_step : ∀ n : Nat, (n + 0) * 1 = n := by
   intro n
   -- Place cursor on the line below to demo editing (n + 0) -> n
+
   sorry
 
 -- ========================================================================= --
@@ -14,4 +15,5 @@ theorem demo_step : ∀ n : Nat, (n + 0) * 1 = n := by
 theorem warmup_exercise : ∀ (n m : Nat), (n * 1) + (0 + m) = n + m := by
   intro n m
   -- Participant places cursor on the line below
+
   sorry

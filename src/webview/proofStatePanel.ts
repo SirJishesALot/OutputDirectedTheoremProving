@@ -458,19 +458,45 @@ export class ProofStatePanel {
         }
     }
 
-    public resolveTutorialWarmupUri(): vscode.Uri | undefined {
+    public static async resolveTutorialWarmupUri(extensionPath?: string): Promise<vscode.Uri | undefined> {
+        const relativeCandidates = [
+            path.join('pilot', 'lean', 'tutorial_warmup.lean'),
+            path.join('pilot', 'tutorial_warmup.lean'),
+            path.join('tutorial', 'tutorial_warmup.lean'),
+            'tutorial_warmup.lean',
+        ];
         const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
         for (const folder of workspaceFolders) {
-            const candidate = path.join(folder.uri.fsPath, 'tutorial', 'tutorial_warmup.lean');
-            if (fs.existsSync(candidate)) {
-                return vscode.Uri.file(candidate);
+            for (const rel of relativeCandidates) {
+                const candidate = path.join(folder.uri.fsPath, rel);
+                if (fs.existsSync(candidate)) {
+                    return vscode.Uri.file(candidate);
+                }
             }
         }
-        const extCandidate = path.join(this.context.extensionPath, 'tutorial', 'tutorial_warmup.lean');
-        if (fs.existsSync(extCandidate)) {
-            return vscode.Uri.file(extCandidate);
+
+        try {
+            const found = await vscode.workspace.findFiles('**/tutorial_warmup.lean', '**/node_modules/**', 1);
+            if (found && found.length > 0) {
+                return found[0];
+            }
+        } catch {
+            // ignore findFiles failure
+        }
+
+        if (extensionPath) {
+            for (const rel of relativeCandidates) {
+                const extCandidate = path.join(extensionPath, rel);
+                if (fs.existsSync(extCandidate)) {
+                    return vscode.Uri.file(extCandidate);
+                }
+            }
         }
         return undefined;
+    }
+
+    public async resolveTutorialWarmupUri(): Promise<vscode.Uri | undefined> {
+        return ProofStatePanel.resolveTutorialWarmupUri(this.context.extensionPath);
     }
 
     private findTutorialEditor(): vscode.TextEditor | undefined {
@@ -488,7 +514,7 @@ export class ProofStatePanel {
         if (existing && preserveFocus) {
             return existing;
         }
-        const tutorialUri = existing?.document.uri ?? this.resolveTutorialWarmupUri();
+        const tutorialUri = existing?.document.uri ?? (await this.resolveTutorialWarmupUri());
         if (!tutorialUri) {
             return undefined;
         }
@@ -526,7 +552,7 @@ export class ProofStatePanel {
         const editor = await this.ensureTutorialWarmupOpen(false);
         if (!editor) {
             vscode.window.showWarningMessage(
-                'Could not find tutorial/tutorial_warmup.lean in the current workspace.'
+                'Could not locate tutorial_warmup.lean in the current workspace.'
             );
             return;
         }
@@ -1583,7 +1609,7 @@ export class ProofStatePanel {
   <div id="editor"></div>
 
     <div id="chat" class="controls">
-        <div id="synthesizingIndicator" class="synthesizing-indicator" aria-hidden="true">Synthesizing proof...</div>
+        <div id="synthesizingIndicator" class="synthesizing-indicator" aria-hidden="true">Model is synthesizing proof &amp; verifying tactics in Lean 4...</div>
         <div id="chatLog"></div>
         <div id="chatTypingIndicator" class="chat-typing-indicator" aria-hidden="true">Model is typing...</div>
         <div style="display: flex; flex-direction: row; align-items: center; gap: 6px;">

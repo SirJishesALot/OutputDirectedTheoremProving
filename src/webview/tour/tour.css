@@ -327,6 +327,59 @@ body.vscode-light .odtp-tour-card {
     color: var(--vscode-testing-iconPassed, #2da44e);
 }
 
+.odtp-tour-instruction.is-synthesizing {
+    border-left: 3px solid var(--vscode-focusBorder, #007fd4);
+    border-top: 1px solid rgba(0, 127, 212, 0.35);
+    border-right: 1px solid rgba(0, 127, 212, 0.35);
+    border-bottom: 1px solid rgba(0, 127, 212, 0.35);
+    background: rgba(0, 127, 212, 0.16);
+    font-style: normal;
+    font-weight: 600;
+    padding: 10px 12px;
+    align-items: center;
+    animation: odtpSynthesizingPulse 1.5s infinite ease-in-out;
+}
+
+@keyframes odtpSynthesizingPulse {
+    0%, 100% {
+        background: rgba(0, 127, 212, 0.14);
+        box-shadow: 0 0 0 0 rgba(0, 127, 212, 0.25);
+    }
+    50% {
+        background: rgba(0, 127, 212, 0.24);
+        box-shadow: 0 0 12px 2px rgba(0, 127, 212, 0.22);
+    }
+}
+
+.odtp-tour-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--vscode-textLink-foreground, #3794ff);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: odtpTourSpin 0.75s linear infinite;
+    flex: 0 0 auto;
+}
+
+.odtp-tour-btn-primary .odtp-tour-spinner {
+    width: 12px;
+    height: 12px;
+    border-color: var(--vscode-button-foreground, #ffffff);
+    border-top-color: transparent;
+}
+
+.odtp-tour-btn-primary.is-synthesizing:disabled {
+    opacity: 0.88;
+    cursor: wait;
+}
+
+@keyframes odtpTourSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 /* Quick Action Chips inside Card */
 .odtp-tour-quick-actions {
     display: flex;

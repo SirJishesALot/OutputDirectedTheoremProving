@@ -1005,24 +1005,11 @@ export function activate(context: vscode.ExtensionContext) {
     const startTutorialCmd = vscode.commands.registerCommand(
         'outputdirectedtheoremproving.startTutorialWalkthrough',
         async () => {
-            // 1. Locate tutorial/tutorial_warmup.lean in workspace or extension directory
-            let tutorialUri: vscode.Uri | undefined;
-            for (const folder of vscode.workspace.workspaceFolders ?? []) {
-                const candidate = path.join(folder.uri.fsPath, 'tutorial', 'tutorial_warmup.lean');
-                if (fs.existsSync(candidate)) {
-                    tutorialUri = vscode.Uri.file(candidate);
-                    break;
-                }
-            }
-            if (!tutorialUri) {
-                const extCandidate = path.join(context.extensionPath, 'tutorial', 'tutorial_warmup.lean');
-                if (fs.existsSync(extCandidate)) {
-                    tutorialUri = vscode.Uri.file(extCandidate);
-                }
-            }
+            // 1. Locate tutorial_warmup.lean in workspace or extension directory
+            const tutorialUri = await ProofStatePanel.resolveTutorialWarmupUri(context.extensionPath);
             if (!tutorialUri) {
                 vscode.window.showErrorMessage(
-                    'Could not locate tutorial/tutorial_warmup.lean in the current workspace.'
+                    'Could not locate tutorial_warmup.lean in the current workspace.'
                 );
                 return;
             }

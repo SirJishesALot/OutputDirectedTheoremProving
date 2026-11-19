@@ -206,6 +206,8 @@ export class TourEngine {
         this.isWaitingForAction = !isManual;
         this.isActionUnlocked = false;
         this.dynamicInstructionText = null;
+        this.dynamicTargetSelector = null;
+        this.dynamicPlacement = null;
 
         this.renderStepContent(step);
         this.bindStepTriggers(step);
@@ -306,6 +308,7 @@ export class TourEngine {
             this.dynamicInstructionText = completedMessage;
         }
         if (this.instructionEl) {
+            this.instructionEl.classList.remove('is-synthesizing');
             this.instructionEl.classList.add('is-completed');
         }
         if (this.instructionIconEl) {
@@ -315,6 +318,7 @@ export class TourEngine {
             this.instructionTextEl.innerHTML = completedMessage;
         }
         if (this.primaryBtnEl) {
+            this.primaryBtnEl.classList.remove('is-synthesizing');
             this.primaryBtnEl.disabled = false;
             const step = this.getCurrentStep();
             this.primaryBtnEl.textContent =
@@ -334,7 +338,7 @@ export class TourEngine {
         this.isActionUnlocked = false;
         this.dynamicInstructionText = null;
         if (this.instructionEl) {
-            this.instructionEl.classList.remove('is-completed');
+            this.instructionEl.classList.remove('is-completed', 'is-synthesizing');
         }
         if (this.instructionIconEl) {
             this.instructionIconEl.textContent = '→';
@@ -343,22 +347,46 @@ export class TourEngine {
             this.instructionTextEl.innerHTML = promptHtml || step.instructionPrompt || '';
         }
         if (this.primaryBtnEl) {
+            this.primaryBtnEl.classList.remove('is-synthesizing');
             this.primaryBtnEl.disabled = true;
             this.primaryBtnEl.textContent = step.waitingButtonLabel || 'Complete action…';
         }
         this.scheduleReposition();
     }
 
-    setInstructionStatus(statusHtml, isCompleted = false) {
+    setInstructionStatus(statusHtml, isCompleted = false, options = {}) {
         if (!this.isActive || !this.instructionEl || !this.instructionTextEl) {
             return;
         }
+        const isLoading = Boolean(options.isLoading);
         this.instructionEl.style.display = 'flex';
         this.instructionEl.classList.toggle('is-completed', Boolean(isCompleted));
+        this.instructionEl.classList.toggle('is-synthesizing', isLoading && !isCompleted);
         if (this.instructionIconEl) {
-            this.instructionIconEl.textContent = isCompleted ? '✓' : '⋯';
+            if (isLoading && !isCompleted) {
+                this.instructionIconEl.innerHTML = '<span class="odtp-tour-spinner" aria-hidden="true"></span>';
+            } else {
+                this.instructionIconEl.textContent = isCompleted ? '✓' : '⋯';
+            }
         }
         this.instructionTextEl.innerHTML = statusHtml;
+        if (this.primaryBtnEl && isLoading && !isCompleted) {
+            this.primaryBtnEl.disabled = true;
+            this.primaryBtnEl.classList.add('is-synthesizing');
+            const btnText = options.buttonLabel || 'Model is synthesizing proof…';
+            this.primaryBtnEl.innerHTML = `<span class="odtp-tour-spinner" aria-hidden="true"></span><span>${btnText}</span>`;
+        } else if (this.primaryBtnEl && !isLoading) {
+            this.primaryBtnEl.classList.remove('is-synthesizing');
+        }
+        this.scheduleReposition();
+    }
+
+    setDynamicTarget(selector, placement = null) {
+        if (!this.isActive) {
+            return;
+        }
+        this.dynamicTargetSelector = selector || null;
+        this.dynamicPlacement = placement || null;
         this.scheduleReposition();
     }
 
@@ -638,11 +666,12 @@ export class TourEngine {
     }
 
     resolveTargetElement(step) {
-        if (!step || !step.targetSelector) {
+        const activeSelector = this.dynamicTargetSelector || step?.targetSelector;
+        if (!step || !activeSelector) {
             return null;
         }
-        const candidates = [step.targetSelector];
-        if (step.fallbackSelector) {
+        const candidates = [activeSelector];
+        if (!this.dynamicTargetSelector && step.fallbackSelector) {
             candidates.push(step.fallbackSelector);
         }
         for (const selector of candidates) {
@@ -654,7 +683,7 @@ export class TourEngine {
                 }
             }
         }
-        return document.querySelector(step.targetSelector);
+        return document.querySelector(activeSelector);
     }
 
     scheduleReposition() {
@@ -678,7 +707,7 @@ export class TourEngine {
         const targetEl = this.resolveTargetElement(step);
         this.observeTargetElement(targetEl);
         this.updateSpotlight(targetEl, step);
-        this.positionPopover(targetEl, step.placement, step);
+        this.positionPopover(targetEl, this.dynamicPlacement || step.placement, step);
     }
 
     updateSpotlight(targetEl, step) {

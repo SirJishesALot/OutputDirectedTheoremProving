@@ -9,33 +9,46 @@ import {
 } from '../utils/tutorialUtils';
 
 suite('Tutorial Walkthrough Utilities Tests', () => {
-    const tutorialPath = path.resolve(__dirname, '../../tutorial/tutorial_warmup.lean');
-    const sampleTutorialText = fs.existsSync(tutorialPath)
-        ? fs.readFileSync(tutorialPath, 'utf8')
-        : [
-              'set_option maxHeartbeats 10000000',
-              '',
-              '-- ========================================================================= --',
-              '-- Facilitator Demo: Used in Section 3 of PILOT_TUTORIAL_SCRIPT.md           --',
-              '-- ========================================================================= --',
-              'theorem demo_step : ∀ n : Nat, (n + 0) * 1 = n := by',
-              '  intro n',
-              '  -- Place cursor on the line below to demo editing (n + 0) -> n',
-              '  sorry',
-              '',
-              '-- ========================================================================= --',
-              '-- Participant Warm-up: Used in Section 4 of PILOT_TUTORIAL_SCRIPT.md       --',
-              '-- ========================================================================= --',
-              'theorem warmup_exercise : ∀ (n m : Nat), (n * 1) + (0 + m) = n + m := by',
-              '  intro n m',
-              '  -- Participant places cursor on the line below',
-              '  sorry',
-          ].join('\n');
+    const sampleTutorialText = [
+        'set_option maxHeartbeats 10000000',
+        '',
+        '-- ========================================================================= --',
+        '-- Facilitator Demo: Used in Section 3 of PILOT_TUTORIAL_SCRIPT.md           --',
+        '-- ========================================================================= --',
+        'theorem demo_step : ∀ n : Nat, (n + 0) * 1 = n := by',
+        '  intro n',
+        '  -- Place cursor on the line below to demo editing (n + 0) -> n',
+        '  sorry',
+        '',
+        '-- ========================================================================= --',
+        '-- Participant Warm-up: Used in Section 4 of PILOT_TUTORIAL_SCRIPT.md       --',
+        '-- ========================================================================= --',
+        'theorem warmup_exercise : ∀ (n m : Nat), (n * 1) + (0 + m) = n + m := by',
+        '  intro n m',
+        '  -- Participant places cursor on the line below',
+        '  sorry',
+    ].join('\n');
 
     test('identifies tutorial_warmup.lean file paths accurately', () => {
+        assert.strictEqual(isTutorialWarmupPath('/workspace/pilot/lean/tutorial_warmup.lean'), true);
         assert.strictEqual(isTutorialWarmupPath('/workspace/tutorial/tutorial_warmup.lean'), true);
         assert.strictEqual(isTutorialWarmupPath('tutorial/TUTORIAL_WARMUP.LEAN'), true);
         assert.strictEqual(isTutorialWarmupPath('/workspace/tutorial/other.lean'), false);
+    });
+
+    test('parses pilot/lean/tutorial_warmup.lean from workspace if present', () => {
+        const candidateTutorialPaths = [
+            path.resolve(__dirname, '../../pilot/lean/tutorial_warmup.lean'),
+            path.resolve(__dirname, '../../tutorial/tutorial_warmup.lean'),
+        ];
+        const actualFile = candidateTutorialPaths.find((p) => fs.existsSync(p));
+        if (actualFile) {
+            const content = fs.readFileSync(actualFile, 'utf8');
+            const blocks = parseTutorialTheorems(content);
+            assert.strictEqual(blocks.length, 2);
+            assert.strictEqual(blocks[0].name, 'demo_step');
+            assert.strictEqual(blocks[1].name, 'warmup_exercise');
+        }
     });
 
     test('parses demo_step and warmup_exercise theorem blocks from tutorial_warmup.lean', () => {
