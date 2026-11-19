@@ -14,6 +14,7 @@ benchmark_results
 *.vo
 *.vos
 *.vok
+.mov
 
 .lake/
 
