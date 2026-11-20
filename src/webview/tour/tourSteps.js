@@ -75,7 +75,34 @@ export function isDemoStepGoalEdited(doc, helpers) {
 }
 
 /**
- * Builds the 14-step pedagogical state machine for `tutorial/tutorial_warmup.lean`.
+ * Checks whether the ProseMirror proof state document currently contains any active
+ * track-changes diff (deletion, insertion, or modification mark).
+ */
+export function hasProofStateDiff(doc, helpers) {
+    if (!doc || !helpers) {
+        return false;
+    }
+    const { getDiffFromNode, getFullStateBeforeAfter } = helpers;
+    let foundDiff = false;
+    doc.descendants((node) => {
+        if (node.type && (node.type.name === 'goalType' || node.type.name === 'hypothesis')) {
+            const { deletedText, insertedText } = getDiffFromNode(node);
+            if (deletedText || insertedText) {
+                foundDiff = true;
+                return false;
+            }
+        }
+        return true;
+    });
+    if (foundDiff) {
+        return true;
+    }
+    const { before, after } = getFullStateBeforeAfter(doc);
+    return before !== after;
+}
+
+/**
+ * Builds the 16-step pedagogical state machine for `pilot/lean/tutorial_warmup.lean`.
  */
 export function createTourSteps(helpers) {
     const {
@@ -84,7 +111,31 @@ export function createTourSteps(helpers) {
         getDiffFromNode,
         getFullStateBeforeAfter,
         updateWebviewStatus,
+        applyAgentSuggestion,
     } = helpers;
+
+    const DEFAULT_DEMO_AGENT_SUGGESTION = {
+        hypothesisName: 'Goal',
+        originalValue: 'n * 1 = n',
+        suggestedValue: 'n = n',
+        reason: 'Simplify n * 1 to n using Nat.mul_one',
+    };
+
+    const ensureDemoAgentSuggestion = (engine, silentChat = false) => {
+        const pmState = engine.getProseMirrorState();
+        if (
+            pmState &&
+            pmState.doc &&
+            hasProofStateDiff(pmState.doc, { getDiffFromNode, getFullStateBeforeAfter })
+        ) {
+            return;
+        }
+        if (typeof applyAgentSuggestion === 'function') {
+            applyAgentSuggestion(engine._lastAgentSuggestion || DEFAULT_DEMO_AGENT_SUGGESTION, {
+                silentChat,
+            });
+        }
+    };
 
     const isMac =
         typeof navigator !== 'undefined' &&
@@ -237,15 +288,15 @@ export function createTourSteps(helpers) {
         {
             id: 'ENABLE_SUGGESTIONS',
             phase: 2,
-            title: 'Enable Track-Changes Mode',
+            title: 'Enable Track-Changes Edit Mode',
             targetSelector: '#btn-toggle-suggestions',
             fallbackSelector: '.menu button:first-child',
             placement: 'bottom',
             bodyHtml: `
-                <p>To edit the proof state, you first turn on suggestion mode. This acts like track-changes in a collaborative document.</p>
+                <p>To edit the proof state, you first turn on edit mode. This acts like track-changes in a collaborative document.</p>
             `,
-            instructionPrompt: 'Click the <strong>Enable Suggestions</strong> button now.',
-            waitingButtonLabel: 'Click Enable Suggestions…',
+            instructionPrompt: 'Click the <strong>Enable Edits</strong> button now.',
+            waitingButtonLabel: 'Click Enable Edits…',
             unlockedButtonLabel: 'Continue >',
             trigger: {
                 type: 'DOM_CLICK',
@@ -255,7 +306,7 @@ export function createTourSteps(helpers) {
             onEnter: (engine) => {
                 if (isSuggestionsEnabled()) {
                     engine.unlockCurrentStep(
-                        'Suggestions mode is active! Click <strong>Continue &gt;</strong>.'
+                        'Edit mode is active! Click <strong>Continue &gt;</strong>.'
                     );
                 }
             },
@@ -410,26 +461,29 @@ export function createTourSteps(helpers) {
         },
 
         // =====================================================================
-        // PHASE 4: Conversational Assistant Chat (Steps 10 - 11)
+        // PHASE 4: Agent-Edited Proof State & Synthesis (Steps 12 - 15)
         // =====================================================================
         {
             id: 'CHAT_CONSULT',
             phase: 4,
-            title: 'Need Ideas? Consult the Assistant',
+            title: 'Ask the Agent to Edit the Proof State',
             targetSelector: '#chat',
             placement: 'top',
             bodyHtml: `
-                <p>If you aren't sure what transformation to make next, you can ask the assistant in natural language.</p>
+                <p>You don't always have to edit the proof state by hand! You can also ask the assistant in natural language to <strong>make an appropriate change in the proof state</strong> for you.</p>
+                <p>Let's ask the assistant to suggest an edit in the proof state for our remaining goal <code>⊢ n * 1 = n</code>.</p>
             `,
-            instructionPrompt: 'Type <code>"What lemma simplifies n * 1 = n?"</code> and click <strong>Send</strong>, or use the quick prompt below.',
+            instructionPrompt:
+                'Ask the assistant to suggest an edit to the proof state and click <strong>Send</strong> (or use the quick prompt below).',
             waitingButtonLabel: 'Send chat message…',
+            unlockedButtonLabel: 'Continue >',
             quickActions: [
                 {
-                    label: '✦ Insert prompt: "What lemma simplifies n * 1 = n?"',
+                    label: '✦ Insert prompt: "Suggest an edit to the proof state to simplify n * 1 = n"',
                     action: () => {
                         const input = document.getElementById('chatInput');
                         if (input instanceof HTMLInputElement) {
-                            input.value = 'What lemma simplifies n * 1 = n?';
+                            input.value = 'Suggest an edit to the proof state to simplify n * 1 = n';
                             input.dispatchEvent(new Event('input', { bubbles: true }));
                             input.focus();
                         }
@@ -440,30 +494,163 @@ export function createTourSteps(helpers) {
                 type: 'DOM_CLICK',
                 selector: '#chatSend',
                 useCapture: true,
+                waitForExtensionEvent: true,
                 preValidate: () => {
                     const input = document.getElementById('chatInput');
                     return Boolean(input instanceof HTMLInputElement && input.value.trim().length > 0);
                 },
+                onValidatedClick: (_ev, engine) => {
+                    engine._chatEditRequested = true;
+                    engine._chatSuggestionReceived = false;
+                    engine.setInstructionStatus(
+                        '<strong>Agent is editing the proof state…</strong><br>Inspecting the current goal and applying an edit to the Proof State panel above.',
+                        false,
+                        {
+                            isLoading: true,
+                            buttonLabel: 'Agent is editing proof state…',
+                        }
+                    );
+                },
+            },
+            onEnter: (engine) => {
+                engine._chatEditRequested = false;
+                engine._chatSuggestionReceived = false;
+            },
+            onMessage: (msg, engine) => {
+                const evt = msg.command || msg.type;
+                if (evt === 'suggestion') {
+                    engine._chatSuggestionReceived = true;
+                    if (msg.suggestion) {
+                        engine._lastAgentSuggestion = msg.suggestion;
+                    }
+                    engine.next();
+                } else if (
+                    evt === 'chatResponseDone' &&
+                    engine._chatEditRequested &&
+                    !engine._chatSuggestionReceived
+                ) {
+                    engine._chatSuggestionReceived = true;
+                    engine._lastAgentSuggestion = DEFAULT_DEMO_AGENT_SUGGESTION;
+                    ensureDemoAgentSuggestion(engine, false);
+                    engine.next();
+                }
             },
         },
         {
             id: 'CHAT_PROJECTED_SUGGESTION',
             phase: 4,
-            title: 'Projected State Changes',
-            targetSelector: '#chatLog',
-            fallbackSelector: '#chat',
-            placement: 'top',
+            title: "Review the Agent's Edit in the Proof State",
+            targetSelector: '#editor .goalType',
+            fallbackSelector: '#editor',
+            placement: 'bottom',
             bodyHtml: `
-                <p>The assistant explains the relevant lemma (such as <code>Nat.mul_one</code>) and can even project a suggested state transformation directly onto your Proof State editor above for you to review and implement!</p>
+                <p>Look at the Proof State editor above! The agent directly made an edit in the proof state for you—proposing to change <code>n * 1 = n</code> to <code>n = n</code>.</p>
+                <p>You remain in full control: if you don't like an edit made by the model, you can modify it further or click <strong>Revert All</strong>. If you like the model's edit, you can synthesize the proof for it!</p>
             `,
-            primaryButtonLabel: 'Continue to Hands-on Practice >',
+            primaryButtonLabel: 'Next >',
             trigger: {
                 type: 'MANUAL_NEXT',
+            },
+            onEnter: (engine) => {
+                ensureDemoAgentSuggestion(engine, true);
+            },
+        },
+        {
+            id: 'IMPLEMENT_AGENT_CHANGES',
+            phase: 4,
+            title: "Synthesize the Agent's Edit",
+            targetSelector: '.synthesize-button',
+            fallbackSelector: '.menu',
+            placement: 'bottom',
+            bodyHtml: `
+                <p>If you like the edit made by the model in the proof state, click <strong>Implement Changes</strong> to synthesize the Lean 4 tactic that achieves it!</p>
+                <p>Just like when you edited the state by hand, the prover agent will now search for and formally verify the tactic in Lean 4.</p>
+            `,
+            instructionPrompt:
+                "Click <strong>Implement Changes</strong> to synthesize the proof for the model's edit.",
+            waitingButtonLabel: 'Click Implement Changes…',
+            unlockedButtonLabel: 'Continue >',
+            trigger: {
+                type: 'DOM_CLICK',
+                selector: '.synthesize-button',
+                waitForExtensionEvent: true,
+                onValidatedClick: (_ev, engine) => {
+                    engine._agentSynthesisStarted = true;
+                    engine._agentTacticApplied = false;
+                    engine.setDynamicTarget('#chat', 'top');
+                    engine.setInstructionStatus(
+                        "<strong>Model is synthesizing proof…</strong><br>Generating and verifying candidate Lean 4 tactics for the agent's proof state edit!",
+                        false,
+                        {
+                            isLoading: true,
+                            buttonLabel: 'Model is synthesizing proof…',
+                        }
+                    );
+                },
+            },
+            onEnter: (engine) => {
+                engine._agentSynthesisStarted = false;
+                engine._agentTacticApplied = false;
+                ensureDemoAgentSuggestion(engine, true);
+            },
+            onMessage: (msg, engine) => {
+                const evt = msg.command || msg.type;
+                if (evt === 'proverAgentStarted') {
+                    engine._agentSynthesisStarted = true;
+                    engine.setDynamicTarget('#chat', 'top');
+                    engine.setInstructionStatus(
+                        "<strong>Model is synthesizing proof…</strong><br>Generating and verifying candidate Lean 4 tactics for the agent's proof state edit!",
+                        false,
+                        {
+                            isLoading: true,
+                            buttonLabel: 'Model is synthesizing proof…',
+                        }
+                    );
+                } else if (evt === 'proofSuggestionApplied' || evt === 'tour:tacticSuggested') {
+                    engine._agentTacticApplied = true;
+                    engine.next();
+                } else if (
+                    evt === 'proverAgentDone' &&
+                    engine._agentSynthesisStarted &&
+                    !engine._agentTacticApplied
+                ) {
+                    engine.setDynamicTarget(null);
+                    engine.unlockCurrentStep(
+                        'Synthesis finished without inserting a tactic. Try <strong>Implement Changes</strong> again, or click <strong>Continue &gt;</strong>.',
+                        'Continue >'
+                    );
+                }
+            },
+        },
+        {
+            id: 'REVIEW_AGENT_SUGGESTION',
+            phase: 4,
+            title: 'Accept the Synthesized Tactic',
+            targetSelector: null,
+            placement: 'left-editor',
+            bodyHtml: `
+                <p>The prover agent synthesized and verified the tactic (e.g. <code>rw [Nat.mul_one]</code>) to achieve the proof state edit made by the model!</p>
+                <p>Click <strong>✓ Accept</strong> in the editor on the left to complete <code>demo_step</code>.</p>
+            `,
+            instructionPrompt: `Click <strong>Accept</strong> in the editor, or press <code>${modKey}+Shift+Y</code>.`,
+            waitingButtonLabel: 'Accept in editor…',
+            unlockedButtonLabel: 'Continue to Hands-on Practice >',
+            trigger: {
+                type: 'EXTENSION_MESSAGE',
+                event: 'tour:suggestionAccepted',
+            },
+            onMessage: (msg, engine) => {
+                const evt = msg.command || msg.type;
+                if (evt === 'tour:suggestionRejected') {
+                    engine.unlockCurrentStep(
+                        'Suggestion rejected and cleanly reverted! Click <strong>&lt; Prev</strong> to try again, or <strong>Continue to Hands-on Practice &gt;</strong>.'
+                    );
+                }
             },
         },
 
         // =====================================================================
-        // PHASE 5: Self-Paced Practice & Wrap-Up (Steps 12 - 14)
+        // PHASE 5: Self-Paced Practice & Wrap-Up (Steps 16 - 18)
         // =====================================================================
         {
             id: 'WARMUP_EXERCISE_START',
@@ -520,13 +707,12 @@ export function createTourSteps(helpers) {
             bodyHtml: `
                 <p>Put the full Output-Directed workflow together on your own:</p>
                 <ol>
-                    <li>Click <strong>Enable Suggestions</strong> (if not already active).</li>
-                    <li>Replace <code>(n * 1)</code> with <code>n</code> (or <code>(0 + m)</code> with <code>m</code>).</li>
-                    <li>Click <strong>Implement Changes</strong>.</li>
+                    <li>Edit the proof state directly (replace <code>(n * 1)</code> with <code>n</code> or <code>(0 + m)</code> with <code>m</code>)—<strong>or</strong> ask the assistant in chat to suggest an edit to the proof state.</li>
+                    <li>Click <strong>Implement Changes</strong> to synthesize the proof.</li>
                     <li>Click <strong>Accept</strong> (<code>${modKey}+Shift+Y</code>) on the suggested tactic in the editor!</li>
                 </ol>
             `,
-            instructionPrompt: 'Edit the warmup goal, click <strong>Implement Changes</strong>, and <strong>Accept</strong> the tactic.',
+            instructionPrompt: 'Edit the warmup goal (or ask the agent to), click <strong>Implement Changes</strong>, and <strong>Accept</strong> the tactic.',
             waitingButtonLabel: 'Accept warmup tactic…',
             unlockedButtonLabel: 'Finish Tutorial >',
             trigger: {
@@ -563,7 +749,7 @@ export function createTourSteps(helpers) {
             bodyHtml: `
                 <p>You've mastered the core Output-Directed Theorem Proving loop!</p>
                 <div class="odtp-tour-recap-steps">
-                    <span>1. Direct Manipulation</span>
+                    <span>1. Edit State (Directly or via Agent)</span>
                     <span class="odtp-tour-recap-arrow">→</span>
                     <span>2. Implement Changes</span>
                     <span class="odtp-tour-recap-arrow">→</span>

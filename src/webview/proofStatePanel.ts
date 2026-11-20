@@ -880,7 +880,12 @@ export class ProofStatePanel {
 
                     // Create autoformaliser tools with edit history
                     const tools = activeProver === 'Lean'
-                        ? createLeanAutoformaliserTools(() => this.getActiveClient(), editor, this.editHistory)
+                        ? createLeanAutoformaliserTools(
+                              () => this.getActiveClient(),
+                              editor,
+                              this.editHistory,
+                              this.savedCursorPosition
+                          )
                         : createAutoformaliserTools(this.clientReady, editor, this.editHistory);
 
                     // Enhance the prompt to encourage tool use for proof-related questions
@@ -932,7 +937,9 @@ export class ProofStatePanel {
                             this.getChatWebview().postMessage({ type: 'chatToolActivity', activity });
                         },
                         () => {
-                            this.getChatWebview().postMessage({ type: 'chatResponseDone' });
+                            void suggestionChain.finally(() => {
+                                this.getChatWebview().postMessage({ type: 'chatResponseDone' });
+                            });
                         },
                         token,
                         handleSuggestion, // onSuggestion callback
@@ -1032,7 +1039,7 @@ export class ProofStatePanel {
         if (!hasFullState && (!lhs || !rhs)) {
             this.getChatWebview().postMessage({
                 type: 'chatResponsePart',
-                text: '_No proof state change selected._ Enable **Suggestions**, then mark a change on a hypothesis or goal (e.g. edit it to show old → new). Click **Synthesize Equality** again.',
+                text: '_No proof state change selected._ Enable **Edits**, then mark a change on a hypothesis or goal (e.g. edit it to show old → new). Click **Implement Changes** again.',
             });
             this.getChatWebview().postMessage({ type: 'chatResponseDone' });
             return;
@@ -1277,6 +1284,15 @@ export class ProofStatePanel {
      */
     private enhancePromptForTools(prompt: string): string {
         const lowerPrompt = prompt.toLowerCase();
+
+        const wantsStateEdit =
+            /\b(suggest|propose|make|apply)\b[\s\S]*\b(edit|change|modification|transformation|update)\b/i.test(prompt) ||
+            /\b(edit|change|modify|transform|update)\b[\s\S]*\b(proof\s+state|goal|hypothesis|hypotheses|suggest)\b/i.test(prompt) ||
+            /suggest\s+an?\s+(edit|change)/i.test(prompt);
+
+        if (wantsStateEdit) {
+            return `${prompt}\n\nNote: First call get_current_proof_state to inspect the current goal and hypotheses, then you MUST call suggest_proof_state_edit to apply the proposed change directly to the proof state panel, and finally give a brief text explanation.`;
+        }
         
         // Keywords that suggest the user needs proof script information (theorem name, proof script, etc.)
         const proofScriptKeywords = [
@@ -1602,7 +1618,7 @@ export class ProofStatePanel {
         <button id="btn-mode-manual" class="mode-btn ${this.proofStateMode === 'manual' ? 'active' : ''}" type="button" title="Manual Mode: only updates when Refresh or Cmd+Enter is pressed">Manual</button>
       </div>
       <button id="btn-refresh" class="refresh-btn" type="button" title="Refresh Proof State (⌘↵ / Ctrl+Enter)">↻ Refresh</button>
-      <button id="btn-start-tutorial" class="refresh-btn tutorial-btn" type="button" title="Start Interactive Tutorial Walkthrough">? Tutorial</button>
+      <button id="btn-start-tutorial" class="refresh-btn tutorial-btn" type="button" title="Start Interactive Tutorial Walkthrough">Tutorial</button>
     </div>
   </div>
   <div id="webviewStatus" class="webview-status" aria-live="polite"></div>

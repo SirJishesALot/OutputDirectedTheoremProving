@@ -40376,14 +40376,54 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
     const afterLines = after.split("\n").map((line) => normalizeGoalFormula(line));
     return afterLines.includes("n*1=n");
   }
+  function hasProofStateDiff(doc3, helpers) {
+    if (!doc3 || !helpers) {
+      return false;
+    }
+    const { getDiffFromNode: getDiffFromNode2, getFullStateBeforeAfter: getFullStateBeforeAfter2 } = helpers;
+    let foundDiff = false;
+    doc3.descendants((node) => {
+      if (node.type && (node.type.name === "goalType" || node.type.name === "hypothesis")) {
+        const { deletedText, insertedText } = getDiffFromNode2(node);
+        if (deletedText || insertedText) {
+          foundDiff = true;
+          return false;
+        }
+      }
+      return true;
+    });
+    if (foundDiff) {
+      return true;
+    }
+    const { before, after } = getFullStateBeforeAfter2(doc3);
+    return before !== after;
+  }
   function createTourSteps(helpers) {
     const {
       vscode: vscode2,
       isSuggestionsEnabled,
       getDiffFromNode: getDiffFromNode2,
       getFullStateBeforeAfter: getFullStateBeforeAfter2,
-      updateWebviewStatus: updateWebviewStatus2
+      updateWebviewStatus: updateWebviewStatus2,
+      applyAgentSuggestion
     } = helpers;
+    const DEFAULT_DEMO_AGENT_SUGGESTION = {
+      hypothesisName: "Goal",
+      originalValue: "n * 1 = n",
+      suggestedValue: "n = n",
+      reason: "Simplify n * 1 to n using Nat.mul_one"
+    };
+    const ensureDemoAgentSuggestion = (engine, silentChat = false) => {
+      const pmState = engine.getProseMirrorState();
+      if (pmState && pmState.doc && hasProofStateDiff(pmState.doc, { getDiffFromNode: getDiffFromNode2, getFullStateBeforeAfter: getFullStateBeforeAfter2 })) {
+        return;
+      }
+      if (typeof applyAgentSuggestion === "function") {
+        applyAgentSuggestion(engine._lastAgentSuggestion || DEFAULT_DEMO_AGENT_SUGGESTION, {
+          silentChat
+        });
+      }
+    };
     const isMac = typeof navigator !== "undefined" && /Mac|iPod|iPhone|iPad/i.test(navigator.platform || navigator.userAgent || "");
     const modKey = isMac ? "Cmd" : "Ctrl";
     return [
@@ -40527,15 +40567,15 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
       {
         id: "ENABLE_SUGGESTIONS",
         phase: 2,
-        title: "Enable Track-Changes Mode",
+        title: "Enable Track-Changes Edit Mode",
         targetSelector: "#btn-toggle-suggestions",
         fallbackSelector: ".menu button:first-child",
         placement: "bottom",
         bodyHtml: `
-                <p>To edit the proof state, you first turn on suggestion mode. This acts like track-changes in a collaborative document.</p>
+                <p>To edit the proof state, you first turn on edit mode. This acts like track-changes in a collaborative document.</p>
             `,
-        instructionPrompt: "Click the <strong>Enable Suggestions</strong> button now.",
-        waitingButtonLabel: "Click Enable Suggestions\u2026",
+        instructionPrompt: "Click the <strong>Enable Edits</strong> button now.",
+        waitingButtonLabel: "Click Enable Edits\u2026",
         unlockedButtonLabel: "Continue >",
         trigger: {
           type: "DOM_CLICK",
@@ -40545,7 +40585,7 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
         onEnter: (engine) => {
           if (isSuggestionsEnabled()) {
             engine.unlockCurrentStep(
-              "Suggestions mode is active! Click <strong>Continue &gt;</strong>."
+              "Edit mode is active! Click <strong>Continue &gt;</strong>."
             );
           }
         }
@@ -40692,26 +40732,28 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
         }
       },
       // =====================================================================
-      // PHASE 4: Conversational Assistant Chat (Steps 10 - 11)
+      // PHASE 4: Agent-Edited Proof State & Synthesis (Steps 12 - 15)
       // =====================================================================
       {
         id: "CHAT_CONSULT",
         phase: 4,
-        title: "Need Ideas? Consult the Assistant",
+        title: "Ask the Agent to Edit the Proof State",
         targetSelector: "#chat",
         placement: "top",
         bodyHtml: `
-                <p>If you aren't sure what transformation to make next, you can ask the assistant in natural language.</p>
+                <p>You don't always have to edit the proof state by hand! You can also ask the assistant in natural language to <strong>make an appropriate change in the proof state</strong> for you.</p>
+                <p>Let's ask the assistant to suggest an edit in the proof state for our remaining goal <code>\u22A2 n * 1 = n</code>.</p>
             `,
-        instructionPrompt: 'Type <code>"What lemma simplifies n * 1 = n?"</code> and click <strong>Send</strong>, or use the quick prompt below.',
+        instructionPrompt: "Ask the assistant to suggest an edit to the proof state and click <strong>Send</strong> (or use the quick prompt below).",
         waitingButtonLabel: "Send chat message\u2026",
+        unlockedButtonLabel: "Continue >",
         quickActions: [
           {
-            label: '\u2726 Insert prompt: "What lemma simplifies n * 1 = n?"',
+            label: '\u2726 Insert prompt: "Suggest an edit to the proof state to simplify n * 1 = n"',
             action: () => {
               const input = document.getElementById("chatInput");
               if (input instanceof HTMLInputElement) {
-                input.value = "What lemma simplifies n * 1 = n?";
+                input.value = "Suggest an edit to the proof state to simplify n * 1 = n";
                 input.dispatchEvent(new Event("input", { bubbles: true }));
                 input.focus();
               }
@@ -40722,29 +40764,153 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
           type: "DOM_CLICK",
           selector: "#chatSend",
           useCapture: true,
+          waitForExtensionEvent: true,
           preValidate: () => {
             const input = document.getElementById("chatInput");
             return Boolean(input instanceof HTMLInputElement && input.value.trim().length > 0);
+          },
+          onValidatedClick: (_ev, engine) => {
+            engine._chatEditRequested = true;
+            engine._chatSuggestionReceived = false;
+            engine.setInstructionStatus(
+              "<strong>Agent is editing the proof state\u2026</strong><br>Inspecting the current goal and applying an edit to the Proof State panel above.",
+              false,
+              {
+                isLoading: true,
+                buttonLabel: "Agent is editing proof state\u2026"
+              }
+            );
+          }
+        },
+        onEnter: (engine) => {
+          engine._chatEditRequested = false;
+          engine._chatSuggestionReceived = false;
+        },
+        onMessage: (msg, engine) => {
+          const evt = msg.command || msg.type;
+          if (evt === "suggestion") {
+            engine._chatSuggestionReceived = true;
+            if (msg.suggestion) {
+              engine._lastAgentSuggestion = msg.suggestion;
+            }
+            engine.next();
+          } else if (evt === "chatResponseDone" && engine._chatEditRequested && !engine._chatSuggestionReceived) {
+            engine._chatSuggestionReceived = true;
+            engine._lastAgentSuggestion = DEFAULT_DEMO_AGENT_SUGGESTION;
+            ensureDemoAgentSuggestion(engine, false);
+            engine.next();
           }
         }
       },
       {
         id: "CHAT_PROJECTED_SUGGESTION",
         phase: 4,
-        title: "Projected State Changes",
-        targetSelector: "#chatLog",
-        fallbackSelector: "#chat",
-        placement: "top",
+        title: "Review the Agent's Edit in the Proof State",
+        targetSelector: "#editor .goalType",
+        fallbackSelector: "#editor",
+        placement: "bottom",
         bodyHtml: `
-                <p>The assistant explains the relevant lemma (such as <code>Nat.mul_one</code>) and can even project a suggested state transformation directly onto your Proof State editor above for you to review and implement!</p>
+                <p>Look at the Proof State editor above! The agent directly made an edit in the proof state for you\u2014proposing to change <code>n * 1 = n</code> to <code>n = n</code>.</p>
+                <p>You remain in full control: if you don't like an edit made by the model, you can modify it further or click <strong>Revert All</strong>. If you like the model's edit, you can synthesize the proof for it!</p>
             `,
-        primaryButtonLabel: "Continue to Hands-on Practice >",
+        primaryButtonLabel: "Next >",
         trigger: {
           type: "MANUAL_NEXT"
+        },
+        onEnter: (engine) => {
+          ensureDemoAgentSuggestion(engine, true);
+        }
+      },
+      {
+        id: "IMPLEMENT_AGENT_CHANGES",
+        phase: 4,
+        title: "Synthesize the Agent's Edit",
+        targetSelector: ".synthesize-button",
+        fallbackSelector: ".menu",
+        placement: "bottom",
+        bodyHtml: `
+                <p>If you like the edit made by the model in the proof state, click <strong>Implement Changes</strong> to synthesize the Lean 4 tactic that achieves it!</p>
+                <p>Just like when you edited the state by hand, the prover agent will now search for and formally verify the tactic in Lean 4.</p>
+            `,
+        instructionPrompt: "Click <strong>Implement Changes</strong> to synthesize the proof for the model's edit.",
+        waitingButtonLabel: "Click Implement Changes\u2026",
+        unlockedButtonLabel: "Continue >",
+        trigger: {
+          type: "DOM_CLICK",
+          selector: ".synthesize-button",
+          waitForExtensionEvent: true,
+          onValidatedClick: (_ev, engine) => {
+            engine._agentSynthesisStarted = true;
+            engine._agentTacticApplied = false;
+            engine.setDynamicTarget("#chat", "top");
+            engine.setInstructionStatus(
+              "<strong>Model is synthesizing proof\u2026</strong><br>Generating and verifying candidate Lean 4 tactics for the agent's proof state edit!",
+              false,
+              {
+                isLoading: true,
+                buttonLabel: "Model is synthesizing proof\u2026"
+              }
+            );
+          }
+        },
+        onEnter: (engine) => {
+          engine._agentSynthesisStarted = false;
+          engine._agentTacticApplied = false;
+          ensureDemoAgentSuggestion(engine, true);
+        },
+        onMessage: (msg, engine) => {
+          const evt = msg.command || msg.type;
+          if (evt === "proverAgentStarted") {
+            engine._agentSynthesisStarted = true;
+            engine.setDynamicTarget("#chat", "top");
+            engine.setInstructionStatus(
+              "<strong>Model is synthesizing proof\u2026</strong><br>Generating and verifying candidate Lean 4 tactics for the agent's proof state edit!",
+              false,
+              {
+                isLoading: true,
+                buttonLabel: "Model is synthesizing proof\u2026"
+              }
+            );
+          } else if (evt === "proofSuggestionApplied" || evt === "tour:tacticSuggested") {
+            engine._agentTacticApplied = true;
+            engine.next();
+          } else if (evt === "proverAgentDone" && engine._agentSynthesisStarted && !engine._agentTacticApplied) {
+            engine.setDynamicTarget(null);
+            engine.unlockCurrentStep(
+              "Synthesis finished without inserting a tactic. Try <strong>Implement Changes</strong> again, or click <strong>Continue &gt;</strong>.",
+              "Continue >"
+            );
+          }
+        }
+      },
+      {
+        id: "REVIEW_AGENT_SUGGESTION",
+        phase: 4,
+        title: "Accept the Synthesized Tactic",
+        targetSelector: null,
+        placement: "left-editor",
+        bodyHtml: `
+                <p>The prover agent synthesized and verified the tactic (e.g. <code>rw [Nat.mul_one]</code>) to achieve the proof state edit made by the model!</p>
+                <p>Click <strong>\u2713 Accept</strong> in the editor on the left to complete <code>demo_step</code>.</p>
+            `,
+        instructionPrompt: `Click <strong>Accept</strong> in the editor, or press <code>${modKey}+Shift+Y</code>.`,
+        waitingButtonLabel: "Accept in editor\u2026",
+        unlockedButtonLabel: "Continue to Hands-on Practice >",
+        trigger: {
+          type: "EXTENSION_MESSAGE",
+          event: "tour:suggestionAccepted"
+        },
+        onMessage: (msg, engine) => {
+          const evt = msg.command || msg.type;
+          if (evt === "tour:suggestionRejected") {
+            engine.unlockCurrentStep(
+              "Suggestion rejected and cleanly reverted! Click <strong>&lt; Prev</strong> to try again, or <strong>Continue to Hands-on Practice &gt;</strong>."
+            );
+          }
         }
       },
       // =====================================================================
-      // PHASE 5: Self-Paced Practice & Wrap-Up (Steps 12 - 14)
+      // PHASE 5: Self-Paced Practice & Wrap-Up (Steps 16 - 18)
       // =====================================================================
       {
         id: "WARMUP_EXERCISE_START",
@@ -40797,13 +40963,12 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
         bodyHtml: `
                 <p>Put the full Output-Directed workflow together on your own:</p>
                 <ol>
-                    <li>Click <strong>Enable Suggestions</strong> (if not already active).</li>
-                    <li>Replace <code>(n * 1)</code> with <code>n</code> (or <code>(0 + m)</code> with <code>m</code>).</li>
-                    <li>Click <strong>Implement Changes</strong>.</li>
+                    <li>Edit the proof state directly (replace <code>(n * 1)</code> with <code>n</code> or <code>(0 + m)</code> with <code>m</code>)\u2014<strong>or</strong> ask the assistant in chat to suggest an edit to the proof state.</li>
+                    <li>Click <strong>Implement Changes</strong> to synthesize the proof.</li>
                     <li>Click <strong>Accept</strong> (<code>${modKey}+Shift+Y</code>) on the suggested tactic in the editor!</li>
                 </ol>
             `,
-        instructionPrompt: "Edit the warmup goal, click <strong>Implement Changes</strong>, and <strong>Accept</strong> the tactic.",
+        instructionPrompt: "Edit the warmup goal (or ask the agent to), click <strong>Implement Changes</strong>, and <strong>Accept</strong> the tactic.",
         waitingButtonLabel: "Accept warmup tactic\u2026",
         unlockedButtonLabel: "Finish Tutorial >",
         trigger: {
@@ -40840,7 +41005,7 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
         bodyHtml: `
                 <p>You've mastered the core Output-Directed Theorem Proving loop!</p>
                 <div class="odtp-tour-recap-steps">
-                    <span>1. Direct Manipulation</span>
+                    <span>1. Edit State (Directly or via Agent)</span>
                     <span class="odtp-tour-recap-arrow">\u2192</span>
                     <span>2. Implement Changes</span>
                     <span class="odtp-tour-recap-arrow">\u2192</span>
@@ -41311,17 +41476,6 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
     applySuggestionsToTransform(doc3, transform2, insertion2, deletion2, void 0, nodeRange.start, nodeRange.end);
     applyModificationsToTransform(doc3, transform2, 1, void 0, nodeRange.start, nodeRange.end);
     return transform2.doc.slice(transform2.mapping.map(from2), transform2.mapping.map(to));
-  }
-  function applySuggestions(state, dispatch) {
-    const { deletion: deletion2, insertion: insertion2 } = getSuggestionMarks(state.schema);
-    const tr2 = state.tr;
-    applySuggestionsToTransform(state.doc, tr2, insertion2, deletion2);
-    applyModificationsToTransform(tr2.doc, tr2, 1);
-    tr2.setMeta(suggestChangesKey, {
-      skip: true
-    });
-    dispatch?.(tr2);
-    return true;
   }
   function revertSuggestions(state, dispatch) {
     const { deletion: deletion2, insertion: insertion2 } = getSuggestionMarks(state.schema);
@@ -42021,16 +42175,9 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
       const toggleButton = document.createElement("button");
       toggleButton.id = "btn-toggle-suggestions";
       toggleButton.classList.add("toggle-suggestions-button");
-      toggleButton.textContent = "Enable Suggestions";
+      toggleButton.textContent = "Enable Edits";
       toggleButton.addEventListener("click", () => {
         toggleSuggestChanges(view2.state, view2.dispatch);
-        view2.focus();
-      });
-      const applyAllButton = document.createElement("button");
-      applyAllButton.classList.add("apply-all-button");
-      applyAllButton.textContent = "Apply All";
-      applyAllButton.addEventListener("click", () => {
-        applySuggestions(view2.state, view2.dispatch);
         view2.focus();
       });
       const revertAllButton = document.createElement("button");
@@ -42068,17 +42215,17 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
       });
       const commandsContainer = document.createElement("div");
       commandsContainer.classList.add("suggestion-commands");
-      commandsContainer.append(applyAllButton, revertAllButton, synthesizeButton);
+      commandsContainer.append(revertAllButton, synthesizeButton);
       const container = document.createElement("div");
       container.classList.add("menu");
       container.append(toggleButton, commandsContainer);
       view2.dom.parentElement?.prepend(container);
       const syncUI = (state) => {
         if (isSuggestChangesEnabled(state)) {
-          toggleButton.textContent = "Disable Suggestions";
+          toggleButton.textContent = "Disable Edits";
           commandsContainer.style.display = "flex";
         } else {
-          toggleButton.textContent = "Enable Suggestions";
+          toggleButton.textContent = "Enable Edits";
           commandsContainer.style.display = "flex";
         }
         synthesizeButton.style.display = "inline-block";
@@ -42222,7 +42369,8 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
       isSuggestionsEnabled: () => view ? Boolean(isSuggestChangesEnabled(view.state)) : false,
       getDiffFromNode,
       getFullStateBeforeAfter,
-      updateWebviewStatus
+      updateWebviewStatus,
+      applyAgentSuggestion: (suggestion, opts) => handleSuggestion(suggestion, opts)
     })
   );
   getHighlighter().then(() => {
@@ -42307,6 +42455,7 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
       case "chatResponseDone":
         finalizeChatStream();
         vscode.postMessage({ type: "chatLogContent", content: (document.getElementById("chatLog") || {}).innerHTML || "" });
+        tourEngine?.onExtensionMessage(msg);
         return;
       case "proverAgentStarted":
         updateWebviewStatus("Model is synthesizing proof\u2026");
@@ -42342,15 +42491,17 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
     view.updateState(newState);
     tourEngine?.onExtensionMessage(msg);
   });
-  function handleSuggestion(suggestion) {
+  function handleSuggestion(suggestion, options = {}) {
     if (!suggestion || !suggestion.hypothesisName || suggestion.suggestedValue == null || suggestion.suggestedValue === "") {
       console.warn("Invalid suggestion received:", suggestion);
       logToHost("warn", "Invalid suggestion received: " + JSON.stringify(suggestion));
       return;
     }
+    const silentChat = Boolean(options && options.silentChat);
     const hypName = (suggestion.hypothesisName || "").trim();
-    const origVal = suggestion.originalValue != null && String(suggestion.originalValue).trim() !== "" && String(suggestion.originalValue).trim() !== "undefined" ? String(suggestion.originalValue).trim() : "";
     const isGoalTarget = ["goal", "\u22A2", "|-"].includes(hypName.toLowerCase()) || hypName === "\u22A2" || hypName === "|-";
+    const rawOrigVal = suggestion.originalValue != null && String(suggestion.originalValue).trim() !== "" && String(suggestion.originalValue).trim() !== "undefined" ? String(suggestion.originalValue).trim() : "";
+    const origVal = isGoalTarget ? rawOrigVal.replace(/^(?:⊢|\|-)\s*/, "") : rawOrigVal;
     let state = view.state;
     let doc3 = state.doc;
     let existingHypPos = -1;
@@ -42442,7 +42593,7 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
     let foundPos = -1;
     let foundLength = 0;
     let actualPreviousValue = origVal;
-    let actualSuggestedValue = suggestion.suggestedValue;
+    let actualSuggestedValue = isGoalTarget ? String(suggestion.suggestedValue).trim().replace(/^(?:⊢|\|-)\s*/, "") : String(suggestion.suggestedValue).trim();
     if (origVal) {
       doc3.descendants((node, pos) => {
         if (node.isText) {
@@ -42517,8 +42668,10 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
     if (foundPos === -1) {
       console.warn(`Could not find target to edit for suggestion:`, suggestion);
       logToHost("warn", `Could not find target to edit for ${suggestion.hypothesisName}`);
-      const fallbackMsg = isGoalTarget ? `Suggestion: Update goal to "${suggestion.suggestedValue}"${suggestion.reason ? ` (${suggestion.reason})` : ""}` : `Suggestion: Replace "${origVal || "current value"}" with "${suggestion.suggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ""}`;
-      appendChatMessage(fallbackMsg, "assistant");
+      if (!silentChat) {
+        const fallbackMsg = isGoalTarget ? `Suggestion: Update goal to "${suggestion.suggestedValue}"${suggestion.reason ? ` (${suggestion.reason})` : ""}` : `Suggestion: Replace "${origVal || "current value"}" with "${suggestion.suggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ""}`;
+        appendChatMessage(fallbackMsg, "assistant");
+      }
       return;
     }
     const suggestionId = `suggestion-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -42530,6 +42683,7 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
     }
     const tr2 = state.tr;
     tr2.setMeta(suggestChangesKey, { skip: true });
+    tr2.removeMark(foundPos, foundPos + foundLength, schema2.marks.modification);
     const modificationMark = schema2.marks.modification.create({
       id: suggestionId,
       type: "replace",
@@ -42538,8 +42692,10 @@ XID_Start XIDS`.split(/\s/).map((p2) => [w3(p2), p2])
     });
     tr2.addMark(foundPos, foundPos + foundLength, modificationMark);
     view.dispatch(tr2);
-    const suggestionMsg = isGoalTarget ? `Suggestion: Update goal to "${actualSuggestedValue}"${suggestion.reason ? ` (${suggestion.reason})` : ""}` : `Suggestion: Replace "${actualPreviousValue}" with "${actualSuggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ""}`;
-    appendChatMessage(suggestionMsg, "assistant");
+    if (!silentChat) {
+      const suggestionMsg = isGoalTarget ? `Suggestion: Update goal to "${actualSuggestedValue}"${suggestion.reason ? ` (${suggestion.reason})` : ""}` : `Suggestion: Replace "${actualPreviousValue}" with "${actualSuggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ""}`;
+      appendChatMessage(suggestionMsg, "assistant");
+    }
   }
   var chatInput = document.getElementById("chatInput");
   var chatSend = document.getElementById("chatSend");

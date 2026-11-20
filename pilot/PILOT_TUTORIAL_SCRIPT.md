@@ -58,7 +58,7 @@
 >      - **Mode Toggle (`Auto` vs `Manual`)**: In `Auto` mode, the proof state automatically updates whenever you move your cursor in the editor. In `Manual` mode, it only updates when you click `Refresh` or press `Cmd+Enter` (on Mac) / `Ctrl+Enter` (on Windows/Linux).
 >    - **The Proof State Editor (Center)**:
 >      - Shows your current hypotheses and goals.
->      - At the top of this area, you'll see a button labeled **`Enable Suggestions`**. When clicked, this enables track-changes mode, allowing you to edit the hypotheses or goals.
+>      - At the top of this area, you'll see a button labeled **`Enable Edits`** (which toggles to **`Disable Edits`**). When clicked, this enables track-changes mode, allowing you to edit the hypotheses or goals.
 >      - You also have **`Implement Changes`**, which triggers the AI prover agent to synthesize tactics for your edits.
 >    - **The Assistant Chat (Bottom)**:
 >      - An interactive AI assistant that can answer questions, explain hypotheses, and even propose direct edits to your proof state.
@@ -97,7 +97,7 @@
 
 ### 🎙️ [Say out loud]
 
-> "Now, I know that `n + 0` simplifies to `n`. Instead of searching for the exact lemma name or tactic, I'll click **`Enable Suggestions`** at the top of the proof state panel.
+> "Now, I know that `n + 0` simplifies to `n`. Instead of searching for the exact lemma name or tactic, I'll click **`Enable Edits`** at the top of the proof state panel.
 >
 > I highlight `n + 0` in the goal, and I simply type `n`.
 >
@@ -157,7 +157,7 @@
 > In `tutorial_warmup.v` (or `tutorial_warmup.lean`), let's look at `warmup_exercise`:
 > 1. Click on the empty line inside `warmup_exercise`.
 > 2. Look at the goal in the Proof State panel on the right.
-> 3. Click **`Enable Suggestions`**.
+> 3. Click **`Enable Edits`**.
 > 4. Select the expression you want to simplify or rewrite and type your replacement.
 > 5. Click **`Implement Changes`**.
 > 6. When the CodeLens buttons appear above the inserted tactic in the editor, press **`Cmd+Shift+Y`** (or click Accept) to accept it."
@@ -196,10 +196,10 @@
 | Issue / Symptom | Cause | Facilitator Remedy |
 | :--- | :--- | :--- |
 | **Proof state panel is blank or says "No active prover document"** | Focus is not in a valid `.v` or `.lean` file or cursor is outside a proof. | Click back into the editor inside a `Proof. ... Qed.` block. Click `Refresh` or press `Cmd+Enter`. |
-| **"Synthesize clicked - No proof state change selected"** | Participant clicked `Implement Changes` without marking a change. | Remind participant to click `Enable Suggestions` and actually edit a term so the red/green diff is visible. |
+| **"Synthesize clicked - No proof state change selected"** | Participant clicked `Implement Changes` without marking a change. | Remind participant to click `Enable Edits` and actually edit a term so the red/green diff is visible. |
 | **Agent takes too long or gets stuck** | LLM latency or network timeout. | Click the **`Stop`** button in the chat controls. Try simplifying the edit to an atomic step and retry. |
 | **Accept/Reject CodeLens buttons didn't appear** | Editor focus changed or file not active. | Click into the editor on the line with the suggested tactic. The shortcuts `Cmd+Shift+Y` and `Cmd+Shift+N` will work whenever suggestion is active. |
-| **Accidental mess in the Proof State panel** | Participant deleted too many tokens or lost formatting. | Click **`Revert All`** in the panel header, or toggle `Disable Suggestions` then `Enable Suggestions` to reset to the true LSP state. |
+| **Accidental mess in the Proof State panel** | Participant deleted too many tokens or lost formatting. | Click **`Revert All`** in the panel header, or toggle `Disable Edits` then `Enable Edits` to reset to the true LSP state. |
 
 ---
 
@@ -215,7 +215,7 @@
 1. CORE WORKFLOW
    [Cursor in Editor]   -->  Proof State updates on the right
           |
-   [Enable Suggestions] -->  Click button in Proof State panel
+   [Enable Edits]       -->  Click button in Proof State panel
           |
    [Edit Proof State]   -->  Highlight term & type desired replacement (old -> new)
           |

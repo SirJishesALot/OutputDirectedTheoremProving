@@ -52,7 +52,12 @@ const FINALIZE_ANSWER_NUDGE =
     'Based on all tool results and the user\'s question above, write a complete text answer now. Do NOT call any tools or use JSON. Respond with clear prose only.';
 
 function userAskedForSuggestionEdit(userRequest: string): boolean {
-    return /\bsuggest\b.*\bedit\b|\bedit\b.*\bsuggest\b|suggest\s+an?\s+edit/i.test(userRequest.trim());
+    const text = userRequest.trim();
+    return (
+        /\b(suggest|propose|make|apply)\b[\s\S]*\b(edit|change|modification|transformation|update)\b/i.test(text) ||
+        /\b(edit|change|modify|transform|update)\b[\s\S]*\b(proof\s+state|goal|hypothesis|hypotheses|suggest)\b/i.test(text) ||
+        /suggest\s+an?\s+(edit|change)/i.test(text)
+    );
 }
 
 function anyToolExecutedInMessages(messages: Array<{ role: string; content: string }>): boolean {

@@ -310,12 +310,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         if (editor) {
             clearSuggestedEditDecoration(editor);
-            if (
-                editor.selection.active.isBefore(range.end) &&
-                editor.selection.active.isAfterOrEqual(range.start)
-            ) {
-                editor.selection = new vscode.Selection(range.end, range.end);
-            }
+            editor.selection = new vscode.Selection(range.end, range.end);
         }
 
         suggestionManager.clearSuggestion();

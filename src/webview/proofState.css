@@ -736,16 +736,6 @@ span[data-type="modification"][data-mod-type="replace"] {
     gap: 8px; 
 }
 
-.menu button.apply-all-button {
-    background-color: #2da44e;
-    color: white; 
-    border-color: #2da44e;
-}
-
-.menu button.apply-all-button:hover {
-    background-color: #2c974b;
-}
-
 .menu button.revert-all-button {
     background-color: #cf222e; 
     color: white;

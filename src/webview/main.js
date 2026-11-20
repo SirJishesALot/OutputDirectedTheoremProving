@@ -22,7 +22,6 @@ import {
     suggestChanges,
     withSuggestChanges,
     toggleSuggestChanges,
-    applySuggestions,
     revertSuggestions,
     isSuggestChangesEnabled,
     suggestChangesKey,
@@ -318,17 +317,9 @@ const suggestChangesViewPlugin = new Plugin({
         const toggleButton = document.createElement('button');
         toggleButton.id = 'btn-toggle-suggestions';
         toggleButton.classList.add('toggle-suggestions-button');
-        toggleButton.textContent = 'Enable Suggestions'; 
+        toggleButton.textContent = 'Enable Edits'; 
         toggleButton.addEventListener('click', () => {
             toggleSuggestChanges(view.state, view.dispatch);
-            view.focus();
-        });
-
-        const applyAllButton = document.createElement('button');
-        applyAllButton.classList.add('apply-all-button');
-        applyAllButton.textContent = 'Apply All'; 
-        applyAllButton.addEventListener('click', () => {
-            applySuggestions(view.state, view.dispatch);
             view.focus();
         });
 
@@ -370,7 +361,7 @@ const suggestChangesViewPlugin = new Plugin({
 
         const commandsContainer = document.createElement('div');
         commandsContainer.classList.add('suggestion-commands');
-        commandsContainer.append(applyAllButton, revertAllButton, synthesizeButton);
+        commandsContainer.append(revertAllButton, synthesizeButton);
 
         const container = document.createElement('div');
         container.classList.add('menu');
@@ -380,10 +371,10 @@ const suggestChangesViewPlugin = new Plugin({
 
         const syncUI = (state) => {
             if (isSuggestChangesEnabled(state)) {
-                toggleButton.textContent = 'Disable Suggestions';
+                toggleButton.textContent = 'Disable Edits';
                 commandsContainer.style.display = 'flex';
             } else {
-                toggleButton.textContent = 'Enable Suggestions';
+                toggleButton.textContent = 'Enable Edits';
                 commandsContainer.style.display = 'flex';
             }
             synthesizeButton.style.display = 'inline-block';
@@ -555,6 +546,7 @@ tourEngine.setSteps(
         getDiffFromNode,
         getFullStateBeforeAfter,
         updateWebviewStatus,
+        applyAgentSuggestion: (suggestion, opts) => handleSuggestion(suggestion, opts),
     })
 );
 
@@ -647,6 +639,7 @@ window.addEventListener('message', (event) => {
         case 'chatResponseDone':
             finalizeChatStream();
             vscode.postMessage({ type: 'chatLogContent', content: (document.getElementById('chatLog') || {}).innerHTML || '' });
+            tourEngine?.onExtensionMessage(msg);
             return;
         case 'proverAgentStarted':
             updateWebviewStatus('Model is synthesizing proof…');
@@ -687,18 +680,20 @@ window.addEventListener('message', (event) => {
 
 // Handle suggestions from the agent: show as a visible edit (strikethrough + suggested value) in the proof state panel.
 // Supports both REPLACE (existing target) and ADD NEW HYPOTHESIS.
-function handleSuggestion(suggestion) {
+function handleSuggestion(suggestion, options = {}) {
     if (!suggestion || !suggestion.hypothesisName || suggestion.suggestedValue == null || suggestion.suggestedValue === '') {
         console.warn('Invalid suggestion received:', suggestion);
         logToHost('warn', 'Invalid suggestion received: ' + JSON.stringify(suggestion));
         return;
     }
 
+    const silentChat = Boolean(options && options.silentChat);
     const hypName = (suggestion.hypothesisName || '').trim();
-    const origVal = (suggestion.originalValue != null && String(suggestion.originalValue).trim() !== '' && String(suggestion.originalValue).trim() !== 'undefined')
+    const isGoalTarget = ['goal', '⊢', '|-'].includes(hypName.toLowerCase()) || hypName === '⊢' || hypName === '|-';
+    const rawOrigVal = (suggestion.originalValue != null && String(suggestion.originalValue).trim() !== '' && String(suggestion.originalValue).trim() !== 'undefined')
         ? String(suggestion.originalValue).trim()
         : '';
-    const isGoalTarget = ['goal', '⊢', '|-'].includes(hypName.toLowerCase()) || hypName === '⊢' || hypName === '|-';
+    const origVal = isGoalTarget ? rawOrigVal.replace(/^(?:⊢|\|-)\s*/, '') : rawOrigVal;
 
     let state = view.state;
     let doc = state.doc;
@@ -799,7 +794,9 @@ function handleSuggestion(suggestion) {
     let foundPos = -1;
     let foundLength = 0;
     let actualPreviousValue = origVal;
-    let actualSuggestedValue = suggestion.suggestedValue;
+    let actualSuggestedValue = isGoalTarget
+        ? String(suggestion.suggestedValue).trim().replace(/^(?:⊢|\|-)\s*/, '')
+        : String(suggestion.suggestedValue).trim();
 
     // 1. Try finding exact originalValue if provided
     if (origVal) {
@@ -881,10 +878,12 @@ function handleSuggestion(suggestion) {
     if (foundPos === -1) {
         console.warn(`Could not find target to edit for suggestion:`, suggestion);
         logToHost('warn', `Could not find target to edit for ${suggestion.hypothesisName}`);
-        const fallbackMsg = isGoalTarget
-            ? `Suggestion: Update goal to "${suggestion.suggestedValue}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`
-            : `Suggestion: Replace "${origVal || 'current value'}" with "${suggestion.suggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`;
-        appendChatMessage(fallbackMsg, 'assistant');
+        if (!silentChat) {
+            const fallbackMsg = isGoalTarget
+                ? `Suggestion: Update goal to "${suggestion.suggestedValue}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`
+                : `Suggestion: Replace "${origVal || 'current value'}" with "${suggestion.suggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`;
+            appendChatMessage(fallbackMsg, 'assistant');
+        }
         return;
     }
 
@@ -896,6 +895,7 @@ function handleSuggestion(suggestion) {
 
     const tr = state.tr;
     tr.setMeta(suggestChangesKey, { skip: true });
+    tr.removeMark(foundPos, foundPos + foundLength, schema.marks.modification);
     const modificationMark = schema.marks.modification.create({
         id: suggestionId,
         type: 'replace',
@@ -905,10 +905,12 @@ function handleSuggestion(suggestion) {
     tr.addMark(foundPos, foundPos + foundLength, modificationMark);
     view.dispatch(tr);
 
-    const suggestionMsg = isGoalTarget
-        ? `Suggestion: Update goal to "${actualSuggestedValue}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`
-        : `Suggestion: Replace "${actualPreviousValue}" with "${actualSuggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`;
-    appendChatMessage(suggestionMsg, 'assistant');
+    if (!silentChat) {
+        const suggestionMsg = isGoalTarget
+            ? `Suggestion: Update goal to "${actualSuggestedValue}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`
+            : `Suggestion: Replace "${actualPreviousValue}" with "${actualSuggestedValue}" in hypothesis "${suggestion.hypothesisName}"${suggestion.reason ? ` (${suggestion.reason})` : ''}`;
+        appendChatMessage(suggestionMsg, 'assistant');
+    }
 }
 
 // Chat UI

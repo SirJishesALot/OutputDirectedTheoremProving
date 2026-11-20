@@ -102,8 +102,14 @@ export function getLeanProofScript(editor: vscode.TextEditor): string {
 export function createLeanAutoformaliserTools(
     getClient: () => ProverClient | undefined,
     editor: vscode.TextEditor,
-    editHistory: EditHistory
+    editHistory: EditHistory,
+    cursorPositionOverride?: { line: number; character: number }
 ): AgentTool[] {
+    const getEffectivePos = (): vscode.Position =>
+        cursorPositionOverride
+            ? new vscode.Position(cursorPositionOverride.line, cursorPositionOverride.character)
+            : editor.selection.active;
+
     return [
         {
             name: 'get_current_proof_state',
@@ -111,7 +117,7 @@ export function createLeanAutoformaliserTools(
             execute: async () => {
                 if (!isLeanEditor(editor)) return 'Open a Lean file to use this tool.';
                 try {
-                    return await formatGoalState(getCurrentClient(getClient), editor);
+                    return await formatGoalState(getCurrentClient(getClient), editor, getEffectivePos());
                 } catch (e) {
                     return `Error getting proof state: ${e instanceof Error ? e.message : String(e)}`;
                 }
@@ -123,7 +129,7 @@ export function createLeanAutoformaliserTools(
             execute: async (args: { linesBefore?: number }) => {
                 const linesBefore = args?.linesBefore ?? 20;
                 const content = editor.document.getText().split('\n');
-                const line = editor.selection.active.line;
+                const line = getEffectivePos().line;
                 const from = Math.max(0, line - linesBefore);
                 const context = content.slice(from, line + 1).join('\n');
                 return `=== PROOF CONTEXT ===\n\n${context}`;
@@ -141,7 +147,7 @@ export function createLeanAutoformaliserTools(
                 const tactic = (args?.tactic ?? '').trim();
                 if (!tactic) return 'error: tactic is required.';
                 const client = getCurrentClient(getClient);
-                const pos = editor.selection.active;
+                const pos = getEffectivePos();
                 const textToInsert = tactic.endsWith('\n') ? tactic : `${tactic}\n`;
                 const lines = textToInsert.split('\n');
                 const linesAdded = lines.length - 1;
@@ -275,9 +281,13 @@ export function createLeanProverTools(
                 }
 
                 const client = getCurrentClient(getClient);
-                const pos = options.cursorPositionOverride
+                const rawPos = options.cursorPositionOverride
                     ? new vscode.Position(options.cursorPositionOverride.line, options.cursorPositionOverride.character)
                     : editor.selection.active;
+                const curLineText = editor.document.lineAt(rawPos.line).text;
+                const isAtLeadingWhitespace =
+                    rawPos.character > 0 && curLineText.slice(0, rawPos.character).trim().length === 0;
+                const pos = isAtLeadingWhitespace ? new vscode.Position(rawPos.line, 0) : rawPos;
 
                 // Indentation alignment: if addition starts at column 0, align it with the current or preceding line's indentation
                 let effectiveAddition = addition;
@@ -287,9 +297,8 @@ export function createLeanProverTools(
 
                 if (firstIndent.length === 0) {
                     let targetIndent = '';
-                    const curLineText = editor.document.lineAt(pos.line).text;
                     const curIndentMatch = curLineText.match(/^(\s*)/);
-                    if (pos.character > 0 && curIndentMatch && curIndentMatch[1].length > 0) {
+                    if ((rawPos.character > 0 || curLineText.trim().length > 0) && curIndentMatch && curIndentMatch[1].length > 0) {
                         targetIndent = curIndentMatch[1];
                     } else {
                         for (let l = pos.line; l >= 0; l--) {
